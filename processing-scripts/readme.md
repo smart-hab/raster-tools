@@ -14,6 +14,12 @@ Activate the environment:
 source venv/bin/activate
 ```
 
+Upgrade pip (optional):
+
+```none
+pip install --upgrade pip
+```
+
 Install python dependencies:
 
 ```none
