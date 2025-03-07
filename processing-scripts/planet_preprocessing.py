@@ -51,18 +51,18 @@ def band_specification(bs):
     if bs == "RGB":
         bl = ["blue","green","red"]
         bnos = [1,3,5]
-        
+ 
     return bl,bnos
 
 def import_meta(path):
     with rio.open(path) as src:
         meta = src.meta.copy()
-        
+ 
     # Save time and get to the right crs
     meta.update({
         'crs': crs_wgs84
-        })    
-        
+        })
+ 
     return(meta)
 
 def import_udm(path, rast):
@@ -90,16 +90,16 @@ def import_shapefile(path):
 
 def import_json(path):
     features = gpd.read_file(path)
-    return(features)    
+    return(features)
 
 def ndvi_calc(ras):
     red = ras[5,:,:]
-    nir = ras[7,:,:]    
+    nir = ras[7,:,:]
     # Get NDVI if selected
-    ndvi = (nir-red)/(nir + red)    
+    ndvi = (nir-red)/(nir + red)
     ndvi = (ndvi) * 10000
     return ndvi
-    
+ 
 def ndci_calc(ras):
     red = ras[5,:,:]
     red_edge = ras[6,:,:]
@@ -122,13 +122,13 @@ def reproject_raster(ras, meta, crs):
     input_crs = ras.rio.crs
     transform, width, height = rio.warp.calculate_default_transform(input_crs, crs, ras.shape[1], ras.shape[2], *ras.rio.bounds())
     kwargs = meta.copy()
-    
+ 
     kwargs.update({
         'crs': crs,
         'transform': transform,
         'width': width,
         'height': height})
-    
+ 
     return(ras, kwargs)
 
 def norm_band(band):
@@ -144,7 +144,7 @@ if ce_path.endswith('json'):
     crop_extent = import_json(ce_path)
     crop_extent = crop_extent.to_crs(crs_wgs84)
 else:
-    print("Loading shapefile")    
+    print("Loading shapefile")
     # Import shapefile and get correct crs
     crop_extent = import_shapefile(ce_path)
     crop_extent = crop_extent.to_crs(crs_wgs84)
@@ -156,7 +156,7 @@ for file in files:
 
     filepath = pathlib.Path(input_path) / file
     print("filepath", filepath)
-    
+ 
     im_path = filepath / "files/composite.tif" # dayfiles[0]
     udm_path = filepath / "files/composite_udm2.tif" # dayfiles[1]
     meta_path = filepath / "files/composite_metadata.json" # glob.glob(input_path + file + '**/*composite_metadata.json', recursive=True)
@@ -165,77 +165,77 @@ for file in files:
     print("udm_path", udm_path, os.path.exists(udm_path))
     print("meta_path", meta_path, os.path.exists(meta_path))
     print("outTIF", outTIF, os.path.exists(outTIF))
-    
+ 
     # skip if output file already exists
     if os.path.exists(outTIF):
         print("skipping", outTIF)
         continue
 
     #%% Bring in raster bands with multiple combinations
-    
+ 
     # Specify and set up what bands we are using
     bandnames, bandnos = band_specification(bandselection)
-    
+ 
     meta = import_meta(im_path)
-    
+ 
     # Bring in wanted raster bands
     rast_area = import_bands(im_path, bandnos)
-    
+ 
     # Make sure the crs is correct
     rast_area = rast_area.rio.reproject(crs_wgs84)
-    
+ 
     #print('Satellite crs:', rast_area.rio.crs)
     #print('Shapefile crs:', crop_extent.crs)
-    
+ 
     # Filter out bad pixels, exclude all pixels that are not classified as clear
     if udmmask:
         rast_area = import_udm(udm_path, rast_area)
-    
+ 
     # Clip to the lake extent
     print("Clipping...")
     rast_clipped = rast_area.rio.clip(crop_extent.geometry.apply(shapely.geometry.mapping))
-    
+ 
     # Ensure raster is correctly reprojected
     rast_clipped, meta = reproject_raster(rast_clipped, meta, crs_wgs84)
-    
+ 
     del rast_area
     #%% Calculate NDVI and/or NDCI before saving, add to layer
     print("Calculating bands for: ", date)
     rstack = []
     bands = bandselection
-    
+ 
     for l in range(len(rast_clipped)):
         rstack.append(rast_clipped[l])
-    
+ 
     if vi:
         rstack.append(ndvi_calc(rast_clipped))
         bandnames.append("ndvi")
         bands = bands + "_v"
-    
+ 
     if ci:
         rstack.append(ndci_calc(rast_clipped))
         bandnames.append("ndci")
-        bands = bands + "_c" 
-    
+        bands = bands + "_c"
+ 
     rstack.append(test_RI(rast_clipped))
     bandnames.append("nRI")
     bands = bands + "_ri"
     meta.update({ 'count' : str(len(bandnames))})
-    
+ 
     #%% Write new raster
     # Get metadata
     print("Preparing metadata.")
     meta['compress'] = 'lzw'
     meta['height'] = rstack[0].shape[0] #rast_clipped.shape[1]
     meta['width'] = rstack[0].shape[1]
-    
-    
+ 
+ 
     print("Writing data for ", date, ".")
     #rast_clipped.rio.to_raster(outTIF, driver='GTiff', compress='lzw')
     with rio.open(outTIF, 'w', **meta) as dst:
         for band_nr, layer in enumerate(rstack, start = 1):
             dst.write(layer.astype(rio.int16), band_nr)
-    
+ 
     del rstack
     del rast_clipped
     print("File Saved.")
