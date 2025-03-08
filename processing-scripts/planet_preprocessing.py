@@ -12,11 +12,10 @@ A cropped raster highlighting chlorophyll
 
 bandselection = "8b" # or 4b, or RGB, or**** NONE OR CUSTOM
 
-input_path = "/Users/cathe/data/LakeSimcoe"
-save_dir = "/Users/cathe/data/LakeSimcoeOutput"
-ce_path = "/Users/cathe/data/LakeSimcoe.geojson"
+shape_path = "/Users/cathe/data/CascoBay.geojson"
+input_path = "/Users/cathe/data/CascoBay"
+save_path = "/Users/cathe/data/CascoBayOutput"
 
-date_list = False
 vi = True
 ci = True
 udmmask = True
@@ -139,37 +138,58 @@ def norm_band(band):
 files = os.listdir(input_path)
 
 # Check and see if geojson or shp
-if ce_path.endswith('json'):
+if shape_path.endswith('json'):
     print("Loading geojson")
-    crop_extent = import_json(ce_path)
+    crop_extent = import_json(shape_path)
     crop_extent = crop_extent.to_crs(crs_wgs84)
 else:
     print("Loading shapefile")
     # Import shapefile and get correct crs
-    crop_extent = import_shapefile(ce_path)
+    crop_extent = import_shapefile(shape_path)
     crop_extent = crop_extent.to_crs(crs_wgs84)
 
 #%% Process imagery
 for file in files:
+    print("")
+
     date = get_date(file)
     print("date", date)
 
     filepath = pathlib.Path(input_path) / file
     print("filepath", filepath)
  
-    im_path = filepath / "files/composite.tif" # dayfiles[0]
-    udm_path = filepath / "files/composite_udm2.tif" # dayfiles[1]
-    meta_path = filepath / "files/composite_metadata.json" # glob.glob(input_path + file + '**/*composite_metadata.json', recursive=True)
-    outTIF = pathlib.Path(save_dir) / f"{date}.tif"
-    print("im_path", im_path, os.path.exists(im_path))
-    print("udm_path", udm_path, os.path.exists(udm_path))
-    print("meta_path", meta_path, os.path.exists(meta_path))
-    print("outTIF", outTIF, os.path.exists(outTIF))
- 
-    # skip if output file already exists
-    if os.path.exists(outTIF):
-        print("skipping", outTIF)
+    im_path =  filepath / "composite.tif"
+    if not os.path.exists(im_path):
+        im_path = filepath / "files" / "composite.tif"
+    if not os.path.exists(im_path):
+        print("skipped: composite.tif not found")
         continue
+    
+    udm_path = filepath / "composite_udm2.tif"
+    if not os.path.exists(udm_path):
+        udm_path = filepath / "files" / "composite_udm2.tif"
+    if not os.path.exists(udm_path):
+        print("skipped: composite_udm2.tif not found")
+        continue
+
+    meta_path = filepath / "composite_metadata.json"
+    if not os.path.exists(meta_path):
+        meta_path = filepath / "files" / "composite_metadata.json"
+    if not os.path.exists(meta_path):
+        print("skipped: composite_metadata.json not found")
+        continue
+
+    write_path = pathlib.Path(save_path) / f"{date}.tif"
+    
+    # skip if output file already exists
+    if os.path.exists(write_path):
+        print(f"skipped: {write_path.name} already exists")
+        continue
+
+    print("im_path", im_path)
+    print("udm_path", udm_path)
+    print("meta_path", meta_path)
+    print("write_path", write_path)
 
     #%% Bring in raster bands with multiple combinations
  
@@ -192,7 +212,7 @@ for file in files:
         rast_area = import_udm(udm_path, rast_area)
  
     # Clip to the lake extent
-    print("Clipping...")
+    print("clipping...")
     rast_clipped = rast_area.rio.clip(crop_extent.geometry.apply(shapely.geometry.mapping))
  
     # Ensure raster is correctly reprojected
@@ -200,7 +220,7 @@ for file in files:
  
     del rast_area
     #%% Calculate NDVI and/or NDCI before saving, add to layer
-    print("Calculating bands for: ", date)
+    print("calculating bands...")
     rstack = []
     bands = bandselection
  
@@ -224,18 +244,18 @@ for file in files:
  
     #%% Write new raster
     # Get metadata
-    print("Preparing metadata.")
+    print("preparing metadata...")
     meta['compress'] = 'lzw'
     meta['height'] = rstack[0].shape[0] #rast_clipped.shape[1]
     meta['width'] = rstack[0].shape[1]
  
  
-    print("Writing data for ", date, ".")
+    print(f"writing...")
     #rast_clipped.rio.to_raster(outTIF, driver='GTiff', compress='lzw')
-    with rio.open(outTIF, 'w', **meta) as dst:
+    with rio.open(write_path, 'w', **meta) as dst:
         for band_nr, layer in enumerate(rstack, start = 1):
             dst.write(layer.astype(rio.int16), band_nr)
  
     del rstack
     del rast_clipped
-    print("File Saved.")
+    print(f"saved {write_path.name}")
