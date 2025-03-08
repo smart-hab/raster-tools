@@ -135,7 +135,10 @@ def norm_band(band):
     return(normalized)
 
 #%% Bring in files from directory
-files = os.listdir(input_path)
+files = sorted(
+    list(p.name for p in os.scandir(input_path) if p.is_dir()),
+    key=str
+)
 
 # Check and see if geojson or shp
 if shape_path.endswith('json'):
