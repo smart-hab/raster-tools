@@ -31,3 +31,26 @@ Use the included python scripts:
 ```none
 python planet_preprocessing.py
 ```
+
+## convert-shape.py
+
+This script converts a Fiona/Pyogrio shape file to GeoJSON
+
+Activate the environment:
+
+```none
+source .venv/bin/activate
+```
+
+Run the script on a target shape file
+
+```none
+python convert-shape.py /Volumes/Data/shapefiles/lake_okeechobee.shp
+```
+
+By default the output goes to standard output, you can redirect it to a file using `>`
+
+```none
+python convert-shape.py /Volumes/Data/shapefiles/lake_okeechobee.shp > /Volumes/Data/shapefiles/lake_okechobee.geojson
+```
+
