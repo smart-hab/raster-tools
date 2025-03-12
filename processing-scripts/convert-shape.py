@@ -6,7 +6,7 @@ import json
 import pathlib
 
 # cli parser
-parser = argparse.ArgumentParser(prog='convert-shape', description='Convert Fiona/Pyogrio shape file to GeoJSON')
+parser = argparse.ArgumentParser(prog='convert-shape', description='Convert Esri/Fiona/Pyogrio shape file to GeoJSON')
 parser.add_argument('shape', help='Shape file path')
 parser.add_argument('-a', '--auto', help='Automatically output to <filename.format>', default=False, action='store_true')
 parser.add_argument('-c', '--crs', help='Output CRS', default='EPSG:4326')
@@ -50,17 +50,20 @@ if __name__ == '__main__':
   except:
     raise RuntimeError(f'Could not read geometry coordinates of dataframe')
   
+  # geojson
+  geojson = json.dumps(newshape)
+  
   # auto output
   if (args.auto):
     try:
       dest = pathlib.Path(src).with_suffix(f'.{args.format}')
       if (args.verbose): print(f'{src} -> {dest} [{conversion}]', file=sys.stderr)
       with open(dest, 'w') as file:
-        file.write(json.dumps(newshape))
+        file.write(geojson)
     except:
       raise RuntimeError(f'Could not write to file: {dest}')
 
   # stdout
   else:
     if (args.verbose): print(f'{src} [{conversion}]', file=sys.stderr)
-    print(json.dumps(newshape), end=None)
+    print(geojson, end=None)

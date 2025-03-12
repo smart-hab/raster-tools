@@ -34,7 +34,23 @@ python planet_preprocessing.py
 
 ## convert-shape.py
 
-This script converts a Fiona/Pyogrio shape file to GeoJSON
+```none
+convert-shape [-h] [-a] [-c CRS] [-f {geojson}] [-v] [-w CWD] shape
+
+Convert Esri/Fiona/Pyogrio shape file to GeoJSON
+
+positional arguments:
+  shape                 Shape file path
+
+options:
+  -h, --help            show this help message and exit
+  -a, --auto            Automatically output to <filename.format>
+  -c, --crs CRS         Output CRS
+  -f, --format {geojson}
+                        Output format
+  -v, --verbose         Display information during conversion
+  -w, --cwd CWD         Working directory
+```
 
 Activate the environment:
 
@@ -42,15 +58,21 @@ Activate the environment:
 source .venv/bin/activate
 ```
 
-Run the script on a target shape file
+Run the script on a target shape file:
 
 ```none
-python convert-shape.py /Volumes/Data/shapefiles/lake_okeechobee.shp
+python convert-shape.py /Volumes/Data/Shapefiles/LakeOkechobee.shp
 ```
 
-By default the output goes to standard output, you can redirect it to a file using `>`
+(Optional) Use the `-a` flag to automatically name the output file. This will create `LakeOkeechobee.geojson` in the same directory as the input:
 
 ```none
-python convert-shape.py /Volumes/Data/shapefiles/lake_okeechobee.shp > /Volumes/Data/shapefiles/lake_okechobee.geojson
+python convert-shape.py -a /Volumes/Data/Shapefiles/LakeOkechobee.shp
+```
+
+(Optional) Use `>` to arbitrarily set the destination:
+
+```none
+python convert-shape.py /Volumes/Data/Shapefiles/LakeOkechobee.shp > /Volumes/Data/GeoJSON/LakeOkeechobee.geojson
 ```
 
