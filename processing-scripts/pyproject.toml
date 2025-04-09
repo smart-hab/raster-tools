@@ -1,0 +1,27 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+dependencies = [
+    "geopandas>=1.0.1",
+    "matplotlib>=3.10.1",
+    "rasterio>=1.4.3",
+    "rioxarray>=0.18.2",
+]
+description = "Assorted tools for processing and visualizing hazardous algae blooms"
+name = "smart_hab"
+readme = "readme.md"
+requires-python = ">=3.12"
+version = "0.0.1"
+
+[project.scripts]
+clip = "smart_hab.cli:cli_clip"
+convert_shape = "smart_hab.cli:cli_convert_shape"
+mask = "smart_hab.cli:cli_mask"
+norm_diff = "smart_hab.cli:cli_norm_diff"
+png = "smart_hab.cli:cli_png"
+select_bands = "smart_hab.cli:cli_select_bands"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smart_hab"]

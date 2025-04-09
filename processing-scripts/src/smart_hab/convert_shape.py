@@ -5,19 +5,18 @@ import sys
 import json
 import pathlib
 
-# cli parser
-parser = argparse.ArgumentParser(prog='convert-shape', description='Convert Esri/Fiona/Pyogrio shape file to GeoJSON')
-parser.add_argument('shape', help='Shape file path')
-parser.add_argument('-a', '--auto', help='Automatically output to <filename.format>', default=False, action='store_true')
-parser.add_argument('-c', '--crs', help='Output CRS', default='EPSG:4326')
-parser.add_argument('-f', '--format', help='Output format', default='geojson', choices=['geojson'])
-parser.add_argument('-v', '--verbose', help='Display information during conversion', default=False, action='store_true')
-parser.add_argument('-w', '--cwd', help='Working directory', default='.')
+def parse_args():
+  p = argparse.ArgumentParser(prog='convert_shape', description='Convert Esri/Fiona/Pyogrio shape file to GeoJSON')
+  p.add_argument('shape', help='Shape file path')
+  p.add_argument('-a', '--auto', help='Automatically output to <filename.format>', default=False, action='store_true')
+  p.add_argument('-c', '--crs', help='Output CRS', default='EPSG:4326')
+  p.add_argument('-f', '--format', help='Output format', default='geojson', choices=['geojson'])
+  p.add_argument('-v', '--verbose', help='Display information during conversion', default=False, action='store_true')
+  p.add_argument('-w', '--cwd', help='Working directory', default='.')
+  return p.parse_args()
 
 # run
-if __name__ == '__main__':
-  args = parser.parse_args()
-
+def main(args):
   # src
   src = pathlib.Path(args.cwd) / args.shape
 
@@ -67,3 +66,7 @@ if __name__ == '__main__':
   else:
     if (args.verbose): print(f'{src} [{conversion}]', file=sys.stderr)
     print(geojson, end=None)
+
+if __name__ == '__main__':
+  args = parse_args()
+  main(args)
