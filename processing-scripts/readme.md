@@ -2,9 +2,23 @@
 
 ### how to use this repo
 
-Create python virtual environment:
+Clone the repo
 
 ```none
+https://github.com/smart-hab/processing-scripts.git
+```
+
+Change branch to `pypackage`
+
+```none
+cd processing-scripts
+git checkout pypackage
+```
+
+In your project, create python virtual environment:
+
+```none
+cd /path/to/myproject
 python3 -m venv .venv
 ```
 
@@ -20,59 +34,21 @@ Upgrade pip (optional):
 pip install --upgrade pip
 ```
 
-Install python dependencies:
+Install the processing-scripts python package:
 
 ```none
-pip install geopandas rasterio shapely rioxarray
+pip install -e /path/to/processing-scripts
 ```
 
 Use the included python scripts:
 
 ```none
-python planet_preprocessing.py
+clip --help
+convert_shape --help
+mask --help
+norm_diff --help
+png --help
+select_bands --help
 ```
 
-## convert-shape.py
-
-```none
-convert-shape [-h] [-a] [-c CRS] [-f {geojson}] [-v] [-w CWD] shape
-
-Convert Esri/Fiona/Pyogrio shape file to GeoJSON
-
-positional arguments:
-  shape                 Shape file path
-
-options:
-  -h, --help            show this help message and exit
-  -a, --auto            Automatically output to <filename.format>
-  -c, --crs CRS         Output CRS
-  -f, --format {geojson}
-                        Output format
-  -v, --verbose         Display information during conversion
-  -w, --cwd CWD         Working directory
-```
-
-Activate the environment:
-
-```none
-source .venv/bin/activate
-```
-
-Run the script on a target shape file:
-
-```none
-python convert-shape.py /Volumes/Data/Shapefiles/LakeOkechobee.shp
-```
-
-(Optional) Use the `-a` flag to automatically name the output file. This will create `LakeOkeechobee.geojson` in the same directory as the input:
-
-```none
-python convert-shape.py -a /Volumes/Data/Shapefiles/LakeOkechobee.shp
-```
-
-(Optional) Use `>` to arbitrarily set the destination:
-
-```none
-python convert-shape.py /Volumes/Data/Shapefiles/LakeOkechobee.shp > /Volumes/Data/GeoJSON/LakeOkeechobee.geojson
-```
 
