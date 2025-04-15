@@ -43,7 +43,7 @@ def raster_bands(raster):
   if not "band" in raster.coords:
     raise RuntimeError("No bands found in raster")
   values = raster.coords["band"].values
-  names = raster.attrs.get("long_name", None)
+  names = raster.attrs.get("long_name", [f"band_{b}" for b in values])
   dict = { b: name for (b, name) in zip(values, names)}
   return dict
 
