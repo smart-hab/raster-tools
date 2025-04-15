@@ -16,12 +16,12 @@ requires-python = ">=3.12"
 version = "0.0.1"
 
 [project.scripts]
-clip = "smart_hab.cli:cli_clip"
-convert_shape = "smart_hab.cli:cli_convert_shape"
-mask = "smart_hab.cli:cli_mask"
-norm_diff = "smart_hab.cli:cli_norm_diff"
-png = "smart_hab.cli:cli_png"
-select_bands = "smart_hab.cli:cli_select_bands"
+clip = "smart_hab.cli:clip"
+convert_shape = "smart_hab.cli:convert_shape"
+mask = "smart_hab.cli:mask"
+norm_diff = "smart_hab.cli:norm_diff"
+png = "smart_hab.cli:png"
+select_bands = "smart_hab.cli:select_bands"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_hab"]
