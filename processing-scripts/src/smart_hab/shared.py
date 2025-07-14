@@ -1,8 +1,14 @@
 import logging
+import numpy
 import sys
 import geopandas
 import rioxarray
 import re
+import typing
+
+Dtype = typing.Literal['int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64']
+
+dtypes = ['int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64']
 
 def setup_logger(name, verbose):
   logger = logging.getLogger(name)
@@ -61,11 +67,20 @@ def raster_bands(raster):
 #     raise RuntimeError('Invalid band selection') from e
 #   return band_dict
 
-def raster_norm_diff(raster, band1, band2):
-  a = raster.sel(band=band1)
-  b = raster.sel(band=band2)
-  diff = (a - b) / (a + b)
-  return diff
+def raster_norm_diff(raster, band1, band2, epsilon=1e-10):
+  v1 = raster.sel(band=band1)
+  v2 = raster.sel(band=band2)
+  if v1.shape != v2.shape:
+    raise ValueError('Input bands must have the same shape.')
+  norm_diff = (v1 - v2) / (v1 + v2 + epsilon)
+  return norm_diff
+
+def raster_robust_norm(raster, low=0, high=100):
+  valid = numpy.isfinite(raster.values)
+  vmin, vmax = numpy.percentile(raster.values[valid], [low, high])
+  raster = numpy.clip(raster, vmin, vmax)
+  norm = (raster - vmin) / (vmax - vmin)
+  return norm
 
 # def raster_save_png(raster, bands, png_path, cmap='viridis', width=10, height=10, dpi=300):
 #   match len(bands):
@@ -85,3 +100,9 @@ def raster_norm_diff(raster, band1, band2):
 #       plt.close()
 #     case _:
 #       raise RuntimeError('Invalid number of bands')
+
+def raster_scale(scaled, dtype: Dtype):
+  dtype = getattr(numpy, dtype)
+  scale = numpy.iinfo(dtype).max
+  scaled = scaled * scale
+  return scaled
