@@ -7,7 +7,6 @@ import typing
 
 NDCI = [5,6]
 NDVI = [5,7]
-NDRI = [5,3]
 
 class Args(typing.NamedTuple):
   input: pathlib.Path
@@ -30,7 +29,6 @@ def parse_args() -> Args:
   p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
   p.add_argument('--ndci', help='Calculate NDCI', dest='bands', action='store_const', const=NDCI)
   p.add_argument('--ndvi', help='Calculate NDVI', dest='bands', action='store_const', const=NDVI)
-  p.add_argument('--ndri', help='Calculate NDRI', dest='bands', action='store_const', const=NDRI)
   # args
   args = p.parse_args()
   input = pathlib.Path(args.cwd) / args.input
@@ -38,7 +36,6 @@ def parse_args() -> Args:
   selection = 'norm_diff'
   if args.bands == NDCI: selection = 'ndci'
   if args.bands == NDVI: selection = 'ndvi'
-  if args.bands == NDRI: selection = 'ndri'
   # output
   output = pathlib.Path(args.cwd) / args.output if args.output else input.parent / f'{input.stem}_{selection}.tif'
   return Args(
