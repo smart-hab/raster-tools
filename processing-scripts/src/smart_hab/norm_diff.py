@@ -12,7 +12,7 @@ class Args(typing.NamedTuple):
   output: pathlib.Path
   crs: typing.Optional[str]
   bands: list[int]
-  robust: tuple[int, int]
+  filter: tuple[float, float]
   dtype: shared.Dtype
   selection: str
   verbose: bool
@@ -24,7 +24,7 @@ def parse_args() -> Args:
   p.add_argument('-o', '--output', help='Output raster path')
   p.add_argument('-c', '--crs', help='Target CRS', default='EPSG:4326')
   p.add_argument('-b', '--bands', help='Band selection', nargs=2, type=int)
-  p.add_argument('-r', '--robust', metavar=('LOW', 'HIGH'), help='Robust normalization percentile', type=int, nargs=2, default=[2, 98])
+  p.add_argument('-f', '--filter', metavar=('LOW', 'HIGH'), help='Robust normalization percentile filter', type=float, nargs=2, default=[1.0, 99.0])
   p.add_argument('-d', '--dtype', help='Output data type', choices=shared.dtypes, default='uint16')
   p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
   p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
@@ -44,7 +44,7 @@ def parse_args() -> Args:
     output=output,
     crs=args.crs,
     bands=args.bands,
-    robust=(args.robust[0], args.robust[1]),
+    filter=(args.filter[0], args.filter[1]),
     dtype=args.dtype,
     selection=selection,
     verbose=args.verbose,
@@ -67,8 +67,8 @@ def main(args: Args) -> None:
   raster = shared.raster_norm_diff(raster, args.bands[0], args.bands[1])
 
   # robust normalization
-  logger.info(f'Removing outlier values below {args.robust[0]} and above {args.robust[1]} percentile...')
-  raster = shared.raster_robust_norm(raster, low=args.robust[0], high=args.robust[1])
+  logger.info(f'Removing outlier values below {args.filter[0]} and above {args.filter[1]} percentile...')
+  raster = shared.raster_robust_norm(raster, low=args.filter[0], high=args.filter[1])
 
   # scale
   logger.info(f'Scaling raster to {args.dtype}...')
