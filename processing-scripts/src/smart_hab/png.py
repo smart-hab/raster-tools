@@ -58,7 +58,3 @@ def main(args):
     plt.close()
   except Exception as e:
     raise RuntimeError(f'Could not save image: {args.output}') from e
-
-if __name__ == '__main__':
-  args = parse_args()
-  main(args)

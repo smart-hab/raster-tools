@@ -66,7 +66,3 @@ def main(args):
   else:
     if (args.verbose): print(f'{src} [{conversion}]', file=sys.stderr)
     print(geojson, end=None)
-
-if __name__ == '__main__':
-  args = parse_args()
-  main(args)

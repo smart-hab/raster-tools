@@ -57,7 +57,3 @@ def main(args: Args) -> None:
     # unsupported file format
     case _:
       raise RuntimeError(f'Unsupported file format: {args.input.suffix}')
-
-if __name__ == '__main__':
-  args = parse_args()
-  main(args)
