@@ -1,9 +1,14 @@
+import smart_hab.about as _about
 import smart_hab.clip as _clip
 import smart_hab.convert_shape as _convert_shape
 import smart_hab.mask as _mask
 import smart_hab.norm_diff as _norm_diff
 import smart_hab.png as _png
 import smart_hab.select_bands as _select_bands
+
+def about():
+  args = _about.parse_args()
+  _about.main(args)
 
 def clip():
   args = _clip.parse_args()

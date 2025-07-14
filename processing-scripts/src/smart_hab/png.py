@@ -10,7 +10,6 @@ def parse_args():
   p.add_argument('-o', '--output', help='Destination image path')
 
   g = p.add_mutually_exclusive_group()
-  g.add_argument('-l', '--list', help='Show list of available bands', action='store_true')
   g.add_argument('-g', '--grayscale', metavar='BAND', help='Generate grayscale image', type=int, default=1)
   g.add_argument('-r', '--rgb', metavar='BAND', nargs=3, type=int, help='Generate RGB image')
   p.add_argument_group(g)
@@ -34,12 +33,6 @@ def main(args):
   logger.info(f'Loading raster... {args.input}')
   raster = shared.load_raster(args.input)
   raster_bands = shared.raster_bands(raster)
-
-  # list and exit
-  if args.list:
-    for (band, name) in raster_bands.items():
-      print(f"Band {band}: {name}")
-    exit(0)
 
   # plot
   if args.rgb:

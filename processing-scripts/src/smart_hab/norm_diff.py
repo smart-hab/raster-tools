@@ -14,7 +14,6 @@ class Args(typing.NamedTuple):
   crs: typing.Optional[str]
   bands: list[int]
   selection: str
-  info: bool
   verbose: bool
 
 def parse_args() -> Args:
@@ -23,7 +22,6 @@ def parse_args() -> Args:
   p.add_argument('-i', '--input', help='Source raster path', required=True)
   p.add_argument('-o', '--output', help='Output raster path')
   p.add_argument('-c', '--crs', help='Target CRS', default='EPSG:4326')
-  p.add_argument('-I', '--info', help='Display raster info', action='store_true', default=False)
   p.add_argument('-b', '--bands', help='Band selection', nargs=2, type=int)
   p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
   p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
@@ -44,7 +42,6 @@ def parse_args() -> Args:
     crs=args.crs,
     bands=args.bands,
     selection=selection,
-    info=args.info,
     verbose=args.verbose,
   )
 
@@ -56,12 +53,6 @@ def main(args: Args) -> None:
   logger.info(f'Loading raster... {args.input}')
   raster = shared.load_raster(args.input, args.crs)
   raster_bands = shared.raster_bands(raster)
-
-  # info and exit
-  if args.info:
-    print(f'\n[{args.input.name}]')
-    shared.raster_print_info(raster)
-    exit(0)
 
   # band selection
   band_names = tuple(raster_bands.get(b, str(b)) for b in args.bands)

@@ -29,7 +29,7 @@ def load_shape(shape_path, crs=None):
     return shape
   except:
     raise RuntimeError(f"Could not read shape file: {shape_path}")
-  
+
 def load_raster(raster_path, crs=None):
   try:
     ras = rioxarray.open_rasterio(raster_path)
@@ -47,16 +47,6 @@ def raster_bands(raster):
   dict = { b: name for (b, name) in zip(values, names)}
   return dict
 
-def raster_print_info(raster):
-  print('\nBands:')
-  for (band, name) in raster_bands(raster).items():
-    print("  * {0:12} {1}".format(f'Band {band}', name))
-  print(f'\n{raster.coords}')
-  print(f'\nCRS: {raster.rio.crs}')
-  print(f'\nNoData: {raster.rio.nodata}')
-  print('\nTransform:')
-  print(raster.rio.transform())
-  
 # def raster_bands(raster):
 #   if not "band" in raster.coords:
 #     raise RuntimeError("No bands found in raster")
@@ -76,12 +66,6 @@ def raster_norm_diff(raster, band1, band2):
   b = raster.sel(band=band2)
   diff = (a - b) / (a + b)
   return diff
-
-def shape_print_info(shape):
-  print(f'\nCRS: {shape.crs}')
-  print(f'\nBounds: {shape.bounds}')
-  print(f'\nGeometry')
-  print(shape.geometry.describe())
 
 # def raster_save_png(raster, bands, png_path, cmap="viridis", width=10, height=10, dpi=300):
 #   match len(bands):
