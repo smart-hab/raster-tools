@@ -53,7 +53,7 @@ def main(args: Args) -> None:
 
   # output
   logger.info(f'Saving clipped raster... {args.output}')
-  raster.rio.to_raster(args.output, dtype=rasterio.uint16, compress="lzw")
+  raster.rio.to_raster(args.output, dtype=rasterio.uint16, compress='lzw')
 
   # done
   logger.info('Done')

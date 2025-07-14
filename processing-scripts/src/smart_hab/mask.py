@@ -55,13 +55,13 @@ def main(args: Args) -> None:
   for band in args.bands:
     band_name = udm_bands[band]
     if not band_name:
-      raise RuntimeError(f"Band {band} not found in raster")
+      raise RuntimeError(f'Band {band} not found in raster')
     logger.info(f'Masking band {band_name}...')
     raster = raster.where(~udm.sel(band=band).astype(bool))
 
   # save
   logger.info(f'Saving masked raster... {args.output}')
-  raster.rio.to_raster(args.output, dtype=rasterio.uint16, compress="lzw")
+  raster.rio.to_raster(args.output, dtype=rasterio.uint16, compress='lzw')
 
   # done
   logger.info('Done')

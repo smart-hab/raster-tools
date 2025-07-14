@@ -55,7 +55,7 @@ def main(args: Args) -> None:
   logger.info(f'Saving raster... {args.output}')
   raster = raster.sel(band=args.bands)
   raster.attrs['long_name'] = band_names
-  raster.rio.to_raster(args.output, dtype=rasterio.uint16, compress="lzw")
+  raster.rio.to_raster(args.output, dtype=rasterio.uint16, compress='lzw')
 
   # done
   logger.info('Done')

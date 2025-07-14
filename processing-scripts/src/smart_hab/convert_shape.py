@@ -42,16 +42,16 @@ def main(args):
     oldshape.to_crs(target, inplace=True)
   else:
     conversion = f'{oldshape.crs}'
-  
+
   # newshape
   try:
     newshape = json.loads(oldshape.to_json())
   except:
     raise RuntimeError(f'Could not read geometry coordinates of dataframe')
-  
+
   # geojson
   geojson = json.dumps(newshape)
-  
+
   # auto output
   if (args.auto):
     try:

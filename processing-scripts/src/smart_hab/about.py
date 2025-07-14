@@ -46,7 +46,7 @@ def main(args: Args) -> None:
       print(f'\n\n[{args.input.name}]')
       print('\nBands:')
       for (band, name) in shared.raster_bands(raster).items():
-        print("  * {0:12} {1}".format(f'Band {band}', name))
+        print('  * {0:12} {1}'.format(f'Band {band}', name))
       print(f'\n{raster.coords}')
       print(f'\nCRS: {raster.rio.crs}')
       print(f'\nNoData: {raster.rio.nodata}')
