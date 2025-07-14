@@ -43,11 +43,14 @@ pip install -e /path/to/processing-scripts
 Use the included python scripts:
 
 ```none
+about --help
 clip --help
 convert_shape --help
+kmeans_fit --help
+kmeans_classify --help
 mask --help
 norm_diff --help
-png --help
+plot --help
 select_bands --help
 ```
 
