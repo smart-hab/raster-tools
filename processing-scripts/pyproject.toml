@@ -16,6 +16,7 @@ requires-python = ">=3.12"
 version = "0.0.1"
 
 [project.scripts]
+about = "smart_hab.cli:about"
 clip = "smart_hab.cli:clip"
 convert_shape = "smart_hab.cli:convert_shape"
 mask = "smart_hab.cli:mask"
