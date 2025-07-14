@@ -18,7 +18,7 @@ class Args(typing.NamedTuple):
 
 def parse_args() -> Args:
   # parser
-  p = argparse.ArgumentParser(prog='png', description='Plot raster to PNG')
+  p = argparse.ArgumentParser(prog='plot', description='Plot raster to PNG')
   p.add_argument('-i', '--input', help='Source raster path', required=True)
   p.add_argument('-o', '--output', help='Destination image path')
   # parser mode
@@ -53,7 +53,7 @@ def parse_args() -> Args:
 def main(args: Args) -> None:  
 
   # logger
-  logger = shared.setup_logger('png', args.verbose)
+  logger = shared.setup_logger('plot', args.verbose)
 
   # load raster
   logger.info(f'Loading raster... {args.input}')
