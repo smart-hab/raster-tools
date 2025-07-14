@@ -8,6 +8,7 @@ dependencies = [
     "matplotlib>=3.10.1",
     "rasterio>=1.4.3",
     "rioxarray>=0.18.2",
+    "scikit-learn>=1.6.1",
 ]
 description = "Assorted tools for processing and visualizing hazardous algae blooms"
 name = "smart_hab"
@@ -19,6 +20,8 @@ version = "0.0.1"
 about = "smart_hab.cli:about"
 clip = "smart_hab.cli:clip"
 convert_shape = "smart_hab.cli:convert_shape"
+kmeans_fit = "smart_hab.cli:kmeans_fit"
+kmeans_classify = "smart_hab.cli:kmeans_classify"
 mask = "smart_hab.cli:mask"
 norm_diff = "smart_hab.cli:norm_diff"
 plot = "smart_hab.cli:plot"

@@ -1,8 +1,8 @@
 import smart_hab.about as _about
 import smart_hab.clip as _clip
 import smart_hab.convert_shape as _convert_shape
-import smart_hab.kmeans_apply as _kmeans_apply
-import smart_hab.kmeans_create as _kmeans_create
+import smart_hab.kmeans_classify as _kmeans_classify
+import smart_hab.kmeans_fit as _kmeans_fit
 import smart_hab.mask as _mask
 import smart_hab.norm_diff as _norm_diff
 import smart_hab.plot as _plot
@@ -20,13 +20,13 @@ def convert_shape():
   args = _convert_shape.parse_args()
   _convert_shape.main(args)
 
-def kmeans_apply():
-  args = _kmeans_apply.parse_args()
-  _kmeans_apply.main(args)
+def kmeans_classify():
+  args = _kmeans_classify.parse_args()
+  _kmeans_classify.main(args)
 
-def kmeans_create():
-  args = _kmeans_create.parse_args()
-  _kmeans_create.main(args)
+def kmeans_fit():
+  args = _kmeans_fit.parse_args()
+  _kmeans_fit.main(args)
 
 def mask():
   args = _mask.parse_args()
