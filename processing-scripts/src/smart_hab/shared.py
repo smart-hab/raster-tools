@@ -1,16 +1,16 @@
+import geopandas
 import logging
 import numpy
-import sys
-import geopandas
-import rioxarray
 import re
+import rioxarray
+import sys
 import typing
 
 Dtype = typing.Literal['int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64']
 
 dtypes = ['int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64']
 
-def setup_logger(name, verbose):
+def setup_logger(name, verbose=False):
   logger = logging.getLogger(name)
   if verbose:
     logger.setLevel(logging.DEBUG)

@@ -1,43 +1,32 @@
-import argparse
 import geopandas as gpd
-import rasterio
-import sys
 import json
+import logging
 import pathlib
+import rasterio
 
-def parse_args():
-  p = argparse.ArgumentParser(prog='convert_shape', description='Convert Esri/Fiona/Pyogrio shape file to GeoJSON')
-  p.add_argument('shape', help='Shape file path')
-  p.add_argument('-a', '--auto', help='Automatically output to <filename.format>', default=False, action='store_true')
-  p.add_argument('-c', '--crs', help='Output CRS', default='EPSG:4326')
-  p.add_argument('-f', '--format', help='Output format', default='geojson', choices=['geojson'])
-  p.add_argument('-v', '--verbose', help='Display information during conversion', default=False, action='store_true')
-  p.add_argument('-w', '--cwd', help='Working directory', default='.')
-  return p.parse_args()
-
-# run
-def main(args):
-  # src
-  src = pathlib.Path(args.cwd) / args.shape
-
-  # format
-  if (args.format != 'geojson'):
-    raise RuntimeError(f'Unsupported output format: {args.format}')
+def main(
+  input: pathlib.Path,
+  output: pathlib.Path,
+  crs: str,
+  logger: logging.Logger,
+) -> None:
 
   # crs
   try:
-    target = rasterio.CRS.from_string(args.crs)
+    target = rasterio.CRS.from_string(crs)
   except:
-    raise RuntimeError(f'Coult not set target CRS: {args.crs}')
+    raise RuntimeError(f'Could not set target CRS: {crs}')
 
   # shape
   try:
-    oldshape = gpd.read_file(src)
+    logger.info(f'Loading shape... {input}')
+    oldshape = gpd.read_file(input)
   except:
-    raise RuntimeError(f'Could not read shape file: {src}')
+    raise RuntimeError(f'Could not read shape file: {input}')
 
   # conversion
   if (oldshape.crs != target):
+    logger.info(f'Converting CRS... {oldshape.crs} -> {target}')
     conversion = f'{oldshape.crs} -> {target}'
     oldshape.to_crs(target, inplace=True)
   else:
@@ -52,17 +41,10 @@ def main(args):
   # geojson
   geojson = json.dumps(newshape)
 
-  # auto output
-  if (args.auto):
-    try:
-      dest = pathlib.Path(src).with_suffix(f'.{args.format}')
-      if (args.verbose): print(f'{src} -> {dest} [{conversion}]', file=sys.stderr)
-      with open(dest, 'w') as file:
-        file.write(geojson)
-    except:
-      raise RuntimeError(f'Could not write to file: {dest}')
-
-  # stdout
-  else:
-    if (args.verbose): print(f'{src} [{conversion}]', file=sys.stderr)
-    print(geojson, end=None)
+  # save
+  try:
+    logger.info(f'Saving GeoJSON... {output} [{conversion}]')
+    with open(output, 'w') as file:
+      file.write(geojson)
+  except:
+    raise RuntimeError(f'Could not write to file: {output}')
