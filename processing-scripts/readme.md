@@ -62,7 +62,7 @@ A typical processing workflow might look like this:
    Use `norm_diff` to compute indices like NDVI or NDCI, which are useful for vegetation or water analysis.
 
 6. **Unsupervised classification (optional)**  
-   Use `kmeans_fit` to fit K-Means clusters to your data, and `kmeans_classify` to assign cluster labels to each pixe1. This is useful for land cover classification or segmentation.
+   Use `kmeans_fit` to fit K-Means clusters to your data, and `kmeans_classify` to assign cluster labels to each pixel. This is useful for land cover classification or segmentation.
 
 7. **Visualize your results**  
    Use `plot` to quickly generate PNG images from your rasters for reports, presentations, or quality checks.
@@ -89,11 +89,11 @@ Displays detailed information about a raster or shape file, such as dimensions, 
 
 **Parameters**
 
-| Parameter        | Type    | Required | Default | Description                                 |
-|------------------|---------|----------|---------|---------------------------------------------|
-| `-i`, `--input`  | string  | Yes      |         | Path to the source raster or shape file     |
-| `-v`, `--verbose`| flag    | No       | False   | Show extra information                      |
-| `-w`, `--cwd`    | string  | No       | .       | Working directory                           |
+| Parameter        | Type    | Required | Default | Description                 |
+|------------------|---------|----------|---------|-----------------------------|
+| `-i`, `--input`  | path    | Yes      |         | Source raster or shape path |
+| `-v`, `--verbose`| flag    | No       | False   | Show extra information      |
+| `-w`, `--cwd`    | path    | No       | .       | Working directory           |
 
 **Examples**
 
@@ -117,14 +117,14 @@ Converts a shape file (Esri/Fiona/Pyogrio) to GeoJSON format for easier use in w
 
 **Parameters**
 
-| Parameter        | Type    | Required | Default   | Description                                 |
-|------------------|---------|----------|-----------|---------------------------------------------|
-| `-i`, `--input`  | string  | Yes      |           | Path to the source shape file               |
-| `-o`, `--output` | string  | No       |           | Output GeoJSON file path                    |
-| `-c`, `--crs`    | string  | No       | EPSG:4326 | Target CRS (e.g. EPSG:4326)                 |
-| `-f`, `--format` | string  | No       | geojson   | Output format                               |
-| `-v`, `--verbose`| flag    | No       | False     | Show information during conversion          |
-| `-w`, `--cwd`    | string  | No       | .         | Working directory                           |
+| Parameter        | Type    | Required | Default   | Description                 |
+|------------------|---------|----------|-----------|-----------------------------|
+| `-i`, `--input`  | path    | Yes      |           | Source shape path           |
+| `-o`, `--output` | path    | No       |           | Output GeoJSON path         |
+| `-c`, `--crs`    | string  | No       | EPSG:4326 | Target CRS (e.g. EPSG:4326) |
+| `-f`, `--format` | string  | No       | geojson   | Output format               |
+| `-v`, `--verbose`| flag    | No       | False     | Show extra information      |
+| `-w`, `--cwd`    | path    | No       | .         | Working directory           |
 
 **Examples**
 
@@ -148,14 +148,14 @@ Clips a raster file using a shape file as a mask. Use this to extract a region o
 
 **Parameters**
 
-| Parameter        | Type    | Required | Default | Description                    |
-|------------------|---------|----------|---------|--------------------------------|
-| `-i`, `--input`  | string  | Yes      |         | Path to the source raster file |
-| `-s`, `--shape`  | string  | Yes      |         | Path to the shape file         |
-| `-o`, `--output` | string  | No       |         | Output raster path             |
-| `-c`, `--crs`    | string  | No       |         | Target CRS (e.g. EPSG:4326)    |
-| `-v`, `--verbose`| flag    | No       | False   | Show extra information         |
-| `-w`, `--cwd`    | string  | No       | .       | Working directory              |
+| Parameter        | Type    | Required | Default | Description                 |
+|------------------|---------|----------|---------|-----------------------------|
+| `-i`, `--input`  | path    | Yes      |         | Source raster path          |
+| `-s`, `--shape`  | path    | Yes      |         | Source shape path           |
+| `-o`, `--output` | path    | No       |         | Output raster path          |
+| `-c`, `--crs`    | string  | No       |         | Target CRS (e.g. EPSG:4326) |
+| `-v`, `--verbose`| flag    | No       | False   | Show extra information      |
+| `-w`, `--cwd`    | path    | No       | .       | Working directory           |
 
 **Examples**
 
@@ -179,15 +179,15 @@ Masks a raster file using a UDM2 file, typically to remove clouds or shadows fro
 
 **Parameters**
 
-| Parameter        | Type    | Required | Default | Description                    |
-|------------------|---------|----------|---------|--------------------------------|
-| `-i`, `--input`  | string  | Yes      |         | Path to the source raster file |
-| `-u`, `--udm2`   | string  | Yes      |         | Path to the UDM2 mask file     |
-| `-o`, `--output` | string  | No       |         | Output raster path             |
-| `-c`, `--crs`    | string  | No       |         | Target CRS (e.g. EPSG:4326)    |
-| `-b`, `--bands`  | int+    | No       | 3 6     | Band selection                 |
-| `-v`, `--verbose`| flag    | No       | False   | Show extra information         |
-| `-w`, `--cwd`    | string  | No       | .       | Working directory              |
+| Parameter        | Type    | Required | Default | Description                 |
+|------------------|---------|----------|---------|-----------------------------|
+| `-i`, `--input`  | path    | Yes      |         | Source raster path          |
+| `-u`, `--udm2`   | path    | Yes      |         | Source UDM2 mask path       |
+| `-o`, `--output` | path    | No       |         | Output raster path          |
+| `-c`, `--crs`    | string  | No       |         | Target CRS (e.g. EPSG:4326) |
+| `-b`, `--bands`  | int+    | No       | 3 6     | Band selection              |
+| `-v`, `--verbose`| flag    | No       | False   | Show extra information      |
+| `-w`, `--cwd`    | path    | No       | .       | Working directory           |
 
 **Examples**
 
@@ -211,18 +211,18 @@ Calculates the normalized difference between two bands (e.g. NDVI for vegetation
 
 **Parameters**
 
-| Parameter        | Type    | Required | Default  | Description                            |
-|------------------|---------|----------|----------|----------------------------------------|
-| `-i`, `--input`  | string  | Yes      |          | Path to the source raster file         |
-| `-b`, `--bands`  | int+    | Yes*     |          | Two bands to use for calculation       |
-| `-o`, `--output` | string  | No       |          | Output raster path                     |
-| `-c`, `--crs`    | string  | No       |          | Target CRS (e.g. EPSG:4326)            |
-| `-f`, `--filter` | float+  | No       | 1.0 99.0 | Robust normalization percentile filter |
-| `-d`, `--dtype`  | string  | No       | uint16   | Output data type                       |
-| `-v`, `--verbose`| flag    | No       | False    | Show extra information                 |
-| `-w`, `--cwd`    | string  | No       | .        | Working directory                      |
-| `--ndci`         | flag    | No       |          | Shortcut for NDCI (--bands 7 6)        |
-| `--ndvi`         | flag    | No       |          | Shortcut for NDVI (--bands 8 6)        |
+| Parameter        | Type    | Required | Default  | Description                                |
+|------------------|---------|----------|----------|--------------------------------------------|
+| `-i`, `--input`  | path    | Yes      |          | Source raster path                         |
+| `-b`, `--bands`  | int+    | Yes*     |          | Source raster bands to use for calculation |
+| `-o`, `--output` | path    | No       |          | Output raster path                         |
+| `-c`, `--crs`    | string  | No       |          | Target CRS (e.g. EPSG:4326)                |
+| `-f`, `--filter` | float+  | No       | 1.0 99.0 | Robust normalization percentile filter     |
+| `-d`, `--dtype`  | string  | No       | uint16   | Output data type                           |
+| `-v`, `--verbose`| flag    | No       | False    | Show extra information                     |
+| `-w`, `--cwd`    | path    | No       | .        | Working directory                          |
+| `--ndci`         | flag    | No       |          | Shortcut for NDCI (--bands 7 6)            |
+| `--ndvi`         | flag    | No       |          | Shortcut for NDVI (--bands 8 6)            |
 
 \* Either `--bands`, `--ndci`, or `--ndvi` must be specified.
 
@@ -248,16 +248,16 @@ Fits K-Means clusters to a single band of one or more input rasters. Useful for 
 
 **Parameters**
 
-| Parameter         | Type    | Required | Default | Description                     |
-|-------------------|---------|----------|---------|---------------------------------|
-| `-i`, `--input`   | string+ | Yes      |         | One or more raster source paths |
-| `-o`, `--output`  | string  | Yes      |         | Output clusters file path       |
-| `-b`, `--band`    | int     | No       | 1       | Band selection                  |
-| `-c`, `--clusters`| int     | No       | 6       | Number of clusters              |
-| `-t`, `--times`   | int     | No       | 5       | Number of times to run K-Means  |
-| `-r`, `--random`  | int     | No       | None    | Random state for K-Means        |
-| `-v`, `--verbose` | flag    | No       | False   | Show extra information          |
-| `-w`, `--cwd`     | string  | No       | .       | Working directory               |
+| Parameter         | Type    | Required | Default | Description                    |
+|-------------------|---------|----------|---------|--------------------------------|
+| `-i`, `--input`   | path+   | Yes      |         | Source raster path(s)          |
+| `-o`, `--output`  | path    | Yes      |         | Output clusters path           |
+| `-b`, `--band`    | int     | No       | 1       | Band selection                 |
+| `-c`, `--clusters`| int     | No       | 6       | Number of clusters             |
+| `-t`, `--times`   | int     | No       | 5       | Number of times to run K-Means |
+| `-r`, `--random`  | int     | No       | None    | Random state for K-Means       |
+| `-v`, `--verbose` | flag    | No       | False   | Show extra information         |
+| `-w`, `--cwd`     | path    | No       | .       | Working directory              |
 
 **Examples**
 
@@ -283,12 +283,12 @@ Assigns K-Means cluster classes to a raster band using a previously fitted clust
 
 | Parameter         | Type    | Required | Default  | Description                              |
 |-------------------|---------|----------|----------|------------------------------------------|
-| `-i`, `--input`   | string  | Yes      |          | Path to the source raster file           |
-| `-k`, `--clusters`| string  | Yes      |          | Cluster centers file (from `kmeans_fit`) |
-| `-o`, `--output`  | string  | Yes      |          | Output raster path                       |
+| `-i`, `--input`   | path    | Yes      |          | Source raster path                       |
+| `-k`, `--clusters`| path    | Yes      |          | Cluster centers path (from `kmeans_fit`) |
+| `-o`, `--output`  | path    | Yes      |          | Output raster path                       |
 | `-b`, `--band`    | int     | No       | 1        | Band selection                           |
 | `-v`, `--verbose` | flag    | No       | False    | Show extra information                   |
-| `-w`, `--cwd`     | string  | No       | .        | Working directory                        |
+| `-w`, `--cwd`     | path    | No       | .        | Working directory                        |
 
 **Examples**
 
@@ -314,8 +314,8 @@ Plots a raster file to a PNG image, either as a grayscale or RGB image. Useful f
 
 | Parameter          | Type    | Required | Default    | Description                            |
 |--------------------|---------|----------|------------|----------------------------------------|
-| `-i`, `--input`    | string  | Yes      |            | Path to the source raster file         |
-| `-o`, `--output`   | string  | No       |            | Output image path                      |
+| `-i`, `--input`    | path    | Yes      |            | Source raster path                     |
+| `-o`, `--output`   | path    | No       |            | Output image path                      |
 | `-g`, `--grayscale`| int     | No       | 1          | Plot grayscale image (specify band)    |
 | `-r`, `--rgb`      | int+    | No       |            | Plot RGB image (specify three bands)   |
 | `-a`, `--alpha`    | float   | No       | 0          | Alpha transparency for NoData values   |
@@ -323,7 +323,7 @@ Plots a raster file to a PNG image, either as a grayscale or RGB image. Useful f
 | `-d`, `--dpi`      | int     | No       | 300        | Plot resolution (dots per inch)        |
 | `-c`, `--cmap`     | string  | No       | viridis    | Color map for grayscale images         |
 | `-v`, `--verbose`  | flag    | No       | False      | Show extra information                 |
-| `-w`, `--cwd`      | string  | No       | .          | Working directory                      |
+| `-w`, `--cwd`      | path    | No       | .          | Working directory                      |
 
 **Examples**
 
