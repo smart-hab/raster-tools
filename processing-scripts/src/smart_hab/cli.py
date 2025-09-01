@@ -17,8 +17,8 @@ def about():
   p.add_argument('-i', '--input', help='Source raster or shape path', required=True)
   p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
   p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
-  logger = shared.setup_logger('about', args.verbose),
   args = p.parse_args()
+  logger = shared.setup_logger('about', args.verbose)
   _about.main(
     input=pathlib.Path(args.cwd) / args.input,
     logger=logger,
@@ -36,7 +36,7 @@ def clip():
   input = pathlib.Path(args.cwd) / args.input
   shape = pathlib.Path(args.cwd) / args.shape
   output = pathlib.Path(args.cwd) / args.output if args.output else input.parent / f'{input.stem}_clipped.tif'
-  logger = shared.setup_logger('clip', args.verbose),
+  logger = shared.setup_logger('clip', args.verbose)
   _clip.main(
     input=input,
     shape=shape,
@@ -56,7 +56,7 @@ def convert_shape():
   args = p.parse_args()
   input = pathlib.Path(args.cwd) / args.input
   output = pathlib.Path(args.cwd) / args.output if args.output else input.with_suffix(args.format)
-  logger = shared.setup_logger('convert_shape', args.verbose),
+  logger = shared.setup_logger('convert_shape', args.verbose)
   if (output.suffix != '.geojson'):
     raise RuntimeError(f'Unsupported output format: {args.format}')
   _convert_shape.main(
@@ -100,7 +100,7 @@ def kmeans_fit():
   args = p.parse_args()
   input = [pathlib.Path(args.cwd) / p for p in args.input]
   output = pathlib.Path(args.cwd) / args.output
-  logger = shared.setup_logger('kmeans_fit', args.verbose),
+  logger = shared.setup_logger('kmeans_fit', args.verbose)
   return _kmeans_fit.main(
     input=input,
     output=output,
@@ -157,7 +157,7 @@ def plot():
   args = p.parse_args()
   input = pathlib.Path(args.cwd) / args.input
   output = pathlib.Path(args.cwd) / args.output if args.output else input.parent / f'{input.stem}.png'
-  logger = shared.setup_logger('plot', args.verbose),
+  logger = shared.setup_logger('plot', args.verbose)
   if len(args.bands) not in (1, 3):
     raise ValueError(f'Invalid band selection: {args.bands}. Must be 1 or 3 bands.')
   _plot.main(
@@ -199,7 +199,7 @@ def norm_diff():
     crs=args.crs,
     filter=(args.filter[0], args.filter[1]),
     dtype=args.dtype,
-    logger = shared.setup_logger('norm_diff', args.verbose),
+    logger = shared.setup_logger('norm_diff', args.verbose)
   )
 
 def select_bands():
