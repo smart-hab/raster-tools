@@ -1,3 +1,4 @@
+import datetime
 import geopandas
 import logging
 import numpy
@@ -106,3 +107,6 @@ def raster_scale(scaled, dtype: Dtype):
   scale = numpy.iinfo(dtype).max
   scaled = scaled * scale
   return scaled
+
+def timestamp() -> str:
+  return datetime.datetime.now(datetime.timezone.utc).isoformat()

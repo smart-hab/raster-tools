@@ -131,6 +131,31 @@ def mask():
     logger=logger,
   )
 
+def means():
+  import smart_hab.means as _means
+  from rasterio.enums import Resampling
+  p = argparse.ArgumentParser(prog='means', description='Compute mean raster from multiple input rasters')
+  p.add_argument('-i', '--input', nargs='+', help='Input raster path(s)', required=True)
+  p.add_argument('-o', '--output', help='Output raster path', required=True)
+  p.add_argument('-b', '--bands', help='Band selection', nargs='+', type=int)
+  p.add_argument('-c', '--crs', help='Target CRS (e.g. EPSG:4326)')
+  p.add_argument('-r', '--resampling', help='Resampling method', default='bilinear', choices=[e.name for e in Resampling])
+  p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
+  p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
+  args = p.parse_args()
+  input_paths = [pathlib.Path(args.cwd) / p for p in args.input]
+  output_path = pathlib.Path(args.cwd) / args.output
+  logger = shared.setup_logger('means', args.verbose)
+  resampling = getattr(Resampling, args.resampling.lower())
+  _means.compute_raster_mean(
+    inputs=input_paths,
+    output=output_path,
+    bands=args.bands,
+    crs=args.crs,
+    logger=logger,
+    resampling=resampling,
+  )
+
 def plot():
   import smart_hab.plot as _plot
   # parser

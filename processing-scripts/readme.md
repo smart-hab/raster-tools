@@ -64,7 +64,10 @@ A typical processing workflow might look like this:
 6. **Unsupervised classification (optional)**  
    Use `kmeans_fit` to fit K-Means clusters to your data, and `kmeans_classify` to assign cluster labels to each pixel. This is useful for land cover classification or segmentation.
 
-7. **Visualize your results**  
+7. **Comparison**
+   Use `means` to create raster averages and `subtract` to measure variance.
+
+8. **Visualize your results**  
    Use `plot` to quickly generate PNG images from your rasters for reports, presentations, or quality checks.
 
 Each tool is documented below with its parameters and usage examples. You can use them individually or combine them in scripts to automate your geospatial workflows.
@@ -77,6 +80,7 @@ Available commands. For more details on each script, run `<command> --help`.
 - [convert_shape](#convert_shape)
 - [clip](#clip)
 - [mask](#mask)
+- [means](#means)
 - [norm_diff](#norm_diff)
 - [kmeans_fit](#kmeans_fit)
 - [kmeans_classify](#kmeans_classify)
@@ -202,6 +206,44 @@ Masks a raster file using a UDM2 file, typically to remove clouds or shadows fro
   mask -i image.tif -u mask.udm2 -b 1 2 3
   ```
   *Masks using only bands 1, 2, and 3 from `mask.udm2`*
+
+---
+
+### `means`
+
+Computes the pixel-wise mean of two or more input rasters, aligning and intersecting them as needed. Useful for compositing multiple scenes or reducing noise by averaging.
+
+**Parameters**
+
+| Parameter            | Type   | Required | Default   | Description                                 |
+|----------------------|--------|----------|-----------|---------------------------------------------|
+| `-i`, `--input`      | path+  | Yes      |           | Input raster file paths (2 or more)         |
+| `-o`, `--output`     | path   | Yes      |           | Output raster file path                     |
+| `-b`, `--bands`      | int+   | No       | all       | Band selection (e.g. 1 2 3)                 |
+| `-c`, `--crs`        | str    | No       | first CRS | Target CRS (e.g. EPSG:4326)                 |
+| `-r`, `--resampling` | str    | No       | bilinear  | Resampling method (nearest, bilinear, etc.) |
+| `-v`, `--verbose`    | flag   | No       | False     | Show extra information                      |
+| `-w`, `--cwd`        | path   | No       | .         | Working directory                           |
+
+**Examples**
+
+- Compute the mean of three rasters:
+```sh
+means -i scene1.tif scene2.tif scene3.tif -o mean.tif
+```
+*Creates `mean.tif` using all bands and CRS from `scene1.tif`*
+
+- Compute the mean of two rasters on limited bands with a specific CRS:
+```sh
+means -i a.tif b.tif -o mean.tif -b 1 2 -c EPSG:3857
+```
+*Creates `mean.tif` of only bands 1 and 2 with Web Mercator CRS*
+
+- Use alternative resampling and verbose output:
+```sh
+means -i x.tif y.tif -o mean.tif -r nearest -v
+```
+*Creates `mean.tif` using nearest neighbor resampling method*
 
 ---
 
