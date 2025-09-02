@@ -230,3 +230,31 @@ def select_bands():
   import smart_hab.select_bands as _select_bands
   args = _select_bands.parse_args()
   _select_bands.main(args)
+
+def subtract():
+  import smart_hab.subtract as _subtract
+  from rasterio.enums import Resampling
+  p = argparse.ArgumentParser(prog='subtract', description='Subtract one raster from another')
+  p.add_argument('-i', '--input', nargs=2, help='Source raster paths', required=True)
+  p.add_argument('-o', '--output', help='Output raster path', required=True)
+  p.add_argument('-b', '--bands', help='Band selection', nargs='+', type=int)
+  p.add_argument('-c', '--crs', help='Target CRS (e.g. EPSG:4326)')
+  p.add_argument('-r', '--resampling', help='Resampling method', default='bilinear', choices=[e.name for e in Resampling])
+  p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
+  p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
+  args = p.parse_args()
+  inputs = (
+    pathlib.Path(args.cwd) / args.input[0],
+    pathlib.Path(args.cwd) / args.input[1],
+  )
+  output = pathlib.Path(args.cwd) / args.output
+  logger = shared.setup_logger('subtract', args.verbose)
+  resampling = getattr(Resampling, args.resampling.lower())
+  _subtract.subtract(
+    inputs=inputs,
+    output=output,
+    bands=args.bands,
+    crs=args.crs,
+    logger=logger,
+    resampling=resampling,
+  )

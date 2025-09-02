@@ -27,6 +27,7 @@ means = "smart_hab.cli:means"
 norm_diff = "smart_hab.cli:norm_diff"
 plot = "smart_hab.cli:plot"
 select_bands = "smart_hab.cli:select_bands"
+subtract = "smart_hab.cli:subtract"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_hab"]

@@ -85,7 +85,7 @@ Available commands. For more details on each script, run `<command> --help`.
 - [kmeans_fit](#kmeans_fit)
 - [kmeans_classify](#kmeans_classify)
 - [plot](#plot)
-
+- [subtract](#subtract)
 
 ### `about`
 
@@ -380,5 +380,43 @@ Plots a raster file to a PNG image, either as a grayscale or RGB image. Useful f
   plot -i image.tif -r 6 4 2 -o image_rgb.png
   ```
   *Creates `image_rgb.png` as a color image.*
+
+---
+
+### `subtract`
+
+Subtracts one raster from another, aligning and intersecting them as needed. Useful for change detection, difference analysis, or removing background signal.
+
+**Parameters**
+
+| Parameter            | Type  | Required | Default   | Description                                 |
+|----------------------|-------|----------|-----------|---------------------------------------------|
+| `-i`, `--input`      | path+ | Yes      |           | Input raster file paths                     |
+| `-o`, `--output`     | path  | Yes      |           | Output raster file path                     |
+| `-b`, `--bands`      | int+  | No       | all       | Band selection (e.g. 1 2 3)                 |
+| `-c`, `--crs`        | str   | No       | first CRS | Target CRS (e.g. EPSG:4326)                 |
+| `-r`, `--resampling` | str   | No       | bilinear  | Resampling method (nearest, bilinear, etc.) |
+| `-v`, `--verbose`    | flag  | No       | False     | Show extra information                      |
+| `-w`, `--cwd`        | path  | No       | .         | Working directory                           |
+
+**Examples**
+
+- Subtract two rasters:
+```sh
+subtract -i before.tif after.tif -o diff.tif
+```
+*Creates `diff.tif` using all bands and CRS from `before.tif`*
+
+- Subtract two rasters on limited bands with a specific CRS:
+```sh
+subtract -i a.tif b.tif -o diff.tif -b 1 2 -c EPSG:3857
+```
+*Creates `diff.tif` using with only bands 1 and 2 using Web Mercator CRS*
+
+- Use alternative resampling and verbose output:
+```sh
+subtract -i x.tif y.tif -o diff.tif -r nearest -v
+```
+*Creates `diff.tif` using nearest neighbor resampling method*
 
 ---
