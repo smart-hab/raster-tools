@@ -1,18 +1,10 @@
 import argparse
 import os
 import pathlib
-import smart_hab.about as _about
-import smart_hab.clip as _clip
-import smart_hab.convert_shape as _convert_shape
-import smart_hab.kmeans_classify as _kmeans_classify
-import smart_hab.kmeans_fit as _kmeans_fit
-import smart_hab.mask as _mask
-import smart_hab.norm_diff as _norm_diff
-import smart_hab.plot as _plot
-import smart_hab.select_bands as _select_bands
 import smart_hab.shared as shared
 
 def about():
+  import smart_hab.about as _about
   p = argparse.ArgumentParser(prog='info', description='Display raster or shape file info')
   p.add_argument('-i', '--input', help='Source raster or shape path', required=True)
   p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
@@ -25,6 +17,7 @@ def about():
   )
 
 def clip():
+  import smart_hab.clip as _clip
   p = argparse.ArgumentParser(prog='clip', description='Clip raster with shape file')
   p.add_argument('-i', '--input', help='Source raster path', required=True)
   p.add_argument('-s', '--shape', help='Source shape path', required=True)
@@ -46,6 +39,7 @@ def clip():
   )
 
 def convert_shape():
+  import smart_hab.convert_shape as _convert_shape
   p = argparse.ArgumentParser(prog='convert_shape', description='Convert Esri/Fiona/Pyogrio shape file to GeoJSON')
   p.add_argument('-i', '--input', help='Source shape path', required=True)
   p.add_argument('-o', '--output', help='Output GeoJSON path')
@@ -67,6 +61,7 @@ def convert_shape():
   )
 
 def kmeans_classify():
+  import smart_hab.kmeans_classify as _kmeans_classify
   p = argparse.ArgumentParser(prog='kmeans_classify', description='Assign K-Means clusters classes to a raster band')
   p.add_argument('-i', '--input', help='Source raster path', required=True)
   p.add_argument('-k', '--clusters', help='Cluster centers path (from kmeans_fit)', required=True)
@@ -88,6 +83,7 @@ def kmeans_classify():
   )
   
 def kmeans_fit():
+  import smart_hab.kmeans_fit as _kmeans_fit
   p = argparse.ArgumentParser(prog='kmeans_fit', description='Fit K-Means clusters to a single band of one or more input rasters')
   p.add_argument('-i', '--input', nargs='+', help='Raster source path(s)', required=True)
   p.add_argument('-o', '--output', help='Clusters destination path', required=True)
@@ -112,6 +108,7 @@ def kmeans_fit():
   )
 
 def mask():
+  import smart_hab.mask as _mask
   p = argparse.ArgumentParser(prog='mask', description='Mask raster with UDM2 file')
   p.add_argument('-i', '--input', help='Source raster path', required=True)
   p.add_argument('-u', '--udm2', help='Source UDM2 path', required=True)
@@ -135,6 +132,7 @@ def mask():
   )
 
 def plot():
+  import smart_hab.plot as _plot
   # parser
   p = argparse.ArgumentParser(prog='plot', description='Plot raster to PNG')
   p.add_argument('-i', '--input', help='Source raster path', required=True)
@@ -172,6 +170,7 @@ def plot():
   )
 
 def norm_diff():
+  import smart_hab.norm_diff as _norm_diff
   NDCI = [7,6] # NDCI = (Red Edge, Red)
   NDVI = [8,6] # NDVI = (NIR, RED) 
   p = argparse.ArgumentParser(prog='norm_diff', description='Normalize difference between two bands')
@@ -203,5 +202,6 @@ def norm_diff():
   )
 
 def select_bands():
+  import smart_hab.select_bands as _select_bands
   args = _select_bands.parse_args()
   _select_bands.main(args)
