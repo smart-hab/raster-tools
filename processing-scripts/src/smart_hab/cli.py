@@ -11,7 +11,7 @@ def about():
   p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
   args = p.parse_args()
   logger = shared.setup_logger('about', args.verbose)
-  _about.about(
+  _about(
     input=pathlib.Path(args.cwd) / args.input,
     logger=logger,
   )
@@ -30,7 +30,7 @@ def clip():
   shape = pathlib.Path(args.cwd) / args.shape
   output = pathlib.Path(args.cwd) / args.output if args.output else input.parent / f'{input.stem}_clipped.tif'
   logger = shared.setup_logger('clip', args.verbose)
-  _clip.clip(
+  _clip(
     input=input,
     shape=shape,
     output=output,
@@ -53,7 +53,7 @@ def convert_shape():
   logger = shared.setup_logger('convert_shape', args.verbose)
   if (output.suffix != '.geojson'):
     raise RuntimeError(f'Unsupported output format: {args.format}')
-  _convert_shape.convert_shape(
+  _convert_shape(
     input=input,
     output=output,
     crs=args.crs,
@@ -74,7 +74,7 @@ def kmeans_classify():
   clusters = pathlib.Path(args.cwd) / args.clusters
   output = pathlib.Path(args.cwd) / args.output
   logger = shared.setup_logger('kmeans_classify', args.verbose)
-  _kmeans_classify.kmeans_classify(
+  _kmeans_classify(
     input=input,
     clusters=clusters,
     output=output,
@@ -97,7 +97,7 @@ def kmeans_fit():
   input = [pathlib.Path(args.cwd) / p for p in args.input]
   output = pathlib.Path(args.cwd) / args.output
   logger = shared.setup_logger('kmeans_fit', args.verbose)
-  return _kmeans_fit.kmeans_fit(
+  _kmeans_fit(
     input=input,
     output=output,
     band=args.band,
@@ -122,7 +122,7 @@ def mask():
   udm2 = pathlib.Path(args.cwd) / args.udm2
   output = pathlib.Path(args.cwd) / args.output if args.output else input.parent / f'{input.stem}_masked.tif'
   logger = shared.setup_logger('mask', args.verbose)
-  _mask.mask(
+  _mask(
     input=input,
     udm2=udm2,
     output=output,
@@ -147,7 +147,7 @@ def means():
   output_path = pathlib.Path(args.cwd) / args.output
   logger = shared.setup_logger('means', args.verbose)
   resampling = getattr(Resampling, args.resampling.lower())
-  _means.means(
+  _means(
     inputs=input_paths,
     output=output_path,
     bands=args.bands,
@@ -183,7 +183,7 @@ def plot():
   logger = shared.setup_logger('plot', args.verbose)
   if len(args.bands) not in (1, 3):
     raise ValueError(f'Invalid band selection: {args.bands}. Must be 1 or 3 bands.')
-  _plot.plot(
+  _plot(
     input=input,
     output=output,
     bands=tuple(args.bands),
@@ -215,7 +215,7 @@ def norm_diff():
   if args.bands == NDCI: new_name = 'ndci'
   if args.bands == NDVI: new_name = 'ndvi'
   output = pathlib.Path(args.cwd) / args.output if args.output else input.parent / f'{input.stem}_{new_name}.tif'
-  _norm_diff.norm_diff(
+  _norm_diff(
     input=input,
     bands=(args.bands[0], args.bands[1]),
     new_name=new_name,
@@ -229,7 +229,7 @@ def norm_diff():
 def select_bands():
   import smart_hab.select_bands as _select_bands
   args = _select_bands.parse_args()
-  _select_bands.select_bands(args)
+  _select_bands(args)
 
 def subtract():
   import smart_hab.subtract as _subtract
@@ -250,7 +250,7 @@ def subtract():
   output = pathlib.Path(args.cwd) / args.output
   logger = shared.setup_logger('subtract', args.verbose)
   resampling = getattr(Resampling, args.resampling.lower())
-  _subtract.subtract(
+  _subtract(
     inputs=inputs,
     output=output,
     bands=args.bands,
