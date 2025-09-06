@@ -4,7 +4,7 @@ import pathlib
 import rasterio
 import smart_hab.shared as shared
 
-def main(
+def kmeans_classify(
   input: pathlib.Path,
   clusters: pathlib.Path,
   output: pathlib.Path,

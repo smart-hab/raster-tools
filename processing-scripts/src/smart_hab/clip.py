@@ -3,7 +3,7 @@ import pathlib
 import rasterio
 import smart_hab.shared as shared
 
-def main( 
+def clip( 
   input: pathlib.Path,
   shape: pathlib.Path,
   output: pathlib.Path,

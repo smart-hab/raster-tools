@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pathlib
 import smart_hab.shared as shared
 
-def main(
+def plot(
   input: pathlib.Path,
   output: pathlib.Path,
   bands: tuple[int] | tuple[int, int, int],

@@ -4,7 +4,7 @@ import numpy as np
 import pathlib
 import smart_hab.shared as shared
 
-def main(
+def kmeans_fit(
   input: list[pathlib.Path],
   output: pathlib.Path,
   band: int,

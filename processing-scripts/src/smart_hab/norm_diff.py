@@ -2,7 +2,7 @@ import logging
 import pathlib
 import smart_hab.shared as shared
 
-def main(
+def norm_diff(
   input: pathlib.Path,
   bands: tuple[int, int],
   new_name: str,

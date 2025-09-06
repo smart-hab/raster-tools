@@ -4,7 +4,7 @@ import logging
 import pathlib
 import rasterio
 
-def main(
+def convert_shape(
   input: pathlib.Path,
   output: pathlib.Path,
   crs: str,

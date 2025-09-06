@@ -2,7 +2,7 @@ import logging
 import pathlib
 import smart_hab.shared as shared
 
-def main(
+def about(
   input: pathlib.Path,
   logger: logging.Logger,
 ) -> None:

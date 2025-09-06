@@ -36,7 +36,7 @@ def parse_args() -> Args:
     verbose=args.verbose,
   )
 
-def main(args: Args) -> None:
+def select_bands(args: Args) -> None:
 
   # logger
   logger = shared.setup_logger('select_bands', args.verbose)
