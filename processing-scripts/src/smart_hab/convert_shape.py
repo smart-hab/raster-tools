@@ -7,30 +7,25 @@ import rasterio
 def convert_shape(
   input: pathlib.Path,
   output: pathlib.Path,
-  crs: str,
+  crs: str | None,
   logger: logging.Logger,
 ) -> None:
-
-  # crs
-  try:
-    target = rasterio.CRS.from_string(crs)
-  except:
-    raise RuntimeError(f'Could not set target CRS: {crs}')
 
   # shape
   try:
     logger.info(f'Loading shape... {input}')
     oldshape = gpd.read_file(input)
-  except:
-    raise RuntimeError(f'Could not read shape file: {input}')
+  except Exception as e:
+    raise RuntimeError(f'Could not read shape file: {input}') from e
 
-  # conversion
-  if (oldshape.crs != target):
-    logger.info(f'Converting CRS... {oldshape.crs} -> {target}')
-    conversion = f'{oldshape.crs} -> {target}'
-    oldshape.to_crs(target, inplace=True)
-  else:
-    conversion = f'{oldshape.crs}'
+  # type check
+  if not isinstance(oldshape, gpd.GeoDataFrame):
+    raise RuntimeError(f'Not pandas GeoDataFrame type: {input}')
+
+  # crs conversion
+  if crs and oldshape.crs != crs:
+    logger.info(f'Converting CRS... {oldshape.crs} -> {crs}')
+    oldshape.to_crs(crs, inplace=True)
 
   # newshape
   try:
@@ -43,8 +38,8 @@ def convert_shape(
 
   # save
   try:
-    logger.info(f'Saving GeoJSON... {output} [{conversion}]')
+    logger.info(f'Saving GeoJSON... {output}')
     with open(output, 'w') as file:
       file.write(geojson)
-  except:
-    raise RuntimeError(f'Could not write to file: {output}')
+  except Exception as e:
+    raise RuntimeError(f'Could not write to file: {output}') from e

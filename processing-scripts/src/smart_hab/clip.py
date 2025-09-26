@@ -11,21 +11,21 @@ def clip(
   logger: logging.Logger,
 ) -> None:
 
-  # load shape
-  logger.info(f'Loading shape... {shape}')
-  shape_data = shared.load_shape(shape, crs)
-
   # load raster
   logger.info(f'Loading raster... {input}')
   raster = shared.load_raster(input, crs)
 
+  # load shape, using input raster CRS
+  logger.info(f'Loading shape... {shape}')
+  shape_data = shared.load_shape(shape, shared.rio(raster).crs)
+
   # clip
   logger.info(f'Clipping...')
-  raster = raster.rio.clip(shape_data.geometry, crs)
+  raster = shared.rio(raster).clip(shape_data.geometry)
 
   # output
   logger.info(f'Saving clipped raster... {output}')
-  raster.rio.to_raster(output, dtype=rasterio.uint16, compress='lzw')
+  shared.rio(raster).to_raster(output, dtype=rasterio.uint16, compress='lzw')
 
   # done
   logger.info('Done')

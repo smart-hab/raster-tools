@@ -1,3 +1,7 @@
+"""
+Main entry for the smart_hab package
+"""
+
 from .about import about
 from .clip import clip
 from .convert_shape import convert_shape
@@ -6,5 +10,19 @@ from .kmeans_fit import kmeans_fit
 from .mask import mask
 from .means import means
 from .norm_diff import norm_diff
-from .plot import plot
+from .plot import plot1, plot3
 from .subtract import subtract
+
+__all__ = [
+	"about",
+	"clip",
+	"convert_shape",
+	"kmeans_classify",
+	"kmeans_fit",
+	"mask",
+	"means",
+	"norm_diff",
+	"plot1",
+	"plot3",
+	"subtract",
+]

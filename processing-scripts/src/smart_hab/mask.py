@@ -31,7 +31,7 @@ def mask(
 
   # save
   logger.info(f'Saving masked raster... {output}')
-  raster_sat.rio.to_raster(output, dtype=rasterio.uint16, compress='lzw')
+  shared.rio(raster_sat).to_raster(output, dtype=rasterio.uint16, compress='lzw')
 
   # done
   logger.info('Done')

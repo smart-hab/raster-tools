@@ -30,18 +30,18 @@ def about(
       print('\nBands:')
       for (band, name) in shared.raster_bands(raster).items():
         print('  * {0:12} {1}'.format(f'Band {band}', name))
-      print(f'\nBounds: {raster.rio.bounds()}')
+      print(f'\nBounds: {shared.rio(raster).bounds()}')
       print(f'\n{raster.coords}')
-      print(f'\nCRS: {raster.rio.crs}')
+      print(f'\nCRS: {shared.rio(raster).crs}')
       print(f'\nDimensions: {raster.dims}')
       print(f'\nDtype: {raster.dtype}')
-      print(f'\nNoData: {raster.rio.nodata}')
+      print(f'\nNoData: {shared.rio(raster).nodata}')
       print(f'\nPixels: {raster.size}')
-      print(f'\nResolution: {raster.rio.resolution()}')
+      print(f'\nResolution: {shared.rio(raster).resolution()}')
       print(f'\nShape: {raster.shape}')
       print(f'\nSize: {raster.nbytes / (1024 * 1024):.2f} MB')
       print('\nTransform:')
-      print(raster.rio.transform())
+      print(shared.rio(raster).transform())
       exit(0)
 
     # unsupported file format

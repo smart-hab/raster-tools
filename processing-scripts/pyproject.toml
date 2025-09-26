@@ -6,6 +6,7 @@ requires = ["hatchling"]
 dependencies = [
     "geopandas>=1.0.1",
     "matplotlib>=3.10.1",
+    "pyrefly>=0.33.1",
     "rasterio>=1.4.3",
     "rioxarray>=0.18.2",
     "scikit-learn>=1.6.1",
@@ -31,3 +32,6 @@ subtract = "smart_hab.cli:subtract"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_hab"]
+
+[tool.pyrefly]
+project-includes = ["src/**/*"]

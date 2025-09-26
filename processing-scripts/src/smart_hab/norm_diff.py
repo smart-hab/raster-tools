@@ -38,7 +38,7 @@ def norm_diff(
 
   # output
   logger.info(f'Saving {dtype} raster... {output}')
-  raster.rio.to_raster(output, dtype=dtype, compress='lzw')
+  shared.rio(raster).to_raster(output, dtype=dtype, compress='lzw')
 
   # done
   logger.info('Done')

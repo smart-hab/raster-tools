@@ -1,8 +1,10 @@
 from rasterio.enums import Resampling
-import pathlib
 import logging
+import pathlib
 import rioxarray
 import smart_hab.shared as shared
+import typing
+import xarray
 
 def subtract(
   inputs: tuple[pathlib.Path, pathlib.Path],
@@ -13,35 +15,40 @@ def subtract(
   resampling: Resampling,
 ) -> None:
   
-  # load rasters
+  # load first raster
   try:
     logger.info(f'Loading base raster... {inputs[0]}')
     r1 = rioxarray.open_rasterio(inputs[0])
-    if not crs:
-      logger.info(f'Target CRS set to: {r1.rio.crs}')
-      crs = r1.rio.crs
-    if r1.rio.crs != crs:
-      logger.info(f'Reprojecting CRS... {r1.rio.crs} -> {crs}')
-      r1 = r1.rio.reproject(crs, resampling=resampling)
-    if bands:
-      r1 = r1.sel(band=bands)
   except Exception as e:
     raise RuntimeError(f'Could not read raster file: {inputs[0]}') from e
+  if not isinstance(r1, xarray.DataArray):
+    raise RuntimeError(f'Raster does not contain DataArray: {inputs[0]}')
+  if not crs:
+    logger.info(f'Target CRS set to: {shared.rio(r1).crs}')
+    crs = shared.rio(r1).crs
+  if shared.rio(r1).crs != crs:
+    logger.info(f'Reprojecting CRS... {shared.rio(r1).crs} -> {crs}')
+    r1 = shared.rio(r1).reproject(crs, resampling=resampling)
+  if bands:
+    r1 = r1.sel(band=bands)
 
+  # load second raster
   try:
     logger.info(f'Loading subtraction raster... {inputs[1]}')
     r2 = rioxarray.open_rasterio(inputs[1])
-    if r2.rio.crs != crs:
-      logger.info(f'Reprojecting CRS... {r2.rio.crs} -> {crs}')
-      r2 = r2.rio.reproject(crs, resampling=resampling)
-    if bands:
-      r2 = r2.sel(band=bands)
   except Exception as e:
     raise RuntimeError(f'Could not read raster file: {inputs[1]}') from e
+  if not isinstance(r2, xarray.DataArray):
+    raise RuntimeError(f'Raster does not contain DataArray: {inputs[1]}')
+  if shared.rio(r2).crs != crs:
+    logger.info(f'Reprojecting CRS... {shared.rio(r2).crs} -> {crs}')
+    r2 = shared.rio(r2).reproject(crs, resampling=resampling)
+  if bands:
+    r2 = r2.sel(band=bands)
   
   # align
   logger.info(f'Aligning rasters...')
-  r2 = r2.rio.reproject_match(r1, resampling=resampling)
+  r2 = shared.rio(r2).reproject_match(r1, resampling=resampling)
 
   # subtract
   logger.info(f'Subtracting rasters...')
@@ -49,9 +56,9 @@ def subtract(
 
   # determine new band names
   try:
-    long_name = r1.attrs.get('long_name', None)
-    bands = r1.coords['band'].values
-    if isinstance(long_name, tuple) and len(long_name) == len(bands):
+    long_name = typing.cast(tuple[str, ...] | None, r1.attrs.get('long_name', None))
+    bands = typing.cast(list[int], r1.coords['band'].values)
+    if long_name and len(long_name) == len(bands):
       selection = set(bands)
       long_name = tuple(name for (band, name) in zip(bands, long_name) if band in selection)
   except:
@@ -67,4 +74,4 @@ def subtract(
 
   # write to disk
   logger.info(f'Saving difference raster... {output}')
-  diff_raster.rio.to_raster(output, compress='lzw')
+  shared.rio(diff_raster).to_raster(output, compress='lzw')

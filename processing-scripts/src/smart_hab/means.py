@@ -3,6 +3,7 @@ import logging
 import pathlib
 import rioxarray
 import smart_hab.shared as shared
+import typing
 import xarray
 
 def means(
@@ -19,26 +20,28 @@ def means(
   assert count > 1, "At least two input rasters are required to compute the mean."
 
   # load rasters
-  rasters = []
+  rasters: list[xarray.DataArray] = []
   for (i, input) in enumerate(inputs):
     try:
       logger.info(f'Loading raster {i+1}/{count}... {input}')
       r = rioxarray.open_rasterio(input)
-      if not crs:
-        logger.info(f'Target CRS set to first raster: {r.rio.crs}')
-        crs = r.rio.crs
-      if r.rio.crs != crs:
-        logger.info(f'Reprojecting CRS... {r.rio.crs} -> {crs}')
-        r = r.rio.reproject(crs, resampling=resampling)
-      if bands:
-        r = r.sel(band=bands)
-      rasters.append(r)
     except Exception as e:
       raise RuntimeError(f'Could not read raster file: {input}') from e
+    if not isinstance(r, xarray.DataArray):
+      raise RuntimeError(f'Raster does not contain DataArray: {input}')
+    if not crs:
+      logger.info(f'Target CRS set to first raster: {shared.rio(r).crs}')
+      crs = shared.rio(r).crs
+    if shared.rio(r).crs != crs:
+      logger.info(f'Reprojecting CRS... {shared.rio(r).crs} -> {crs}')
+      r = shared.rio(r).reproject(crs, resampling=resampling)
+    if bands:
+      r = r.sel(band=bands)
+    rasters.append(r)
   
   # intersection
   logger.info(f'Computing spatial intersection...')
-  bounds_list = [r.rio.bounds() for r in rasters]
+  bounds_list = [shared.rio(r).bounds() for r in rasters]
   
   intersection = (
     max(b[0] for b in bounds_list),  # left (minx)
@@ -53,13 +56,13 @@ def means(
   # clip to intersection
   for (i, r) in enumerate(rasters):
     logger.info(f'Clipping raster {i+1}/{count}...')
-    rasters[i] = r.rio.clip_box(*intersection)
+    rasters[i] = shared.rio(r).clip_box(*intersection)
 
   # align
   logger.info(f'Aligning raster 1/{count}...') # first raster is reference
   for (i, r) in enumerate(rasters[1:], start=1):
     logger.info(f'Aligning raster {i+1}/{count}...')
-    rasters[i] = r.rio.reproject_match(rasters[0], resampling=resampling)
+    rasters[i] = shared.rio(r).reproject_match(rasters[0], resampling=resampling)
 
   # stack and compute mean
   stacked = xarray.concat(rasters, dim='raster')
@@ -67,9 +70,9 @@ def means(
 
   # determine new band names
   try:
-    long_name = rasters[0].attrs.get('long_name', None)
-    bands = rasters[0].coords['band'].values
-    if isinstance(long_name, tuple) and len(long_name) == len(bands):
+    long_name = typing.cast(tuple[str, ...] | None, rasters[0].attrs.get('long_name', None))
+    bands = typing.cast(list[int], rasters[0].coords['band'].values)
+    if long_name and len(long_name) == len(bands):
       selection = set(bands)
       long_name = tuple(name for (band, name) in zip(bands, long_name) if band in selection)
   except:
@@ -85,5 +88,5 @@ def means(
   
   # write to disk
   logger.info(f'Saving mean raster... {output}')
-  mean_raster.rio.to_raster(output, compress='lzw')  # LZW compression to reduce file size
+  shared.rio(mean_raster).to_raster(output, compress='lzw')
   
