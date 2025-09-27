@@ -2,7 +2,6 @@ import datetime
 import geopandas
 import logging
 import numpy
-import os
 import pathlib
 import re
 import rioxarray
@@ -31,7 +30,7 @@ def get_date(filename: str) -> typing.Optional[str]:
   if not m: return None
   return m.group(1)
 
-def load_shape(shape_path: pathlib.Path, crs: typing.Optional[str] = None) -> geopandas.GeoDataFrame:
+def load_shape(shape_path: pathlib.Path | typing.BinaryIO, crs: typing.Optional[str] = None) -> geopandas.GeoDataFrame:
   try:
     shape = geopandas.read_file(shape_path)
   except Exception as e:
@@ -42,7 +41,7 @@ def load_shape(shape_path: pathlib.Path, crs: typing.Optional[str] = None) -> ge
     shape.to_crs(crs, inplace=True)
   return shape
   
-def load_raster(raster_path: os.PathLike[str], crs: typing.Optional[str] = None) -> xarray.DataArray:
+def load_raster(raster_path: pathlib.Path | typing.BinaryIO, crs: typing.Optional[str] = None) -> xarray.DataArray:
   try:
     ras = rioxarray.open_rasterio(raster_path)
   except Exception as e:

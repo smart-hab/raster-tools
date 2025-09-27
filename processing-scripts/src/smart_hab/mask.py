@@ -1,25 +1,26 @@
+from . import shared
 import logging
 import pathlib
 import rasterio
-import smart_hab.shared as shared
+import typing
 
 def mask(
-  input: pathlib.Path,
-  udm2: pathlib.Path,
+  input: pathlib.Path | typing.BinaryIO,
+  udm2: pathlib.Path | typing.BinaryIO,
   output: pathlib.Path,
   crs: str | None,
   bands: list[int],
   logger: logging.Logger,
 ) -> None:
   
-  # load mask
-  logger.info(f'Loading UDM2... {udm2}')
-  raster_udm = shared.load_raster(udm2, crs)
-  udm_bands = shared.raster_bands(raster_udm)
-
   # load raster
   logger.info(f'Loading raster... {input}')
   raster_sat = shared.load_raster(input, crs)
+
+  # load mask using input raster CRS
+  logger.info(f'Loading UDM2... {udm2}')
+  raster_udm = shared.load_raster(udm2, shared.rio(raster_sat).crs)
+  udm_bands = shared.raster_bands(raster_udm)
 
   # mask
   for band in bands:

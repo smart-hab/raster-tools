@@ -1,12 +1,13 @@
+from . import shared
 import logging
 import numpy as np
 import pathlib
 import rasterio
-import smart_hab.shared as shared
+import typing
 
 def kmeans_classify(
-  input: pathlib.Path,
-  clusters: pathlib.Path,
+  input: pathlib.Path | typing.BinaryIO,
+  clusters: pathlib.Path | typing.BinaryIO,
   output: pathlib.Path,
   band: int,
   logger: logging.Logger,

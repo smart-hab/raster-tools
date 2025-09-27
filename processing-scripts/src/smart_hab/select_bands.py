@@ -1,8 +1,8 @@
+from . import shared
 import argparse
 import os
 import pathlib
 import rasterio
-import smart_hab.shared as shared
 import typing
 
 class Args(typing.NamedTuple):

@@ -1,23 +1,39 @@
 from typing import cast
 from pathlib import Path
-from smart_hab.shared import Dtype, dtypes, setup_logger
+from . import fn
+from .shared import Dtype, dtypes, setup_logger
 import argparse
 import os
+import json
 import pathlib
-import smart_hab
 
 def about() -> None:
+  # parser
   p = argparse.ArgumentParser(prog='info', description='Display raster or shape file info')
   p.add_argument('-i', '--input', help='Source raster or shape path', required=True)
+  p.add_argument('-p', '--property', help='Display specific property (e.g. crs, bounds, bands, dimensions, shape, etc.)')
   p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
   p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
+  # args
   args = p.parse_args()
   input = Path(args.cwd) / cast(str, args.input)
+  suffix = input.suffix.lower()
   logger = setup_logger('about', cast(bool, args.verbose))
-  smart_hab.about(
-    input=input,
-    logger=logger,
-  )
+  # info
+  match suffix:
+    case '.shp' | '.geojson':
+      info = fn.about_shape(input=input, logger=logger)
+    case '.tif' | '.tiff':
+      info = fn.about_raster(input=input, logger=logger)
+    case _:
+      raise RuntimeError(f'Unsupported file format: {suffix}')
+  # property
+  if args.property:
+    info = info.get(cast(str, args.property), None)
+    if info is None:
+      raise RuntimeError(f'Property not found: {args.property}')
+  # output
+  print(json.dumps(info, indent=2))
 
 def clip() -> None:
   p = argparse.ArgumentParser(prog='clip', description='Clip raster with shape file')
@@ -32,7 +48,7 @@ def clip() -> None:
   shape = Path(args.cwd) / cast(str, args.shape)
   output = Path(args.cwd) / cast(str, args.output) if args.output else input.parent / f'{input.stem}_clipped.tif'
   logger = setup_logger('clip', cast(bool, args.verbose))
-  smart_hab.clip(
+  fn.clip(
     input=input,
     shape=shape,
     output=output,
@@ -53,7 +69,7 @@ def convert_shape() -> None:
   input = Path(args.cwd) / cast(str, args.input)
   output = Path(args.cwd) / cast(str, args.output) if args.output else input.with_suffix(args.format)
   logger = setup_logger('convert_shape', cast(bool, args.verbose))
-  smart_hab.convert_shape(
+  fn.convert_shape(
     input=input,
     output=output,
     crs=cast(str | None, args.crs),
@@ -73,7 +89,7 @@ def kmeans_classify() -> None:
   clusters = Path(args.cwd) / cast(str, args.clusters)
   output = Path(args.cwd) / cast(str, args.output)
   logger = setup_logger('kmeans_classify', cast(bool, args.verbose))
-  smart_hab.kmeans_classify(
+  fn.kmeans_classify(
     input=input,
     clusters=clusters,
     output=output,
@@ -95,7 +111,7 @@ def kmeans_fit() -> None:
   input = [Path(args.cwd) / cast(str, p) for p in args.input]
   output = Path(args.cwd) / cast(str, args.output)
   logger = setup_logger('kmeans_fit', cast(bool, args.verbose))
-  smart_hab.kmeans_fit(
+  fn.kmeans_fit(
     input=input,
     output=output,
     band=cast(int, args.band),
@@ -119,7 +135,7 @@ def mask() -> None:
   udm2 = Path(args.cwd) / cast(str, args.udm2)
   output = Path(args.cwd) / cast(str, args.output) if args.output else input.parent / f'{input.stem}_masked.tif'
   logger = setup_logger('mask', cast(bool, args.verbose))
-  smart_hab.mask(
+  fn.mask(
     input=input,
     udm2=udm2,
     output=output,
@@ -139,14 +155,14 @@ def means() -> None:
   p.add_argument('-v', '--verbose', help='Display extra information', action='store_true', default=False)
   p.add_argument('-w', '--cwd', help='Working directory', default=os.getcwd())
   args = p.parse_args()
-  input_paths = [Path(args.cwd) / cast(str, p) for p in args.input]
-  output_path = Path(args.cwd) / cast(str, args.output)
+  input = [Path(args.cwd) / cast(str, p) for p in args.input]
+  output = Path(args.cwd) / cast(str, args.output)
   logger = setup_logger('means', cast(bool, args.verbose))
   resampling = getattr(Resampling, cast(str, args.resampling).lower())
   assert isinstance(resampling, Resampling), f'Invalid resampling method: {args.resampling}'
-  smart_hab.means(
-    inputs=input_paths,
-    output=output_path,
+  fn.means(
+    input=input,
+    output=output,
     bands=cast(list[int] | None, args.bands),
     crs=cast(str | None, args.crs),
     logger=logger,
@@ -182,7 +198,7 @@ def plot() -> None:
       raise RuntimeError(f'Invalid filter range: ({args.filter}). Must be two values.')
   match cast(list[int], args.bands):
     case [band]:
-      smart_hab.plot1(
+      fn.plot1(
         input=input,
         output=output,
         band=band,
@@ -193,7 +209,7 @@ def plot() -> None:
         logger=logger,
       )
     case [red, green, blue]:
-      smart_hab.plot3(
+      fn.plot3(
         input=input,
         output=output,
         bands=(red, green, blue),
@@ -238,7 +254,7 @@ def norm_diff() -> None:
       raise RuntimeError(f'Invalid filter range: ({args.filter}). Must be two values.')
   logger = setup_logger('norm_diff', cast(bool, args.verbose))
   assert args.dtype in dtypes, f'Invalid data type: {args.dtype}'
-  smart_hab.norm_diff(
+  fn.norm_diff(
     input=input,
     bands=bands,
     new_name=new_name,
@@ -248,11 +264,6 @@ def norm_diff() -> None:
     dtype=cast(Dtype, args.dtype),
     logger=logger,
   )
-
-def select_bands():
-  import smart_hab.select_bands as _select_bands
-  args = _select_bands.parse_args()
-  _select_bands(args)
 
 def subtract() -> None:
   from rasterio.enums import Resampling
@@ -267,7 +278,7 @@ def subtract() -> None:
   args = p.parse_args()
   match cast(list[str], args.input):
     case [a, b]:
-      inputs = (
+      input = (
         Path(args.cwd) / a,
         Path(args.cwd) / b,
       )
@@ -277,8 +288,8 @@ def subtract() -> None:
   logger = setup_logger('subtract', cast(bool, args.verbose))
   resampling = getattr(Resampling, cast(str, args.resampling).lower())
   assert isinstance(resampling, Resampling), f'Invalid resampling method: {args.resampling}'
-  smart_hab.subtract(
-    inputs=inputs,
+  fn.subtract(
+    input=input,
     output=output,
     bands=cast(list[int] | None, args.bands),
     crs=cast(str | None, args.crs),

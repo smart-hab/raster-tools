@@ -93,11 +93,12 @@ Displays detailed information about a raster or shape file, such as dimensions, 
 
 **Parameters**
 
-| Parameter        | Type    | Required | Default | Description                 |
-|------------------|---------|----------|---------|-----------------------------|
-| `-i`, `--input`  | path    | Yes      |         | Source raster or shape path |
-| `-v`, `--verbose`| flag    | No       | False   | Show extra information      |
-| `-w`, `--cwd`    | path    | No       | .       | Working directory           |
+| Parameter         | Type    | Required | Default | Description                 |
+|-------------------|---------|----------|---------|-----------------------------|
+| `-i`, `--input`   | path    | Yes      |         | Source raster or shape path |
+| `-p`, `--property`| string  | No       | None    | Display
+| `-v`, `--verbose` | flag    | No       | False   | Show extra information      |
+| `-w`, `--cwd`     | path    | No       | .       | Working directory           |
 
 **Examples**
 

@@ -1,49 +1,69 @@
+from typing import TypedDict, Any, Hashable, BinaryIO
+from . import shared
 import logging
 import pathlib
-import smart_hab.shared as shared
 
-def about(
-  input: pathlib.Path,
+class ShapeInfo(TypedDict):
+  crs: str
+  bounds: tuple[float, float, float, float]
+  geometry: str
+
+class RasterInfo(TypedDict):
+  attributes: dict[str, Any]
+  bands: dict[int, str]
+  bounds: tuple[float, float, float, float]
+  crs: str
+  dimensions: tuple[str, ...]
+  dtype: str
+  nodata: float | None
+  pixels: int
+  resolution: tuple[float, float]
+  shape: tuple[int, ...]
+  size_mb: float
+  transform: tuple[float, ...]
+
+def about_shape(
+  input: pathlib.Path | BinaryIO,
   logger: logging.Logger,
-) -> None:
+) -> ShapeInfo:
+  logger.info(f'Loading shape... {input}')
+  shape = shared.load_shape(input)
+  bounds = shape.bounds
+  return {
+    'crs': str(shape.crs),
+    'bounds': (float(bounds.minx[0]), float(bounds.miny[0]), float(bounds.maxx[0]), float(bounds.maxy[0])),
+    'geometry': str(shape.geometry.type[0]),
+  }
 
-  match input.suffix:
-    # shape file
-    case '.shp' | '.geojson':
-      logger.info(f'Loading shape... {input}')
-      shape = shared.load_shape(input)
-      print(f'\n\n[{input.name}]')
-      print(f'\nCRS: {shape.crs}')
-      print(f'\nBounds: {shape.bounds}')
-      print(f'\nGeometry')
-      print(shape.geometry.describe())
-      exit(0)
+def about_raster(
+  input: pathlib.Path | BinaryIO,
+  logger: logging.Logger,
+) -> RasterInfo:
+  logger.info(f'Loading raster... {input}')
+  raster = shared.load_raster(input)
+  rio = shared.rio(raster)
+  return {
+    'attributes': serialize_raster_attributes(raster.attrs),
+    'bands': shared.raster_bands(raster),
+    'bounds': rio.bounds(),
+    'crs': str(rio.crs),
+    'dimensions': tuple(map(str, raster.dims)),
+    'dtype': str(raster.dtype),
+    'nodata': float(rio.nodata) if rio.nodata is not None else None,
+    'pixels': raster.size,
+    'resolution': rio.resolution(),
+    'shape': tuple(raster.shape),
+    'size_mb': raster.nbytes / (1024 * 1024),
+    'transform': tuple(rio.transform()),
+  }
 
-    # raster file
-    case '.tif' | '.tiff':
-      logger.info(f'Loading raster... {input}')
-      raster = shared.load_raster(input)
-      print(f'\n\n[{input.name}]')
-      print('\nAttributes:')
-      for (key, value) in raster.attrs.items():
-        print(f'  * {key:12} {value}')
-      print('\nBands:')
-      for (band, name) in shared.raster_bands(raster).items():
-        print('  * {0:12} {1}'.format(f'Band {band}', name))
-      print(f'\nBounds: {shared.rio(raster).bounds()}')
-      print(f'\n{raster.coords}')
-      print(f'\nCRS: {shared.rio(raster).crs}')
-      print(f'\nDimensions: {raster.dims}')
-      print(f'\nDtype: {raster.dtype}')
-      print(f'\nNoData: {shared.rio(raster).nodata}')
-      print(f'\nPixels: {raster.size}')
-      print(f'\nResolution: {shared.rio(raster).resolution()}')
-      print(f'\nShape: {raster.shape}')
-      print(f'\nSize: {raster.nbytes / (1024 * 1024):.2f} MB')
-      print('\nTransform:')
-      print(shared.rio(raster).transform())
-      exit(0)
-
-    # unsupported file format
-    case _:
-      raise RuntimeError(f'Unsupported file format: {input.suffix}')
+def serialize_raster_attributes(attrs: dict[Hashable, Any]) -> dict[str, Any]:
+  d: dict[str, Any] = dict()
+  for (k, v) in attrs.items():
+    if isinstance(v, (int, float, str)):
+      d[str(k)] = v
+    elif isinstance(v, (list, tuple)):
+      d[str(k)] = [x if isinstance(x, (int, float)) else str(x) for x in v]
+    else:
+      d[str(k)] = str(v)
+  return d

@@ -1,11 +1,12 @@
 from sklearn.cluster import KMeans
+from . import shared
 import logging
 import numpy as np
 import pathlib
-import smart_hab.shared as shared
+import typing
 
 def kmeans_fit(
-  input: list[pathlib.Path],
+  input: typing.Sequence[pathlib.Path | typing.BinaryIO],
   output: pathlib.Path,
   band: int,
   clusters: int,

@@ -1,9 +1,10 @@
+from . import shared
 import logging
 import pathlib
-import smart_hab.shared as shared
+import typing
 
 def norm_diff(
-  input: pathlib.Path,
+  input: pathlib.Path | typing.BinaryIO,
   bands: tuple[int, int],
   new_name: str,
   output: pathlib.Path,

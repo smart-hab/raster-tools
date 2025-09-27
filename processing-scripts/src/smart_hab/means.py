@@ -1,13 +1,13 @@
 from rasterio.enums import Resampling
+from . import shared
 import logging
 import pathlib
 import rioxarray
-import smart_hab.shared as shared
 import typing
 import xarray
 
 def means(
-  inputs: list[pathlib.Path],
+  input: typing.Sequence[pathlib.Path | typing.BinaryIO],
   output: pathlib.Path,
   bands: list[int] | None,
   crs: str | None,
@@ -16,19 +16,19 @@ def means(
 ) -> None:
   
   # invariant
-  count = len(inputs)
+  count = len(input)
   assert count > 1, "At least two input rasters are required to compute the mean."
 
   # load rasters
   rasters: list[xarray.DataArray] = []
-  for (i, input) in enumerate(inputs):
+  for (i, file) in enumerate(input):
     try:
-      logger.info(f'Loading raster {i+1}/{count}... {input}')
-      r = rioxarray.open_rasterio(input)
+      logger.info(f'Loading raster {i+1}/{count}... {file}')
+      r = rioxarray.open_rasterio(file)
     except Exception as e:
-      raise RuntimeError(f'Could not read raster file: {input}') from e
+      raise RuntimeError(f'Could not read raster file: {file}') from e
     if not isinstance(r, xarray.DataArray):
-      raise RuntimeError(f'Raster does not contain DataArray: {input}')
+      raise RuntimeError(f'Raster does not contain DataArray: {file}')
     if not crs:
       logger.info(f'Target CRS set to first raster: {shared.rio(r).crs}')
       crs = shared.rio(r).crs
@@ -81,7 +81,7 @@ def means(
   # update attributes
   mean_raster.attrs.update({
     'description': f'Mean of {count} rasters',
-    'input_files': list(map(str, inputs)),
+    'input_files': list(map(str, input)),
     'long_name': long_name,
     'processing_date': shared.timestamp(),
   })

@@ -1,13 +1,13 @@
+from . import shared
 from rasterio.enums import Resampling
 import logging
 import pathlib
 import rioxarray
-import smart_hab.shared as shared
 import typing
 import xarray
 
 def subtract(
-  inputs: tuple[pathlib.Path, pathlib.Path],
+  input: tuple[pathlib.Path | typing.BinaryIO, pathlib.Path | typing.BinaryIO],
   output: pathlib.Path,
   bands: list[int] | None,
   crs: str | None,
@@ -17,12 +17,12 @@ def subtract(
   
   # load first raster
   try:
-    logger.info(f'Loading base raster... {inputs[0]}')
-    r1 = rioxarray.open_rasterio(inputs[0])
+    logger.info(f'Loading base raster... {input[0]}')
+    r1 = rioxarray.open_rasterio(input[0])
   except Exception as e:
-    raise RuntimeError(f'Could not read raster file: {inputs[0]}') from e
+    raise RuntimeError(f'Could not read raster file: {input[0]}') from e
   if not isinstance(r1, xarray.DataArray):
-    raise RuntimeError(f'Raster does not contain DataArray: {inputs[0]}')
+    raise RuntimeError(f'Raster does not contain DataArray: {input[0]}')
   if not crs:
     logger.info(f'Target CRS set to: {shared.rio(r1).crs}')
     crs = shared.rio(r1).crs
@@ -34,12 +34,12 @@ def subtract(
 
   # load second raster
   try:
-    logger.info(f'Loading subtraction raster... {inputs[1]}')
-    r2 = rioxarray.open_rasterio(inputs[1])
+    logger.info(f'Loading subtraction raster... {input[1]}')
+    r2 = rioxarray.open_rasterio(input[1])
   except Exception as e:
-    raise RuntimeError(f'Could not read raster file: {inputs[1]}') from e
+    raise RuntimeError(f'Could not read raster file: {input[1]}') from e
   if not isinstance(r2, xarray.DataArray):
-    raise RuntimeError(f'Raster does not contain DataArray: {inputs[1]}')
+    raise RuntimeError(f'Raster does not contain DataArray: {input[1]}')
   if shared.rio(r2).crs != crs:
     logger.info(f'Reprojecting CRS... {shared.rio(r2).crs} -> {crs}')
     r2 = shared.rio(r2).reproject(crs, resampling=resampling)
@@ -66,8 +66,8 @@ def subtract(
   
   # update attributes
   diff_raster.attrs.update({
-    'description': f'Computed difference between {inputs[0].name} and {inputs[1].name}',
-    'input_files': list(map(str, inputs)),
+    'description': f'Computed difference between {input[0].name} and {input[1].name}',
+    'input_files': list(map(str, input)),
     'long_name': long_name,
     'processing_date': shared.timestamp(),
   })

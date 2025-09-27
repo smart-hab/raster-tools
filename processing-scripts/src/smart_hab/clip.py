@@ -1,11 +1,12 @@
+from . import shared
 import logging
 import pathlib
 import rasterio
-import smart_hab.shared as shared
+import typing
 
 def clip( 
-  input: pathlib.Path,
-  shape: pathlib.Path,
+  input: pathlib.Path | typing.BinaryIO,
+  shape: pathlib.Path | typing.BinaryIO,
   output: pathlib.Path,
   crs: str | None,
   logger: logging.Logger,

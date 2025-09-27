@@ -1,26 +1,20 @@
+from . import shared
 import geopandas as gpd
 import json
 import logging
 import pathlib
 import rasterio
+import typing
 
 def convert_shape(
-  input: pathlib.Path,
+  input: pathlib.Path | typing.BinaryIO,
   output: pathlib.Path,
   crs: str | None,
   logger: logging.Logger,
 ) -> None:
 
-  # shape
-  try:
-    logger.info(f'Loading shape... {input}')
-    oldshape = gpd.read_file(input)
-  except Exception as e:
-    raise RuntimeError(f'Could not read shape file: {input}') from e
-
-  # type check
-  if not isinstance(oldshape, gpd.GeoDataFrame):
-    raise RuntimeError(f'Not pandas GeoDataFrame type: {input}')
+  # oldshape
+  oldshape = shared.load_shape(input, crs=None)
 
   # crs conversion
   if crs and oldshape.crs != crs:
@@ -33,12 +27,10 @@ def convert_shape(
   except:
     raise RuntimeError(f'Could not read geometry coordinates of dataframe')
 
-  # geojson
-  geojson = json.dumps(newshape)
-
   # save
   try:
     logger.info(f'Saving GeoJSON... {output}')
+    geojson = json.dumps(newshape, indent=2)
     with open(output, 'w') as file:
       file.write(geojson)
   except Exception as e:

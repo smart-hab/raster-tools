@@ -4,12 +4,15 @@ requires = ["hatchling"]
 
 [project]
 dependencies = [
+    "fastapi>=0.116.0",
     "geopandas>=1.0.1",
     "matplotlib>=3.10.1",
     "pyrefly>=0.33.1",
+    "python-multipart>=0.0.20",
     "rasterio>=1.4.3",
     "rioxarray>=0.18.2",
     "scikit-learn>=1.6.1",
+    "uvicorn>=0.37.0",
 ]
 description = "Assorted tools for processing and visualizing hazardous algae blooms"
 name = "smart_hab"

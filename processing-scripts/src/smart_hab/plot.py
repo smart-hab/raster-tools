@@ -1,11 +1,12 @@
+from . import shared
 import logging
 import numpy
 import matplotlib.pyplot as plt
 import pathlib
-import smart_hab.shared as shared
+import typing
 
 def plot1(
-  input: pathlib.Path,
+  input: pathlib.Path | typing.BinaryIO,
   output: pathlib.Path,
   band: int,
   alpha: float,
@@ -46,7 +47,7 @@ def plot1(
   logger.info(f'Done')
 
 def plot3(
-  input: pathlib.Path,
+  input: pathlib.Path | typing.BinaryIO,
   output: pathlib.Path,
   bands: tuple[int, int, int],
   alpha: float,
