@@ -19,10 +19,11 @@ def setup_logger(name: str, verbose: bool = False) -> logging.Logger:
     logger.setLevel(logging.DEBUG)
   else:
     logger.setLevel(logging.WARNING)
-  handler = logging.StreamHandler(sys.stderr)
-  formatter = logging.Formatter('[%(levelname)s] %(message)s')
-  handler.setFormatter(formatter)
-  logger.addHandler(handler)
+  if not logger.hasHandlers():
+    handler = logging.StreamHandler(sys.stderr)
+    formatter = logging.Formatter('[%(levelname)s] %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
   return logger
 
 def get_date(filename: str) -> typing.Optional[str]:
