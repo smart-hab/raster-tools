@@ -38,3 +38,6 @@ packages = ["src/smart_hab"]
 
 [tool.pyrefly]
 project-includes = ["src/**/*"]
+
+[tool.ruff]
+line-length = 100

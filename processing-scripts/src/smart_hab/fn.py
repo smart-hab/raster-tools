@@ -10,16 +10,16 @@ from .plot import plot1, plot3
 from .subtract import subtract
 
 __all__ = [
-  "about_raster",
-  "about_shape",
-  "clip",
-  "convert_shape",
-  "kmeans_classify",
-  "kmeans_fit",
-  "mask",
-  "means",
-  "norm_diff",
-  "plot1",
-  "plot3",
-  "subtract",
+    "about_raster",
+    "about_shape",
+    "clip",
+    "convert_shape",
+    "kmeans_classify",
+    "kmeans_fit",
+    "mask",
+    "means",
+    "norm_diff",
+    "plot1",
+    "plot3",
+    "subtract",
 ]
