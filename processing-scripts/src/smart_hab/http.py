@@ -1,20 +1,22 @@
+import pathlib
+import tempfile
+from typing import Optional, cast
+
 from fastapi import (
     APIRouter,
-    FastAPI,
-    UploadFile,
-    File,
-    Query,
-    HTTPException,
     Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
     Request,
+    UploadFile,
 )
 from fastapi.responses import JSONResponse
 from rasterio.enums import Resampling
-from typing import Optional, cast
+
 from . import fn
 from .shared import Dtype, setup_logger
-import pathlib
-import tempfile
 
 
 class Context:
@@ -269,6 +271,7 @@ async def subtract(
 def server() -> None:
     import argparse
     import os
+
     import uvicorn
 
     # command line arguments

@@ -1,7 +1,8 @@
-from . import shared
 import logging
 import pathlib
 import typing
+
+from . import shared
 
 
 def norm_diff(

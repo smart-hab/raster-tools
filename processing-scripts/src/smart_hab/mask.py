@@ -1,8 +1,10 @@
-from . import shared
 import logging
 import pathlib
-import rasterio
 import typing
+
+import rasterio
+
+from . import shared
 
 
 def mask(

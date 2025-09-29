@@ -1,8 +1,9 @@
-from . import shared
 import json
 import logging
 import pathlib
 import typing
+
+from . import shared
 
 
 def convert_shape(

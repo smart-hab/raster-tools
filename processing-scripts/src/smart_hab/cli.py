@@ -1,10 +1,11 @@
-from typing import cast
+import argparse
+import json
+import os
 from pathlib import Path
+from typing import cast
+
 from . import fn
 from .shared import Dtype, dtypes, setup_logger
-import argparse
-import os
-import json
 
 
 def about() -> None:

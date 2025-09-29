@@ -1,9 +1,11 @@
-from . import shared
 import logging
-import numpy as np
 import pathlib
-import rasterio
 import typing
+
+import numpy as np
+import rasterio
+
+from . import shared
 
 
 def kmeans_classify(

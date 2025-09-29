@@ -1,9 +1,11 @@
-from . import shared
 import logging
-import numpy
-import matplotlib.pyplot as plt
 import pathlib
 import typing
+
+import matplotlib.pyplot as plt
+import numpy
+
+from . import shared
 
 
 def plot1(

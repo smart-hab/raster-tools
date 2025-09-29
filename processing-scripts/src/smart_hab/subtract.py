@@ -1,10 +1,12 @@
-from . import shared
-from rasterio.enums import Resampling
 import logging
 import pathlib
-import rioxarray
 import typing
+
+import rioxarray
 import xarray
+from rasterio.enums import Resampling
+
+from . import shared
 
 
 def subtract(

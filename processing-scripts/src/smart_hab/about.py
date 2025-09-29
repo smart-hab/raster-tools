@@ -1,7 +1,8 @@
-from typing import TypedDict, Any, Hashable, BinaryIO
-from . import shared
 import logging
 import pathlib
+from typing import Any, BinaryIO, Hashable, TypedDict
+
+from . import shared
 
 
 class ShapeInfo(TypedDict):

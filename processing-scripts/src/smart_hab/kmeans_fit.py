@@ -1,9 +1,11 @@
-from sklearn.cluster import KMeans
-from . import shared
 import logging
-import numpy as np
 import pathlib
 import typing
+
+import numpy as np
+from sklearn.cluster import KMeans
+
+from . import shared
 
 
 def kmeans_fit(
