@@ -1,7 +1,7 @@
 from fastapi import APIRouter, FastAPI, UploadFile, File, Form, Query, HTTPException, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse
 from rasterio.enums import Resampling
-from typing import cast, Optional
+from typing import Optional, cast
 from . import fn
 from .shared import Dtype, setup_logger
 import json
@@ -23,7 +23,7 @@ router = APIRouter()
 async def about(
   input: UploadFile = File(...),
   verbose: bool = Query(False),
-):
+) -> JSONResponse:
   if not input.filename:
     raise HTTPException(status_code=400, detail="Input file must have a filename")
   suffix = pathlib.Path(input.filename).suffix.lower()
@@ -44,9 +44,9 @@ async def clip(
   crs: Optional[str] = Query(None),
   verbose: bool = Query(False),
   context: Context = Depends(get_context),
-):
-  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.tif') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+) -> JSONResponse:
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.tif') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('clip_http', verbose)
   fn.clip(
     input=input.file,
@@ -61,10 +61,11 @@ async def clip(
 async def convert_shape(
   input: UploadFile = File(...),
   crs: Optional[str] = Query(None),
-  verbose: bool = Query(False)
-):
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.geojson') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  verbose: bool = Query(False),
+  context: Context = Depends(get_context),
+) -> JSONResponse:
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.geojson') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('convert_shape_http', verbose)
   fn.convert_shape(
     input=input.file,
@@ -74,17 +75,16 @@ async def convert_shape(
   )
   return JSONResponse({ 'output': str(output) })
 
-import numpy as np
-
 @router.post("/kmeans_classify")
 async def kmeans_classify(
   input: UploadFile = File(...),
   clusters: UploadFile = File(...),
   band: int = Query(1),
-  verbose: bool = Query(False)
+  verbose: bool = Query(False),
+  context: Context = Depends(get_context),
 ) -> JSONResponse:
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.tif') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.tif') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('kmeans_classify_http', verbose)
   fn.kmeans_classify(
     input=input.file,
@@ -103,10 +103,11 @@ async def kmeans_fit(
   times: int = Query(5),
   random: int | None = Query(None),
   verbose: bool = Query(False),
+  context: Context = Depends(get_context),
 ) -> JSONResponse:
   logger = setup_logger('kmeans_fit_http', verbose)
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.npy') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.npy') as tmp:
+    output = pathlib.Path(tmp.name)
   fn.kmeans_fit(
     input=list(x.file for x in input),
     output=output,
@@ -124,10 +125,11 @@ async def mask(
   udm2: UploadFile = File(...),
   bands: list[int] = Query([3,6]),
   crs: Optional[str] = Query(None),
-  verbose: bool = Query(False)
+  verbose: bool = Query(False),
+  context: Context = Depends(get_context),
 ) -> JSONResponse:
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.tif') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.tif') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('mask_http', verbose)
   fn.mask(
     input=input.file,
@@ -145,10 +147,11 @@ async def means(
   bands: Optional[list[int]] = Query(None),
   crs: Optional[str] = Query(None),
   resampling: str = Query('bilinear'),
-  verbose: bool = Query(False)
+  verbose: bool = Query(False),
+  context: Context = Depends(get_context),
 ) -> JSONResponse:
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.tif') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.tif') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('means_http', verbose)
   fn.means(
     input=[f.file for f in input],
@@ -168,10 +171,11 @@ async def plot(
   filter: tuple[float, float] = Query((0.5, 99.5)),
   dpi: int = Query(300),
   cmap: str = Query('viridis'),
-  verbose: bool = Query(False)
+  verbose: bool = Query(False),
+  context: Context = Depends(get_context),
 ) -> JSONResponse:
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.png') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.png') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('plot_http', verbose)
   match bands:
     case (band,):
@@ -208,10 +212,11 @@ async def norm_diff(
   crs: Optional[str] = Query(None),
   filter: tuple[float, float] = Query((1.0, 99.0)),
   dtype: Dtype = Query('uint16'),
-  verbose: bool = Query(False)
+  verbose: bool = Query(False),
+  context: Context = Depends(get_context),
 ) -> JSONResponse:  
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.tif') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.tif') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('norm_diff_http', verbose)
   fn.norm_diff(
     input=input.file,
@@ -231,10 +236,11 @@ async def subtract(
   bands: Optional[list[int]] = Query(None),
   crs: Optional[str] = Query(None),
   resampling: str = Query('bilinear'),
-  verbose: bool = Query(False)
+  verbose: bool = Query(False),
+  context: Context = Depends(get_context),
 ) -> JSONResponse:
-  with tempfile.NamedTemporaryFile(delete=False, dir='tmp', suffix='.tif') as tmp_o:
-    output = pathlib.Path(tmp_o.name)
+  with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix='.tif') as tmp:
+    output = pathlib.Path(tmp.name)
   logger = setup_logger('subtract_http', verbose)
   fn.subtract(
     input=(input[0].file, input[1].file),
@@ -245,7 +251,6 @@ async def subtract(
     resampling=getattr(Resampling, resampling.lower())
   )
   return JSONResponse({ 'output': str(output) })
-
 
 def server() -> None:
   import argparse
