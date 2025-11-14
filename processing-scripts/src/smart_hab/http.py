@@ -275,8 +275,8 @@ async def subtract(
 def server() -> None:
     import argparse
     import os
-
     import uvicorn
+    from fastapi.middleware.cors import CORSMiddleware
 
     # command line arguments
     p = argparse.ArgumentParser(
@@ -295,7 +295,17 @@ def server() -> None:
     tmp_dir = pathlib.Path(os.getcwd()) / cast(str, args.tmp_dir)
     assert tmp_dir.exists() and tmp_dir.is_dir(), f"Temporary directory does not exist: {tmp_dir}"
     # fastapi server
+
     app = FastAPI()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:8001",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.tmp_dir = tmp_dir
     app.include_router(router)
     uvicorn.run(app, host=args.host, port=args.port)
