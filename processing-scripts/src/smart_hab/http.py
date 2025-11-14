@@ -2,6 +2,7 @@ import pathlib
 import tempfile
 from typing import Optional, cast
 
+import pydantic
 from fastapi import (
     APIRouter,
     Depends,
@@ -12,11 +13,15 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import JSONResponse
 from rasterio.enums import Resampling
 
 from . import fn
+from .about import RasterInfo, ShapeInfo
 from .shared import Dtype, setup_logger
+
+
+class FileResponse(pydantic.BaseModel):
+    output: str
 
 
 class Context:
@@ -37,19 +42,18 @@ router = APIRouter()
 async def about(
     input: UploadFile = File(...),
     verbose: bool = Query(False),
-) -> JSONResponse:
+) -> ShapeInfo | RasterInfo:
     if not input.filename:
         raise HTTPException(status_code=400, detail="Input file must have a filename")
     suffix = pathlib.Path(input.filename).suffix.lower()
     logger = setup_logger("about_http", verbose)
     match suffix:
         case ".shp" | ".geojson":
-            info = fn.about_shape(input=input.file, logger=logger)
+            return fn.about_shape(input=input.file, logger=logger)
         case ".tif" | ".tiff":
-            info = fn.about_raster(input=input.file, logger=logger)
+            return fn.about_raster(input=input.file, logger=logger)
         case _:
             raise HTTPException(status_code=400, detail=f"Unsupported file format: {suffix}")
-    return JSONResponse(info)
 
 
 @router.post("/clip")
@@ -59,12 +63,12 @@ async def clip(
     crs: Optional[str] = Query(None),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".tif") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("clip_http", verbose)
     fn.clip(input=input.file, shape=shape.file, output=output, crs=crs, logger=logger)
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/convert_shape")
@@ -73,12 +77,12 @@ async def convert_shape(
     crs: Optional[str] = Query(None),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".geojson") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("convert_shape_http", verbose)
     fn.convert_shape(input=input.file, output=output, crs=crs, logger=logger)
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/kmeans_classify")
@@ -88,7 +92,7 @@ async def kmeans_classify(
     band: int = Query(1),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".tif") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("kmeans_classify_http", verbose)
@@ -99,7 +103,7 @@ async def kmeans_classify(
         band=band,
         logger=logger,
     )
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/kmeans_fit")
@@ -111,7 +115,7 @@ async def kmeans_fit(
     random: int | None = Query(None),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     logger = setup_logger("kmeans_fit_http", verbose)
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".npy") as tmp:
         output = pathlib.Path(tmp.name)
@@ -124,7 +128,7 @@ async def kmeans_fit(
         random=random,
         logger=logger,
     )
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/mask")
@@ -135,7 +139,7 @@ async def mask(
     crs: Optional[str] = Query(None),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".tif") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("mask_http", verbose)
@@ -147,7 +151,7 @@ async def mask(
         crs=crs,
         logger=logger,
     )
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/means")
@@ -158,7 +162,7 @@ async def means(
     resampling: str = Query("bilinear"),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".tif") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("means_http", verbose)
@@ -170,7 +174,7 @@ async def means(
         logger=logger,
         resampling=getattr(Resampling, resampling.lower()),
     )
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/plot")
@@ -183,7 +187,7 @@ async def plot(
     cmap: str = Query("viridis"),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".png") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("plot_http", verbose)
@@ -215,7 +219,7 @@ async def plot(
                 status_code=400,
                 detail=f"Invalid band selection: ({bands}). Must be 1 or 3 bands.",
             )
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/norm_diff")
@@ -228,7 +232,7 @@ async def norm_diff(
     dtype: Dtype = Query("uint16"),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".tif") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("norm_diff_http", verbose)
@@ -242,7 +246,7 @@ async def norm_diff(
         dtype=dtype,
         logger=logger,
     )
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 @router.post("/subtract")
@@ -253,7 +257,7 @@ async def subtract(
     resampling: str = Query("bilinear"),
     verbose: bool = Query(False),
     context: Context = Depends(get_context),
-) -> JSONResponse:
+) -> FileResponse:
     with tempfile.NamedTemporaryFile(delete=False, dir=context.tmp_dir, suffix=".tif") as tmp:
         output = pathlib.Path(tmp.name)
     logger = setup_logger("subtract_http", verbose)
@@ -265,7 +269,7 @@ async def subtract(
         logger=logger,
         resampling=getattr(Resampling, resampling.lower()),
     )
-    return JSONResponse({"output": str(output)})
+    return FileResponse(output=str(output))
 
 
 def server() -> None:

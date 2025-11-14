@@ -1,17 +1,19 @@
 import logging
 import pathlib
-from typing import Any, BinaryIO, Hashable, TypedDict
+from typing import Any, BinaryIO, Hashable
+
+from pydantic import BaseModel
 
 from . import shared
 
 
-class ShapeInfo(TypedDict):
+class ShapeInfo(BaseModel):
     crs: str
     bounds: tuple[float, float, float, float]
     geometry: str
 
 
-class RasterInfo(TypedDict):
+class RasterInfo(BaseModel):
     attributes: dict[str, Any]
     bands: dict[int, str]
     bounds: tuple[float, float, float, float]
@@ -33,16 +35,16 @@ def about_shape(
     logger.info(f"Loading shape... {input}")
     shape = shared.load_shape(input)
     bounds = shape.bounds
-    return {
-        "crs": str(shape.crs),
-        "bounds": (
+    return ShapeInfo(
+        crs=str(shape.crs),
+        bounds=(
             float(bounds.minx[0]),
             float(bounds.miny[0]),
             float(bounds.maxx[0]),
             float(bounds.maxy[0]),
         ),
-        "geometry": str(shape.geometry.type[0]),
-    }
+        geometry=str(shape.geometry.type[0]),
+    )
 
 
 def about_raster(
@@ -52,20 +54,20 @@ def about_raster(
     logger.info(f"Loading raster... {input}")
     raster = shared.load_raster(input)
     rio = shared.rio(raster)
-    return {
-        "attributes": serialize_raster_attributes(raster.attrs),
-        "bands": shared.raster_bands(raster),
-        "bounds": rio.bounds(),
-        "crs": str(rio.crs),
-        "dimensions": tuple(map(str, raster.dims)),
-        "dtype": str(raster.dtype),
-        "nodata": float(rio.nodata) if rio.nodata is not None else None,
-        "pixels": raster.size,
-        "resolution": rio.resolution(),
-        "shape": tuple(raster.shape),
-        "size_mb": raster.nbytes / (1024 * 1024),
-        "transform": tuple(rio.transform()),
-    }
+    return RasterInfo(
+        attributes=serialize_raster_attributes(raster.attrs),
+        bands=shared.raster_bands(raster),
+        bounds=rio.bounds(),
+        crs=str(rio.crs),
+        dimensions=tuple(map(str, raster.dims)),
+        dtype=str(raster.dtype),
+        nodata=float(rio.nodata) if rio.nodata is not None else None,
+        pixels=raster.size,
+        resolution=rio.resolution(),
+        shape=tuple(raster.shape),
+        size_mb=raster.nbytes / (1024 * 1024),
+        transform=tuple(rio.transform()),
+    )
 
 
 def serialize_raster_attributes(attrs: dict[Hashable, Any]) -> dict[str, Any]:

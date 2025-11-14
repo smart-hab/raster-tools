@@ -40,11 +40,11 @@ def about() -> None:
             raise RuntimeError(f"Unsupported file format: {suffix}")
     # property
     if args.property:
-        info = info.get(cast(str, args.property), None)
+        info = getattr(info, cast(str, args.property), None)
         if info is None:
             raise RuntimeError(f"Property not found: {args.property}")
     # output
-    print(json.dumps(info, indent=2))
+    print(json.dumps(info.model_dump(), indent=2))
 
 
 def clip() -> None:
