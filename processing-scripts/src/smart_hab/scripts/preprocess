@@ -1,0 +1,313 @@
+#!/usr/bin/env bash
+
+# usage: preprocess config <config_file> <workspace_dir>
+# usage: preprocess run <config_file>
+
+# global vars
+config=""
+workspace=""
+shape_file=""
+mask_bands=""
+files=""
+
+function main {
+	# invariant: at least one argument is provided
+	if [ "$#" -lt 1 ]; then
+		echo "Usage: preprocess config <config_file> <workspace_dir>"
+		echo "       preprocess run    <config_file>"
+		exit 1
+	fi
+
+	# parse subcommand and shift arguments
+	local subcommand="$1"
+	shift
+
+	# parse subcommand arguments
+	case "$subcommand" in
+		"config") subcommand_config "$@" ;;
+		"run") subcommand_run "$@" ;;
+		*)
+			echo "Usage: preprocess config <config_file> <workspace_dir>"
+			echo "       preprocess run    <config_file>"
+			exit 1
+			;;
+	esac
+}
+
+function validate_config {
+	if [ "$workspace" = "" ] ||
+		[ "$shape_file" = "" ] ||
+		[ "$mask_bands" = "" ] ||
+		[ "$files" = "" ]; then
+		echo "# ✘ Invalid config file \"$config\", missing required variables, aborting." |
+			gum format
+		exit 1
+	fi
+}
+
+function subcommand_config {
+
+	# local vars
+	local action="Choose"
+
+	# parse arguments
+	case "$#" in
+
+		# create new configuration file
+		2)
+			action="Choose"
+			config="$1"
+			workspace="$2"
+			[ -f "$config" ] && source "$config" && validate_config
+			# invariant: matching workspace in config and argument
+			if [ "$2" != "" ] && [ "$workspace" != "$2" ]; then
+				echo "# ✘ Config mismatch: \"$config\" is already configured for workspace \"$workspace\"" |
+					gum format
+				if ! gum confirm "Are you sure you want to overwrite \"$config\"?" --negative="Cancel"; then
+					echo "# ✘ Aborted." |
+						gum format
+					exit 1
+				fi
+			fi
+			;;
+
+		# edit existing configuration file
+		1)
+			if [ ! -f "$1" ]; then
+				echo "# ✘ Config file \"$1\" not found, aborting." |
+					gum format
+				exit 1
+			fi
+			action="Edit"
+			config="$1"
+			source "$config" && validate_config
+			;;
+
+		# invalid usage
+		*)
+			echo "Usage: preprocess config <config_file> <workspace_dir>"
+			exit 1
+			;;
+	esac
+
+	# ensure workspace is present
+	if [ ! -d "$workspace" ]; then
+		echo "# ✘ Workspace directory \"$workspace\" not found, aborting." |
+			gum format
+		exit 1
+	fi
+
+	# list available shapes and files in workspace
+	local shapes_available=$(
+		find "$workspace" \
+			\( -type l -o -type f \) \
+			\( -iname "*.geojson" -o -iname "*.shp" \) |
+			sed "s:^$workspace/::" |
+			sort
+	)
+
+	# abort if no shapes found
+	if [ "$shapes_available" = "" ]; then
+		echo "# ✘ No shape files found in workspace \"$workspace\", aborting." |
+			gum format
+		exit 1
+	fi
+
+	# let user select shape file
+	shape_file=$(
+		echo "$shapes_available" |
+			gum filter \
+				--header="[1/3] $action a shape file... \"$shape_file\"" \
+				--indicator=">" \
+				--no-fuzzy \
+				--no-fuzzy-sort \
+				--prompt=""
+	)
+
+	# abort if no shape file selected
+	if [ "$shape_file" = "" ]; then
+		echo "No shape file selected, aborting."
+		exit 1
+	fi
+
+	# let user select mask bands
+	mask_bands=$(
+		gum filter \
+			"clears" \
+			"cloud" \
+			"confidence" \
+			"heavy haze" \
+			"light haze" \
+			"shadow" \
+			"snow" \
+			"unusable" \
+			--header="[2/3] $action mask bands... $(echo -n "$mask_bands" | tr "\n" ",")" \
+			--indicator=">" \
+			--no-fuzzy \
+			--no-fuzzy-sort \
+			--no-limit \
+			--prompt="" \
+			--selected="$(echo -n "${mask_bands:-$'cloud\nshadow'}" | tr "\n" ",")" \
+			--selected-prefix=" ◼︎ " \
+			--unselected-prefix=" ◻︎ "
+	)
+
+	# list available files in workspace
+	local files_available=$(
+		find "$workspace" \
+			\( -type l -o -type f \) |
+			sed "s:^$workspace/::" |
+			sort
+	)
+
+	# abort if no files found
+	if [ "$files_available" = "" ]; then
+		echo "# ✘ No files found in workspace \"$workspace\", aborting." |
+			gum format
+		exit 1
+	fi
+
+	# let user select files
+	files=$(
+		echo "$files_available" |
+			sort |
+			gum filter \
+				--header="[3/3] $action rasters..." \
+				--indicator=">" \
+				--no-fuzzy \
+				--no-fuzzy-sort \
+				--no-limit \
+				--prompt="" \
+				--selected="$(echo -n "$files" | tr "\n" ",")" \
+				--selected-prefix=" ◼︎ " \
+				--unselected-prefix=" ◻︎ "
+	)
+
+	# abort if no files selected
+	if [ "$files" = "" ]; then
+		echo "# ✘ No files selected, aborting." |
+			gum format
+		exit 1
+	else
+		files=$(echo "$files" | sort)
+	fi
+
+	# show summary and confirm
+	gum format -- \
+		"# workspace" "$workspace" \
+		"# shape_file" "$shape_file" \
+		"# mask_bands" "$mask_bands" \
+		"# files" "$files" |
+		gum pager
+
+	typeset -p workspace shape_file mask_bands files
+
+	# confirm save and write to file or abort
+	if gum confirm "Save config to \"$config\"?" --negative="Cancel"; then
+		typeset -p workspace shape_file mask_bands files >"$config"
+		if [ $? -eq 0 ]; then
+			echo "# ✔︎ Preprocessing config saved to \"$config\"" |
+				gum format
+		else
+			echo "# ✘ Failed to save config to \"$config\", aborting." |
+				gum format
+			exit 1
+		fi
+	else
+		echo "# ✘ Preprocessing config aborted" |
+			gum format
+	fi
+}
+
+function subcommand_run {
+	# invariant: exactly one argument is provided
+	if [ "$#" -ne 1 ]; then
+		echo "Usage: preprocess run <config_file>"
+		exit 1
+	fi
+
+	# load config
+	config="$1"
+	if [ ! -f "$config" ]; then
+		echo "# ✘ Config file \"$config\" not found, aborting." |
+			gum format
+		exit 1
+	fi
+	source "$config" && validate_config
+
+	# convert mask bands to array of band numbers
+	local mask_bands_array=()
+	local band
+	if [ "$mask_bands" != "" ]; then
+		while IFS= read -r band; do
+			case "$band" in
+				"clears") mask_bands_array+=("1") ;;
+				"cloud") mask_bands_array+=("6") ;;
+				"confidence") mask_bands_array+=("7") ;;
+				"heavy haze") mask_bands_array+=("5") ;;
+				"light haze") mask_bands_array+=("4") ;;
+				"shadow") mask_bands_array+=("3") ;;
+				"snow") mask_bands_array+=("2") ;;
+				"unusable") mask_bands_array+=("8") ;;
+				*)
+					echo "# ✘ Unknown mask band \"$band\" selected, aborting." | gum format
+					exit 1
+					;;
+			esac
+		done <<<"$mask_bands"
+	fi
+
+	echo "# Preprocessing $(wc -l <<<"$files" | xargs) files with config \"$config\" ..." |
+		gum format
+
+	while IFS= read -r file; do
+		preprocess_single_raster "$workspace/$file" "$workspace/$shape_file"
+	done <<<"$files"
+}
+
+function preprocess_single_raster {
+	# 1: raster
+	# 2: shape
+	local tifudm2="${1%.tif}_udm2.tif"
+	local tifclip="${1%.tif}_clipped.tif"
+	local tifmask="${tifclip%.tif}_masked.tif"
+	local tifndci="${tifmask%.tif}_ndci.tif"
+	local tifndvi="${tifmask%.tif}_ndvi.tif"
+	echo "$1" | gum format
+	BASH_ENV="$0" gum spin --show-error --title "$tifclip" -- bash -c "preprocess_clip \"$1\" \"$tifclip\" \"$2\""
+	BASH_ENV="$0" gum spin --show-error --title "$tifmask" -- bash -c "preprocess_mask \"$tifclip\" \"$tifmask\" \"$tifudm2\""
+	BASH_ENV="$0" gum spin --show-error --title "$tifndci" -- bash -c "preprocess_diff \"$tifmask\" \"$tifndci\" 7 6"
+	BASH_ENV="$0" gum spin --show-error --title "$tifndvi" -- bash -c "preprocess_diff \"$tifmask\" \"$tifndvi\" 8 6"
+}
+
+function preprocess_clip {
+	# 1: input
+	# 2: output
+	# 3: shape
+	local pngfile="${2%.tif}.png"
+	[ ! -f "$2" ] && clip -i "$1" -o "$2" -s "$3"
+	[ ! -f "$pngfile" ] && plot --rgb 6 4 2 -i "$2" -o "$pngfile"
+}
+
+function preprocess_mask {
+	# 1: input
+	# 2: output
+	# 3: udm
+	local pngfile="${2%.tif}.png"
+	[ ! -f "$2" ] && mask -i "$1" -u "$3" -o "$2"
+	[ ! -f "$pngfile" ] && plot --rgb 6 4 2 -i "$2" -o "$pngfile"
+}
+
+function preprocess_diff {
+	# 1: input
+	# 2: output
+	# 3: band1
+	# 4: band2
+	local pngfile="${2%.tif}.png"
+	[ ! -f "$2" ] && norm_diff -i "$1" -o "$2" -b "$3" "$4"
+	[ ! -f "$pngfile" ] && plot -i "$2" -o "$pngfile"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	main "$@"
+fi

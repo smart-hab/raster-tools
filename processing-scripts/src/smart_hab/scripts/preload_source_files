@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+# usage: preload_source_files <src_dir> <dest_dir> [<file_pattern>...]
+
+function main {
+	# Check if at least two arguments are provided
+	if [ $# -lt 2 ]; then
+		gum format -- \
+			"# ✘ Error: At least two arguments required" \
+			"Usage: preload_source_files src_dir dest_dir [file_pattern...]" \
+			"  Default patterns: composite.tif composite_udm2.tif composite_metadata.json"
+		exit 1
+	fi
+
+	# Source and destination directories from arguments
+	# Remove trailing slashes if present
+	local source_dir="$(remove_trailing_slashes "$1")"
+	local dest_dir="$(remove_trailing_slashes "$2")"
+	shift 2 # Remove first two arguments, leaving file patterns
+
+	# Check if source directory exists
+	if [ ! -d "$source_dir" ]; then
+		echo "Error: Source directory '$source_dir' does not exist"
+		exit 1
+	fi
+	# Check if destination directory exists, if not create it
+	if [ -d "$dest_dir" ]; then
+		if ! gum confirm "Destination directory already exists $dest_dir. Continue?"; then
+			echo "# ✘ Preloading source files aborted" |
+				gum format
+			exit 1
+		fi
+	else
+		mkdir -p "$dest_dir"
+		echo "# ✔︎ Created destination directory $dest_dir" |
+			gum format
+	fi
+
+	# Get the base name of the source directory (e.g., "TurtleCreek")
+	local source_base=$(basename "$source_dir")
+
+	# Set default file patterns if none provided
+	if [ $# -eq 0 ]; then
+		set -- "composite.tif" "composite_udm2.tif" "composite_metadata.json"
+	fi
+
+	# Preview
+	echo "$(for pattern in "$@"; do
+		echo "# $pattern"
+		find "$source_dir" -type f -iname "$pattern" |
+			sort |
+			sed "s:^$source_dir/::"
+	done)" |
+		gum format |
+		gum pager
+
+	if ! gum confirm "Create  links and continue?"; then
+		echo "# ✘ Preloading source files aborted" |
+			gum format
+		exit 1
+	fi
+
+	# Loop through each file pattern
+	local pattern
+	local file
+	for pattern in "$@"; do
+		echo "# ✔︎ Linking \"$pattern\"..." | gum format
+		find "$source_dir" -type f -iname "$pattern" | sort | while read -r file; do
+			# Get the relative path from source_dir
+			local file_rel="${file#"$source_dir"/}"
+
+			# Remove the source_base prefix and first hyphen
+			local temp="${file_rel#"${source_base}"-}"
+
+			# Extract just the 8-digit date (YYYYMMDD)
+			local date="${temp:0:8}"
+
+			# Get the base filename
+			local file_base="$(basename "$file")"
+
+			# Construct the new filename with date prefix
+			local file_dest="${date}_${file_base}"
+
+			# Full path for the symbolic link
+			local link_path="$dest_dir/$file_dest"
+
+			# Create symbolic link only if it doesn't exist
+			if [ ! -e "$link_path" ] || [ -L "$link_path" ]; then
+				ln -sf "$file" "$link_path"
+				echo "$file_dest\n→ $file_rel" | gum format
+			else
+				echo "# ✘ $file_dest already exists" | gum format
+			fi
+		done
+
+	done
+
+	echo "# ✔︎ Done! Links created in \"$dest_dir\"" | gum format
+}
+
+
+function remove_trailing_slashes {
+	local path="$1"
+	while [ "${path%/}" != "$path" ]; do
+		path="${path%/}"
+	done
+	echo "$path"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	main "$@"
+fi
