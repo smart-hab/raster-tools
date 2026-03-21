@@ -25,6 +25,10 @@ struct RasterToolsApp: App {
         }
     }()
 
+    init() {
+        BookmarkManager.shared.restoreAllBookmarks()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

@@ -176,7 +176,7 @@ struct NewConfigurationSheet: View {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.message = "Select workspace directory for \(toolType.rawValue)"
-        
+
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             workspacePath = url.path(percentEncoded: false)
@@ -186,6 +186,26 @@ struct NewConfigurationSheet: View {
                 let prefix = toolType == .kmeans ? "kmeans" : "preprocess"
                 configName = "\(prefix)_\(url.lastPathComponent)"
             }
+
+            // Prompt for the parent folder so the app retains access after relaunch
+            let parentURL = url.deletingLastPathComponent()
+            self.requestParentFolderAccess(for: parentURL)
+        }
+    }
+
+    private func requestParentFolderAccess(for parentURL: URL) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = parentURL
+        panel.prompt = "Grant Access"
+        panel.message = "Allow RasterTools to access \"\(parentURL.lastPathComponent)\" so it can read files after relaunch."
+
+        panel.begin { response in
+            guard response == .OK, let granted = panel.url else { return }
+            BookmarkManager.shared.saveBookmark(for: granted)
+            _ = granted.startAccessingSecurityScopedResource()
         }
     }
 }
