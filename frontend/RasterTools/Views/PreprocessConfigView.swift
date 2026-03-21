@@ -25,7 +25,7 @@ struct PreprocessConfigView: View {
                 }
                 
                 LabeledContent("Workspace") {
-                    Text(configuration.workspacePath)
+                    Text(configuration.workspace?.sourceDirectory ?? "")
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .lineLimit(1)
@@ -116,7 +116,7 @@ struct PreprocessConfigView: View {
                         panel.canChooseDirectories = false
                         panel.allowsMultipleSelection = true
                         panel.resolvesAliases = false
-                        panel.directoryURL = URL(fileURLWithPath: configuration.workspacePath)
+                        panel.directoryURL = configuration.workspace.map { URL(fileURLWithPath: $0.sourceDirectory) }
                         panel.allowedContentTypes = [
                             UTType(filenameExtension: "tif")!,
                             UTType(filenameExtension: "tiff")!
@@ -175,7 +175,7 @@ struct PreprocessConfigView: View {
         Task {
             do {
                 let fileManager = FileManager.default
-                let workspaceURL = URL(fileURLWithPath: configuration.workspacePath)
+                let workspaceURL = configuration.workspace.map { URL(fileURLWithPath: $0.sourceDirectory) } ?? URL(fileURLWithPath: "/")
                 let files = try fileManager.contentsOfDirectory(
                     at: workspaceURL,
                     includingPropertiesForKeys: [.isRegularFileKey],
@@ -203,18 +203,28 @@ struct PreprocessConfigView: View {
     }
 }
 
+private struct PreprocessConfigPreview: View {
+    let container: ModelContainer
+    let toolConfig: ToolConfiguration
+
+    init() {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let c = try! ModelContainer(for: Workspace.self, WorkspaceResource.self, ToolConfiguration.self, KMeansConfiguration.self, PreprocessConfiguration.self, configurations: config)
+        let workspace = Workspace(name: "Preview", sourceDirectory: "/tmp/workspace")
+        let tc = ToolConfiguration(name: "Test Preprocess", toolType: .preprocess, workspace: workspace)
+        c.mainContext.insert(workspace)
+        c.mainContext.insert(tc)
+        container = c
+        toolConfig = tc
+    }
+
+    var body: some View {
+        PreprocessConfigView(configuration: toolConfig)
+            .modelContainer(container)
+            .frame(width: 600, height: 800)
+    }
+}
+
 #Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: ToolConfiguration.self, KMeansConfiguration.self, PreprocessConfiguration.self, configurations: config)
-
-    let toolConfig = ToolConfiguration(
-        name: "Test Preprocess",
-        toolType: .preprocess,
-        workspacePath: "/tmp/workspace"
-    )
-    container.mainContext.insert(toolConfig)
-
-    return PreprocessConfigView(configuration: toolConfig)
-        .modelContainer(container)
-        .frame(width: 600, height: 800)
+    PreprocessConfigPreview()
 }

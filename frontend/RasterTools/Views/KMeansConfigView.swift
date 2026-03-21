@@ -24,7 +24,7 @@ struct KMeansConfigView: View {
                 }
 
                 LabeledContent("Workspace") {
-                    Text(configuration.workspacePath)
+                    Text(configuration.workspace?.sourceDirectory ?? "")
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .lineLimit(1)
@@ -188,7 +188,7 @@ struct KMeansConfigView: View {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.resolvesAliases = false
-        panel.directoryURL = URL(fileURLWithPath: configuration.workspacePath)
+        panel.directoryURL = configuration.workspace.map { URL(fileURLWithPath: $0.sourceDirectory) }
         panel.allowedContentTypes = [
             UTType(filenameExtension: "tif")!,
             UTType(filenameExtension: "tiff")!

@@ -27,7 +27,7 @@ class PreprocessRunner: ToolRunner {
         }
         
         do {
-            let workspace = configuration.workspacePath
+            let workspace = configuration.workspace?.sourceDirectory ?? ""
             let shapeFilePath = "\(workspace)/\(config.shapeFile)"
             
             // Validate shape file exists

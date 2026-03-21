@@ -11,7 +11,7 @@ import SwiftData
 enum ToolType: String, Codable, CaseIterable {
     case kmeans = "K-Means Clustering"
     case preprocess = "Preprocess"
-    
+
     var iconName: String {
         switch self {
         case .kmeans: return "circle.hexagongrid.fill"
@@ -25,6 +25,75 @@ enum PreprocessType: String, Codable, CaseIterable {
     case ndvi = "NDVI"
 }
 
+enum ResourceKind: String, Codable {
+    case sourceRaster  // composite.tif
+    case udm           // composite_udm2.tif
+    case metadata      // composite_metadata.json
+    case shapeFile     // .geojson / .shp
+    case ndvi          // generated NDVI
+    case ndci          // generated NDCI
+    case output        // other generated output files
+    case unknown
+
+    var iconName: String {
+        switch self {
+        case .sourceRaster: return "photo.fill"
+        case .udm: return "cloud.fill"
+        case .metadata: return "doc.text.fill"
+        case .shapeFile: return "map.fill"
+        case .ndvi: return "leaf.fill"
+        case .ndci: return "drop.fill"
+        case .output: return "square.and.arrow.down.fill"
+        case .unknown: return "questionmark.square.fill"
+        }
+    }
+}
+
+// MARK: - Workspace
+
+@Model
+final class Workspace {
+    var id: UUID
+    var name: String
+    var sourceDirectory: String
+    @Relationship(deleteRule: .cascade) var resources: [WorkspaceResource]
+    @Relationship(deleteRule: .cascade) var configurations: [ToolConfiguration]
+    var createdAt: Date
+    var modifiedAt: Date
+
+    init(name: String, sourceDirectory: String) {
+        self.id = UUID()
+        self.name = name
+        self.sourceDirectory = sourceDirectory
+        self.resources = []
+        self.configurations = []
+        self.createdAt = Date()
+        self.modifiedAt = Date()
+    }
+}
+
+// MARK: - WorkspaceResource
+
+@Model
+final class WorkspaceResource {
+    var id: UUID
+    var originalPath: String
+    var filename: String
+    var date: Date?
+    var fileExtension: String
+    var kind: ResourceKind
+    var workspace: Workspace?
+
+    init(originalPath: String, filename: String, date: Date?, fileExtension: String, kind: ResourceKind) {
+        self.id = UUID()
+        self.originalPath = originalPath
+        self.filename = filename
+        self.date = date
+        self.fileExtension = fileExtension
+        self.kind = kind
+    }
+}
+
 // MARK: - Main Configuration
 
 @Model
@@ -32,24 +101,24 @@ final class ToolConfiguration {
     var id: UUID
     var name: String
     var toolType: ToolType
-    var workspacePath: String
+    var workspace: Workspace?
     var createdAt: Date
     var modifiedAt: Date
-    
+
     // K-Means specific properties
     var kmeansConfig: KMeansConfiguration?
-    
+
     // Preprocess specific properties
     var preprocessConfig: PreprocessConfiguration?
-    
-    init(name: String, toolType: ToolType, workspacePath: String) {
+
+    init(name: String, toolType: ToolType, workspace: Workspace) {
         self.id = UUID()
         self.name = name
         self.toolType = toolType
-        self.workspacePath = workspacePath
+        self.workspace = workspace
         self.createdAt = Date()
         self.modifiedAt = Date()
-        
+
         // Initialize the appropriate config
         switch toolType {
         case .kmeans:
@@ -58,7 +127,7 @@ final class ToolConfiguration {
             self.preprocessConfig = PreprocessConfiguration()
         }
     }
-    
+
     func touch() {
         modifiedAt = Date()
     }
@@ -74,7 +143,7 @@ final class KMeansConfiguration {
     var seed: Int
     var filesFit: [String]
     var filesClassify: [String]
-    
+
     init(centersFile: String = "centers.txt",
          centroids: Int = 6,
          nTimes: Int = 10,
@@ -97,7 +166,7 @@ final class PreprocessConfiguration {
     var shapeFile: String
     var processes: [String] // Store as strings for SwiftData compatibility
     var files: [String]
-    
+
     init(shapeFile: String = "",
          processes: [PreprocessType] = [.ndci, .ndvi],
          files: [String] = []) {
@@ -105,10 +174,9 @@ final class PreprocessConfiguration {
         self.processes = processes.map { $0.rawValue }
         self.files = files
     }
-    
+
     var processTypes: [PreprocessType] {
         get { processes.compactMap { PreprocessType(rawValue: $0) } }
         set { processes = newValue.map { $0.rawValue } }
     }
 }
-

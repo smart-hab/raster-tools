@@ -27,7 +27,7 @@ class KMeansRunner: ToolRunner {
         }
         
         do {
-            let workspace = configuration.workspacePath
+            let workspace = configuration.workspace?.sourceDirectory ?? ""
             
             // Step 1: Fit K-means model
             try await fitKMeans(workspace: workspace, config: config)

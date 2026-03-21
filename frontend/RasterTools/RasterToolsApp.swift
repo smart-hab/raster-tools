@@ -12,6 +12,8 @@ import SwiftData
 struct RasterToolsApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
+            Workspace.self,
+            WorkspaceResource.self,
             ToolConfiguration.self,
             KMeansConfiguration.self,
             PreprocessConfiguration.self,
