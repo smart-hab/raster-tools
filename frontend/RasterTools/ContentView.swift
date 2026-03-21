@@ -16,15 +16,13 @@ struct ContentView: View {
     
     @State private var selectedConfiguration: ToolConfiguration?
     @State private var showingNewConfigSheet = false
-    @State private var newConfigToolType: ToolType = .kmeans
-    
+
     var body: some View {
         NavigationSplitView {
             SidebarView(
                 configurations: configurations,
                 selectedConfiguration: $selectedConfiguration,
-                onAddConfiguration: { toolType in
-                    newConfigToolType = toolType
+                onAddConfiguration: {
                     showingNewConfigSheet = true
                 },
                 onDeleteConfigurations: deleteConfigurations
@@ -40,9 +38,8 @@ struct ContentView: View {
         .navigationSplitViewStyle(.balanced)
         .sheet(isPresented: $showingNewConfigSheet) {
             NewConfigurationSheet(
-                toolType: newConfigToolType,
-                onSave: { name, workspace in
-                    createConfiguration(name: name, toolType: newConfigToolType, workspace: workspace)
+                onSave: { name, toolType, workspace in
+                    createConfiguration(name: name, toolType: toolType, workspace: workspace)
                     showingNewConfigSheet = false
                 },
                 onCancel: {
@@ -51,7 +48,7 @@ struct ContentView: View {
             )
         }
     }
-    
+
     private func createConfiguration(name: String, toolType: ToolType, workspace: String) {
         withAnimation {
             let newConfig = ToolConfiguration(
@@ -76,9 +73,9 @@ struct ContentView: View {
 struct SidebarView: View {
     let configurations: [ToolConfiguration]
     @Binding var selectedConfiguration: ToolConfiguration?
-    let onAddConfiguration: (ToolType) -> Void
+    let onAddConfiguration: () -> Void
     let onDeleteConfigurations: (IndexSet) -> Void
-    
+
     var body: some View {
         List(selection: $selectedConfiguration) {
             Section("Configurations") {
@@ -102,14 +99,8 @@ struct SidebarView: View {
         .navigationTitle("RasterTools")
         .toolbar {
             ToolbarItem {
-                Menu {
-                    ForEach(ToolType.allCases, id: \.self) { toolType in
-                        Button {
-                            onAddConfiguration(toolType)
-                        } label: {
-                            Label(toolType.rawValue, systemImage: toolType.iconName)
-                        }
-                    }
+                Button {
+                    onAddConfiguration()
                 } label: {
                     Label("Add Configuration", systemImage: "plus")
                 }
@@ -119,34 +110,40 @@ struct SidebarView: View {
 }
 
 struct NewConfigurationSheet: View {
-    let toolType: ToolType
-    let onSave: (String, String) -> Void
+    let onSave: (String, ToolType, String) -> Void
     let onCancel: () -> Void
-    
+
+    @State private var toolType: ToolType = .kmeans
     @State private var configName = ""
-    @State private var workspacePath = ""
-    
+    @State private var workspaceURL: URL? = nil
+
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    LabeledContent("Tool") {
-                        Label(toolType.rawValue, systemImage: toolType.iconName)
+                Section("Configuration") {
+                    TextField("Name", text: $configName)
+
+                    Picker("Tool", selection: $toolType) {
+                        ForEach(ToolType.allCases, id: \.self) { type in
+                            Label(type.rawValue, systemImage: type.iconName).tag(type)
+                        }
                     }
                 }
-                
-                Section("Configuration") {
-                    TextField("Configuration Name", text: $configName)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    HStack {
-                        TextField("Workspace Path", text: $workspacePath)
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(true)
-                        
-                        Button("Choose...") {
-                            selectWorkspace()
+
+                Section("Workspace") {
+                    if let url = workspaceURL {
+                        LabeledContent("Folder") {
+                            HStack {
+                                Label(url.lastPathComponent, systemImage: "folder")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Button("Change") { selectWorkspace() }
+                                    .buttonStyle(.borderless)
+                                    .foregroundColor(.accentColor)
+                            }
                         }
+                    } else {
+                        Button("Choose Folder…") { selectWorkspace() }
                     }
                 }
             }
@@ -154,42 +151,37 @@ struct NewConfigurationSheet: View {
             .navigationTitle("New Configuration")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        onCancel()
-                    }
+                    Button("Cancel") { onCancel() }
                 }
-                
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        onSave(configName, workspacePath)
+                        onSave(configName, toolType, workspaceURL!.path(percentEncoded: false))
                     }
-                    .disabled(configName.isEmpty || workspacePath.isEmpty)
+                    .disabled(configName.isEmpty || workspaceURL == nil)
                 }
             }
         }
-        .frame(width: 500, height: 300)
+        .frame(width: 460, height: 280)
     }
-    
+
     private func selectWorkspace() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.message = "Select workspace directory for \(toolType.rawValue)"
+        panel.message = "Select workspace folder"
 
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
-            workspacePath = url.path(percentEncoded: false)
+            workspaceURL = url
 
-            // Auto-suggest a config name if empty
             if configName.isEmpty {
                 let prefix = toolType == .kmeans ? "kmeans" : "preprocess"
                 configName = "\(prefix)_\(url.lastPathComponent)"
             }
 
-            // Prompt for the parent folder so the app retains access after relaunch
             let parentURL = url.deletingLastPathComponent()
-            self.requestParentFolderAccess(for: parentURL)
+            requestParentFolderAccess(for: parentURL)
         }
     }
 
