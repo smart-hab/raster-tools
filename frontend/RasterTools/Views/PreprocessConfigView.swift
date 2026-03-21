@@ -185,20 +185,21 @@ struct PreprocessConfigView: View {
                 }
                 if let workspace {
                     let visibleRasterIDs = Set(preprocessConfig.files.filter { rasterActiveKinds.contains($0.kind) }.map(\.id))
+                    let rasterSelectionBytes = preprocessConfig.files.filter { rasterSelection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
                     HStack {
-                        Button("Add Files...") { showingRasterPicker = true }
-                            .sheet(isPresented: $showingRasterPicker) {
-                                rasterPickerSheet(workspace: workspace)
-                            }
-                        Spacer()
-                        Button(visibleRasterIDs.isSubset(of: rasterSelection) ? "Select None" : "Select All") {
-                            if visibleRasterIDs.isSubset(of: rasterSelection) {
-                                rasterSelection.subtract(visibleRasterIDs)
-                            } else {
-                                rasterSelection.formUnion(visibleRasterIDs)
-                            }
+                        Button { showingRasterPicker = true } label: {
+                            Image(systemName: "plus")
                         }
-                        Button("Delete") {
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showingRasterPicker) {
+                            rasterPickerSheet(workspace: workspace)
+                        }
+                        Spacer()
+                        Text(selectionLabel(rasterSelection.count, bytes: rasterSelectionBytes))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button {
                             let files = preprocessConfig.files
                             for id in rasterSelection {
                                 if let resource = files.first(where: { $0.id == id }) {
@@ -207,8 +208,21 @@ struct PreprocessConfigView: View {
                                 }
                             }
                             rasterSelection.removeAll()
+                        } label: {
+                            Image(systemName: "trash")
                         }
+                        .buttonStyle(.plain)
                         .disabled(rasterSelection.isEmpty)
+                        Button {
+                            if visibleRasterIDs.isSubset(of: rasterSelection) {
+                                rasterSelection.subtract(visibleRasterIDs)
+                            } else {
+                                rasterSelection.formUnion(visibleRasterIDs)
+                            }
+                        } label: {
+                            Image(systemName: visibleRasterIDs.isSubset(of: rasterSelection) ? "minus.circle" : "checkmark.circle")
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -275,24 +289,35 @@ struct PreprocessConfigView: View {
                     }
                 }
                 let activeOutputIDs = Set(activeOutputs.map(\.id))
+                let outputSelectionBytes = outputs.filter { outputSelection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
                 HStack {
                     Spacer()
-                    Button(activeOutputIDs.isSubset(of: outputSelection) ? "Select None" : "Select All") {
-                        if activeOutputIDs.isSubset(of: outputSelection) {
-                            outputSelection.subtract(activeOutputIDs)
-                        } else {
-                            outputSelection.formUnion(activeOutputIDs)
-                        }
-                    }
-                    Button("Delete") {
+                    Text(selectionLabel(outputSelection.count, bytes: outputSelectionBytes))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
                         for id in outputSelection {
                             if let resource = outputs.first(where: { $0.id == id }) {
                                 deleteOutputResource(resource, context: modelContext)
                             }
                         }
                         outputSelection.removeAll()
+                    } label: {
+                        Image(systemName: "trash")
                     }
+                    .buttonStyle(.plain)
                     .disabled(outputSelection.isEmpty)
+                    Button {
+                        if activeOutputIDs.isSubset(of: outputSelection) {
+                            outputSelection.subtract(activeOutputIDs)
+                        } else {
+                            outputSelection.formUnion(activeOutputIDs)
+                        }
+                    } label: {
+                        Image(systemName: activeOutputIDs.isSubset(of: outputSelection) ? "minus.circle" : "checkmark.circle")
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -329,5 +354,11 @@ struct PreprocessConfigView: View {
                 configuration.preprocessConfig?.shapeFile == nil
             )
         }
+    }
+
+    private func selectionLabel(_ count: Int, bytes: Int) -> String {
+        guard count > 0, bytes > 0 else { return "\(count) selected" }
+        let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+        return "\(count) selected (\(size))"
     }
 }

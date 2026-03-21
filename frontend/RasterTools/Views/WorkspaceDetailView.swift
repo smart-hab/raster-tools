@@ -13,6 +13,13 @@ struct WorkspaceDetailView: View {
     let workspace: Workspace
 
     @State private var showingNewConfigSheet = false
+    @State private var sourceSortKey: OutputSortKey = .date
+    @State private var sourceSortAscending: Bool = false
+    @State private var outputSelection: Set<UUID> = []
+    @State private var outputSortKey: OutputSortKey = .date
+    @State private var outputSortAscending: Bool = false
+    @State private var outputActiveKinds: Set<ResourceKind> = []
+
 
     private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansClassed, .kmeansMean, .kmeansDiff, .output, .unknown]
 
@@ -64,30 +71,56 @@ struct WorkspaceDetailView: View {
                 }
 
                 // Sources section
-                let sources = resources(for: [.sourceRaster])
-                ResourceTableSection(label: "Sources", isEmpty: sources.isEmpty,
+                let allSources = resources(for: [.sourceRaster])
+                ResourceTableSection(label: "Sources", isEmpty: allSources.isEmpty,
                                      emptyMessage: "No sources found. Click Refresh to scan the source directory.") {
-                    ForEach(sources, id: \.id) { resource in
-                        ResourceTableRow(
-                            icon: resource.kind.iconName,
-                            label: resource.date.map { $0.displayString } ?? resource.filename,
-                            fileSize: resource.formattedFileSize,
-                            badges: badges(for: resource)
-                        )
+                    HStack {
+                        Spacer()
+                        OutputSortBar(sortKey: $sourceSortKey, ascending: $sourceSortAscending)
+                    }
+                    let sourceGroups = groupedOutputs(allSources, sortKey: sourceSortKey, ascending: sourceSortAscending)
+                    ForEach(sourceGroups, id: \.groupLabel) { group in
+                        if let label = group.groupLabel, group.resources.count > 1 {
+                            Text(label)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(group.resources, id: \.id) { resource in
+                            ResourceTableRow(
+                                icon: resource.kind.iconName,
+                                label: resource.date.map { $0.displayString } ?? resource.filename,
+                                fileSize: resource.formattedFileSize,
+                                badges: badges(for: resource)
+                            )
+                        }
                     }
                 }
 
                 // Outputs section
-                let outputGroups = groupOutputsByKind(resources(for: WorkspaceDetailView.outputKinds, producedOnly: true))
-                ResourceTableSection(label: "Outputs", isEmpty: outputGroups.isEmpty,
+                let allOutputs = resources(for: WorkspaceDetailView.outputKinds, producedOnly: true)
+                let outputKinds = Array(Set(allOutputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
+                ResourceTableSection(label: "Outputs", isEmpty: allOutputs.isEmpty,
                                      emptyMessage: "No outputs yet. Run a configuration to generate outputs.") {
-                    ForEach(outputGroups, id: \.kind) { group in
-                        if outputGroups.count > 1 {
-                            Text(group.kind.displayName)
+                    if outputKinds.count > 1 {
+                        HStack {
+                            ResourceFilterBar(kinds: outputKinds, activeKinds: $outputActiveKinds)
+                                .onAppear {
+                                    if outputActiveKinds.isEmpty { outputActiveKinds = Set(outputKinds) }
+                                }
+                                .onChange(of: outputKinds) { _, newKinds in
+                                    outputActiveKinds.formUnion(Set(newKinds).subtracting(outputActiveKinds))
+                                }
+                            Spacer()
+                            OutputSortBar(sortKey: $outputSortKey, ascending: $outputSortAscending)
+                        }
+                    }
+                    let activeOutputs = outputKinds.count > 1 ? allOutputs.filter { outputActiveKinds.contains($0.kind) } : allOutputs
+                    let groups = groupedOutputs(activeOutputs, sortKey: outputSortKey, ascending: outputSortAscending)
+                    ForEach(groups, id: \.groupLabel) { group in
+                        if let label = group.groupLabel, group.resources.count > 1 {
+                            Text(label)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .padding(.top, 6)
-                                .padding(.bottom, 2)
                         }
                         ForEach(group.resources, id: \.id) { resource in
                             ResourceTableRow(
@@ -97,9 +130,47 @@ struct WorkspaceDetailView: View {
                                 badges: badges(for: resource),
                                 pngPath: resource.pngPath,
                                 originalPath: resource.originalPath,
-                                onDelete: { deleteOutputResource(resource, context: modelContext) }
+                                isSelected: outputSelection.contains(resource.id)
                             )
+                            .onTapGesture {
+                                if outputSelection.contains(resource.id) {
+                                    outputSelection.remove(resource.id)
+                                } else {
+                                    outputSelection.insert(resource.id)
+                                }
+                            }
                         }
+                    }
+                    let activeOutputIDs = Set(activeOutputs.map(\.id))
+                    let outputSelectionBytes = allOutputs.filter { outputSelection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
+                    HStack {
+                        Spacer()
+                        Text(selectionLabel(outputSelection.count, bytes: outputSelectionBytes))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button {
+                            for id in outputSelection {
+                                if let resource = allOutputs.first(where: { $0.id == id }) {
+                                    deleteOutputResource(resource, context: modelContext)
+                                }
+                            }
+                            outputSelection.removeAll()
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(outputSelection.isEmpty)
+                        Button {
+                            if activeOutputIDs.isSubset(of: outputSelection) {
+                                outputSelection.subtract(activeOutputIDs)
+                            } else {
+                                outputSelection.formUnion(activeOutputIDs)
+                            }
+                        } label: {
+                            Image(systemName: activeOutputIDs.isSubset(of: outputSelection) ? "minus.circle" : "checkmark.circle")
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -126,6 +197,12 @@ struct WorkspaceDetailView: View {
 
     private func badges(for resource: WorkspaceResource) -> [String] {
         resource.tableBadges
+    }
+
+    private func selectionLabel(_ count: Int, bytes: Int) -> String {
+        guard count > 0, bytes > 0 else { return "\(count) selected" }
+        let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+        return "\(count) selected (\(size))"
     }
 
     private func refreshResources() {

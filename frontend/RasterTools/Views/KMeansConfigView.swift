@@ -146,36 +146,50 @@ struct KMeansConfigView: View {
                     }
                     if let workspace {
                         let visibleFitIDs = Set(kmeansConfig.filesFit.filter { fitActiveKinds.contains($0.kind) }.map(\.id))
+                        let fitSelectionBytes = kmeansConfig.filesFit.filter { fitSelection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
                         HStack {
-                            Button("Add Files...") { showingFitPicker = true }
-                                .sheet(isPresented: $showingFitPicker) {
-                                    ResourcePickerView(
-                                        workspace: workspace,
-                                        defaultKinds: [.clipped, .masked, .ndvi, .ndci],
-                                        selectableKinds: [.clipped, .masked, .ndvi, .ndci],
-                                        selection: Binding(
-                                            get: { configuration.kmeansConfig?.filesFit ?? [] },
-                                            set: { configuration.kmeansConfig?.filesFit = $0; configuration.touch() }
-                                        ),
-                                        allowsMultiple: true
-                                    )
-                                }
-                            Spacer()
-                            Button(visibleFitIDs.isSubset(of: fitSelection) ? "Select None" : "Select All") {
-                                if visibleFitIDs.isSubset(of: fitSelection) {
-                                    fitSelection.subtract(visibleFitIDs)
-                                } else {
-                                    fitSelection.formUnion(visibleFitIDs)
-                                }
+                            Button { showingFitPicker = true } label: {
+                                Image(systemName: "plus")
                             }
-                            Button("Delete") {
+                            .buttonStyle(.plain)
+                            .sheet(isPresented: $showingFitPicker) {
+                                ResourcePickerView(
+                                    workspace: workspace,
+                                    defaultKinds: [.clipped, .masked, .ndvi, .ndci],
+                                    selectableKinds: [.clipped, .masked, .ndvi, .ndci],
+                                    selection: Binding(
+                                        get: { configuration.kmeansConfig?.filesFit ?? [] },
+                                        set: { configuration.kmeansConfig?.filesFit = $0; configuration.touch() }
+                                    ),
+                                    allowsMultiple: true
+                                )
+                            }
+                            Spacer()
+                            Text(selectionLabel(fitSelection.count, bytes: fitSelectionBytes))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button {
                                 for id in fitSelection {
                                     configuration.kmeansConfig?.filesFit.removeAll { $0.id == id }
                                     configuration.touch()
                                 }
                                 fitSelection.removeAll()
+                            } label: {
+                                Image(systemName: "trash")
                             }
+                            .buttonStyle(.plain)
                             .disabled(fitSelection.isEmpty)
+                            Button {
+                                if visibleFitIDs.isSubset(of: fitSelection) {
+                                    fitSelection.subtract(visibleFitIDs)
+                                } else {
+                                    fitSelection.formUnion(visibleFitIDs)
+                                }
+                            } label: {
+                                Image(systemName: visibleFitIDs.isSubset(of: fitSelection) ? "minus.circle" : "checkmark.circle")
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -218,36 +232,50 @@ struct KMeansConfigView: View {
                     }
                     if let workspace {
                         let visibleClassifyIDs = Set(kmeansConfig.filesClassify.filter { classifyActiveKinds.contains($0.kind) }.map(\.id))
+                        let classifySelectionBytes = kmeansConfig.filesClassify.filter { classifySelection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
                         HStack {
-                            Button("Add Files...") { showingClassifyPicker = true }
-                                .sheet(isPresented: $showingClassifyPicker) {
-                                    ResourcePickerView(
-                                        workspace: workspace,
-                                        defaultKinds: [.clipped, .masked, .ndvi, .ndci],
-                                        selectableKinds: [.clipped, .masked, .ndvi, .ndci],
-                                        selection: Binding(
-                                            get: { configuration.kmeansConfig?.filesClassify ?? [] },
-                                            set: { configuration.kmeansConfig?.filesClassify = $0; configuration.touch() }
-                                        ),
-                                        allowsMultiple: true
-                                    )
-                                }
-                            Spacer()
-                            Button(visibleClassifyIDs.isSubset(of: classifySelection) ? "Select None" : "Select All") {
-                                if visibleClassifyIDs.isSubset(of: classifySelection) {
-                                    classifySelection.subtract(visibleClassifyIDs)
-                                } else {
-                                    classifySelection.formUnion(visibleClassifyIDs)
-                                }
+                            Button { showingClassifyPicker = true } label: {
+                                Image(systemName: "plus")
                             }
-                            Button("Delete") {
+                            .buttonStyle(.plain)
+                            .sheet(isPresented: $showingClassifyPicker) {
+                                ResourcePickerView(
+                                    workspace: workspace,
+                                    defaultKinds: [.clipped, .masked, .ndvi, .ndci],
+                                    selectableKinds: [.clipped, .masked, .ndvi, .ndci],
+                                    selection: Binding(
+                                        get: { configuration.kmeansConfig?.filesClassify ?? [] },
+                                        set: { configuration.kmeansConfig?.filesClassify = $0; configuration.touch() }
+                                    ),
+                                    allowsMultiple: true
+                                )
+                            }
+                            Spacer()
+                            Text(selectionLabel(classifySelection.count, bytes: classifySelectionBytes))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button {
                                 for id in classifySelection {
                                     configuration.kmeansConfig?.filesClassify.removeAll { $0.id == id }
                                     configuration.touch()
                                 }
                                 classifySelection.removeAll()
+                            } label: {
+                                Image(systemName: "trash")
                             }
+                            .buttonStyle(.plain)
                             .disabled(classifySelection.isEmpty)
+                            Button {
+                                if visibleClassifyIDs.isSubset(of: classifySelection) {
+                                    classifySelection.subtract(visibleClassifyIDs)
+                                } else {
+                                    classifySelection.formUnion(visibleClassifyIDs)
+                                }
+                            } label: {
+                                Image(systemName: visibleClassifyIDs.isSubset(of: classifySelection) ? "minus.circle" : "checkmark.circle")
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -299,24 +327,35 @@ struct KMeansConfigView: View {
                         }
                     }
                     let activeOutputIDs = Set(activeOutputs.map(\.id))
+                    let outputSelectionBytes = outputs.filter { outputSelection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
                     HStack {
                         Spacer()
-                        Button(activeOutputIDs.isSubset(of: outputSelection) ? "Select None" : "Select All") {
-                            if activeOutputIDs.isSubset(of: outputSelection) {
-                                outputSelection.subtract(activeOutputIDs)
-                            } else {
-                                outputSelection.formUnion(activeOutputIDs)
-                            }
-                        }
-                        Button("Delete") {
+                        Text(selectionLabel(outputSelection.count, bytes: outputSelectionBytes))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button {
                             for id in outputSelection {
                                 if let resource = outputs.first(where: { $0.id == id }) {
                                     deleteOutputResource(resource, context: modelContext)
                                 }
                             }
                             outputSelection.removeAll()
+                        } label: {
+                            Image(systemName: "trash")
                         }
+                        .buttonStyle(.plain)
                         .disabled(outputSelection.isEmpty)
+                        Button {
+                            if activeOutputIDs.isSubset(of: outputSelection) {
+                                outputSelection.subtract(activeOutputIDs)
+                            } else {
+                                outputSelection.formUnion(activeOutputIDs)
+                            }
+                        } label: {
+                            Image(systemName: activeOutputIDs.isSubset(of: outputSelection) ? "minus.circle" : "checkmark.circle")
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -350,5 +389,11 @@ struct KMeansConfigView: View {
                 }
             }
         }
+    }
+
+    private func selectionLabel(_ count: Int, bytes: Int) -> String {
+        guard count > 0, bytes > 0 else { return "\(count) selected" }
+        let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+        return "\(count) selected (\(size))"
     }
 }

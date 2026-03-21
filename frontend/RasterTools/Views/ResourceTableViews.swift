@@ -173,6 +173,7 @@ extension WorkspaceResource {
     var tableBadges: [String] {
         switch kind {
         case .sourceRaster: return ["source"] + (udm != nil ? ["udm2"] : [])
+        case .udm:          return ["udm2"]
         case .shapeFile:    return ["shape"]
         case .clipped:      return ["clipped"]
         case .masked:       return ["masked"]
