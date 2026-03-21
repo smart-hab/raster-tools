@@ -223,7 +223,7 @@ struct KMeansConfigView: View {
                                 .sheet(isPresented: $showingClassifyPicker) {
                                     ResourcePickerView(
                                         workspace: workspace,
-                                        defaultKinds: [.clipped, .masked],
+                                        defaultKinds: [.clipped, .masked, .ndvi, .ndci],
                                         selectableKinds: [.clipped, .masked, .ndvi, .ndci],
                                         selection: Binding(
                                             get: { configuration.kmeansConfig?.filesClassify ?? [] },

@@ -90,17 +90,27 @@ struct ResourceFilterBar: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(kinds, id: \.self) { kind in
-                Button {
-                    if activeKinds.contains(kind) {
-                        activeKinds.remove(kind)
-                    } else {
-                        activeKinds.insert(kind)
-                    }
-                } label: {
-                    BadgeCapsule(label: kind.filterBadgeLabel)
-                }
-                .buttonStyle(.plain)
-                .opacity(activeKinds.contains(kind) ? 1.0 : 0.4)
+                BadgeCapsule(label: kind.filterBadgeLabel)
+                    .opacity(activeKinds.contains(kind) ? 1.0 : 0.4)
+                    .overlay(
+                        MouseClickView(
+                            onLeftClick: {
+                                if activeKinds.contains(kind) {
+                                    activeKinds.remove(kind)
+                                } else {
+                                    activeKinds.insert(kind)
+                                }
+                            },
+                            onRightClick: {
+                                let others = Set(kinds).subtracting([kind])
+                                if others.isSubset(of: activeKinds) {
+                                    activeKinds.subtract(others)
+                                } else {
+                                    activeKinds.formUnion(others)
+                                }
+                            }
+                        )
+                    )
             }
         }
     }
@@ -297,5 +307,37 @@ struct PNGPreviewView: View {
             }
         }
         .padding()
+    }
+}
+
+// MARK: - Mouse click handler (left + right)
+
+private struct MouseClickView: NSViewRepresentable {
+    let onLeftClick: () -> Void
+    let onRightClick: () -> Void
+
+    func makeNSView(context: Context) -> ClickableNSView {
+        let view = ClickableNSView()
+        view.onLeftClick = onLeftClick
+        view.onRightClick = onRightClick
+        return view
+    }
+
+    func updateNSView(_ nsView: ClickableNSView, context: Context) {
+        nsView.onLeftClick = onLeftClick
+        nsView.onRightClick = onRightClick
+    }
+}
+
+class ClickableNSView: NSView {
+    var onLeftClick: (() -> Void)?
+    var onRightClick: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        onLeftClick?()
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        onRightClick?()
     }
 }
