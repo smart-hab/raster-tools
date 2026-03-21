@@ -41,7 +41,7 @@ class KMeansRunner: ToolRunner {
             // Step 4: Generate difference rasters
             try await generateDifferenceRasters(workspace: workspace, config: config)
             
-            updateStep("✅ K-Means processing complete!")
+            await updateStep("✅ K-Means processing complete!")
             
         } catch {
             await MainActor.run {
@@ -60,11 +60,11 @@ class KMeansRunner: ToolRunner {
         
         // Skip if centers file already exists
         if FileManager.default.fileExists(atPath: centersPath) {
-            log("✓ Using existing centers file: \(config.centersFile)")
+            await log("✓ Using existing centers file: \(config.centersFile)")
             return
         }
-        
-        updateStep("Fitting K-Means model")
+
+        await updateStep("Fitting K-Means model")
         
         var args = ["-o", centersPath]
         args += ["-t", String(config.nTimes)]
@@ -77,12 +77,12 @@ class KMeansRunner: ToolRunner {
         }
         
         try await runProcess(executable: "kmeans_fit", arguments: args)
-        log("✓ Fitted K-means model: \(config.centersFile)")
-        completeFile()
+        await log("✓ Fitted K-means model: \(config.centersFile)")
+        await completeFile()
     }
     
     private func classifyRasters(workspace: String, config: KMeansConfiguration) async throws {
-        updateStep("Classifying rasters")
+        await updateStep("Classifying rasters")
         
         let centersPath = "\(workspace)/\(config.centersFile)"
         
@@ -93,7 +93,7 @@ class KMeansRunner: ToolRunner {
             let outputPath = "\(workspace)/\(outputFile)"
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
 
-            updateStep("Classifying", file: baseName)
+            await updateStep("Classifying", file: baseName)
             
             // Classify if output doesn't exist
             if !FileManager.default.fileExists(atPath: outputPath) {
@@ -111,11 +111,11 @@ class KMeansRunner: ToolRunner {
                 )
             }
             
-            log("✓ \(outputFile)")
-            completeFile()
+            await log("✓ \(outputFile)")
+            await completeFile()
         }
     }
-    
+
     private func generateMeanRaster(workspace: String, config: KMeansConfiguration) async throws {
         let baseName = config.centersFile.replacingOccurrences(of: ".txt", with: "")
         let outputPath = "\(workspace)/\(baseName)_mean.tif"
@@ -123,11 +123,11 @@ class KMeansRunner: ToolRunner {
         
         // Skip if already exists
         if FileManager.default.fileExists(atPath: outputPath) {
-            log("✓ Using existing mean raster")
+            await log("✓ Using existing mean raster")
             return
         }
-        
-        updateStep("Generating mean raster")
+
+        await updateStep("Generating mean raster")
         
         var args = ["-o", outputPath]
         for file in config.filesFit {
@@ -144,11 +144,11 @@ class KMeansRunner: ToolRunner {
             )
         }
         
-        log("✓ \(baseName)_mean.tif")
+        await log("✓ \(baseName)_mean.tif")
     }
-    
+
     private func generateDifferenceRasters(workspace: String, config: KMeansConfiguration) async throws {
-        updateStep("Generating difference rasters")
+        await updateStep("Generating difference rasters")
         
         let baseName = config.centersFile.replacingOccurrences(of: ".txt", with: "")
         let meanPath = "\(workspace)/\(baseName)_mean.tif"
@@ -161,7 +161,7 @@ class KMeansRunner: ToolRunner {
             let outputPath = "\(workspace)/\(baseName)_mean_diff_\(date).tif"
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
 
-            updateStep("Calculating difference", file: date)
+            await updateStep("Calculating difference", file: date)
 
             // Generate difference if it doesn't exist
             if !FileManager.default.fileExists(atPath: outputPath) {
@@ -179,7 +179,7 @@ class KMeansRunner: ToolRunner {
                 )
             }
             
-            log("✓ \(baseName)_mean_diff_\(date).tif")
+            await log("✓ \(baseName)_mean_diff_\(date).tif")
         }
     }
 }

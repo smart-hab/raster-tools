@@ -43,10 +43,10 @@ class PreprocessRunner: ToolRunner {
                     shapeFile: shapeFilePath,
                     processes: config.processTypes
                 )
-                completeFile()
+                await completeFile()
             }
-            
-            updateStep("✅ Preprocessing complete!")
+
+            await updateStep("✅ Preprocessing complete!")
             
         } catch {
             await MainActor.run {
@@ -70,14 +70,14 @@ class PreprocessRunner: ToolRunner {
         let baseName = URL(fileURLWithPath: rasterFile).deletingPathExtension().lastPathComponent
         let udmPath = URL(fileURLWithPath: inputPath).deletingPathExtension().path + "_udm2.tif"
 
-        log("Processing: \(baseName)")
+        await log("Processing: \(baseName)")
         
         // Step 1: Clip to shape boundary
         let clippedPath = "\(workspace)/\(baseName)_clipped.tif"
         let clippedPng = clippedPath.replacingOccurrences(of: ".tif", with: ".png")
         
         if !FileManager.default.fileExists(atPath: clippedPath) {
-            updateStep("Clipping", file: rasterFile)
+            await updateStep("Clipping", file: rasterFile)
             try await runProcess(
                 executable: "clip",
                 arguments: ["-i", inputPath, "-o", clippedPath, "-s", shapeFile]
@@ -92,14 +92,14 @@ class PreprocessRunner: ToolRunner {
             )
         }
         
-        log("  ✓ Clipped")
-        
+        await log("  ✓ Clipped")
+
         // Step 2: Apply UDM2 mask (cloud/shadow removal)
         let maskedPath = "\(workspace)/\(baseName)_clipped_masked.tif"
         let maskedPng = maskedPath.replacingOccurrences(of: ".tif", with: ".png")
         
         if !FileManager.default.fileExists(atPath: maskedPath) {
-            updateStep("Masking", file: rasterFile)
+            await updateStep("Masking", file: rasterFile)
             try await runProcess(
                 executable: "mask",
                 arguments: ["-i", clippedPath, "-u", udmPath, "-o", maskedPath]
@@ -113,7 +113,7 @@ class PreprocessRunner: ToolRunner {
             )
         }
         
-        log("  ✓ Masked")
+        await log("  ✓ Masked")
         
         // Step 3: Calculate indices based on selected processes
         for process in processes {
@@ -152,7 +152,7 @@ class PreprocessRunner: ToolRunner {
         let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
         
         if !FileManager.default.fileExists(atPath: outputPath) {
-            updateStep("Calculating \(name)", file: rasterFile)
+            await updateStep("Calculating \(name)", file: rasterFile)
             try await runProcess(
                 executable: "norm_diff",
                 arguments: ["-i", inputPath, "-o", outputPath, "-b", band1, band2]
@@ -166,6 +166,6 @@ class PreprocessRunner: ToolRunner {
             )
         }
         
-        log("  ✓ \(name)")
+        await log("  ✓ \(name)")
     }
 }

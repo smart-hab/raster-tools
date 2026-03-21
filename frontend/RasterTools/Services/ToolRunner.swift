@@ -57,8 +57,14 @@ class ToolRunner {
         process.standardOutput = outputPipe
         process.standardError = errorPipe
 
-        try process.run()
-        process.waitUntilExit()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            process.terminationHandler = { _ in continuation.resume() }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
 
         let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         let errorOutput = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
@@ -74,25 +80,25 @@ class ToolRunner {
     }
     
     /// Log a message
-    func log(_ message: String) {
-        Task { @MainActor in
+    func log(_ message: String) async {
+        await MainActor.run {
             progress.logs.append(message)
             print("🔧 \(message)")
         }
     }
-    
+
     /// Update current step
-    func updateStep(_ step: String, file: String? = nil) {
-        Task { @MainActor in
+    func updateStep(_ step: String, file: String? = nil) async {
+        await MainActor.run {
             progress.currentStep = step
             progress.currentFile = file
-            log(file != nil ? "\(step): \(file!)" : step)
         }
+        await log(file != nil ? "\(step): \(file!)" : step)
     }
-    
+
     /// Mark file as completed
-    func completeFile() {
-        Task { @MainActor in
+    func completeFile() async {
+        await MainActor.run {
             progress.completedFiles += 1
         }
     }
