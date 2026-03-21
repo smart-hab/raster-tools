@@ -12,7 +12,9 @@ import SwiftData
 struct RasterToolsApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            ToolConfiguration.self,
+            KMeansConfiguration.self,
+            PreprocessConfiguration.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -28,5 +30,6 @@ struct RasterToolsApp: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+        .defaultSize(width: 1000, height: 700)
     }
 }

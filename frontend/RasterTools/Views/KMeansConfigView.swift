@@ -1,0 +1,186 @@
+//
+//
+//  KMeansConfigView.swift
+//  RasterTools
+//
+//  Created by Marek on 2026-03-20.
+//
+
+import SwiftUI
+import SwiftData
+
+struct KMeansConfigView: View {
+    @Bindable var configuration: ToolConfiguration
+    @State private var runner = KMeansRunner()
+    @State private var availableFiles: [String] = []
+    @State private var isLoadingFiles = false
+    
+    var body: some View {
+        Form {
+            Section("Configuration") {
+                LabeledContent("Name") {
+                    Text(configuration.name)
+                        .foregroundStyle(.secondary)
+                }
+                
+                LabeledContent("Workspace") {
+                    Text(configuration.workspacePath)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                }
+            }
+            
+            Section("K-Means Parameters") {
+                if configuration.kmeansConfig != nil {
+                    LabeledContent("Centers File") {
+                        TextField("centers.txt", text: Binding(
+                            get: { configuration.kmeansConfig?.centersFile ?? "centers.txt" },
+                            set: { newValue in
+                                configuration.kmeansConfig?.centersFile = newValue
+                                configuration.touch()
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                    }
+                    
+                    LabeledContent("Centroids") {
+                        Stepper(value: Binding(
+                            get: { configuration.kmeansConfig?.centroids ?? 6 },
+                            set: { newValue in
+                                configuration.kmeansConfig?.centroids = newValue
+                                configuration.touch()
+                            }
+                        ), in: 2...20) {
+                            Text("\(configuration.kmeansConfig?.centroids ?? 6)")
+                                .monospacedDigit()
+                        }
+                    }
+                    
+                    LabeledContent("Iterations") {
+                        Stepper(value: Binding(
+                            get: { configuration.kmeansConfig?.nTimes ?? 10 },
+                            set: { newValue in
+                                configuration.kmeansConfig?.nTimes = newValue
+                                configuration.touch()
+                            }
+                        ), in: 1...100) {
+                            Text("\(configuration.kmeansConfig?.nTimes ?? 10)")
+                                .monospacedDigit()
+                        }
+                    }
+                    
+                    LabeledContent("Random Seed") {
+                        TextField("42", value: Binding(
+                            get: { configuration.kmeansConfig?.seed ?? 42 },
+                            set: { newValue in
+                                configuration.kmeansConfig?.seed = newValue
+                                configuration.touch()
+                            }
+                        ), format: .number)
+                        .textFieldStyle(.roundedBorder)
+                    }
+                }
+            }
+            
+            Section("Fit Rasters") {
+                if configuration.kmeansConfig != nil {
+                    if isLoadingFiles {
+                        ProgressView()
+                    } else if availableFiles.isEmpty {
+                        Button("Retry") {
+                            loadWorkspaceFiles()
+                        }
+                    } else {
+                        FileSelectionView(
+                            availableFiles: availableFiles,
+                            selectedFiles: Binding(
+                                get: { configuration.kmeansConfig?.filesFit ?? [] },
+                                set: { newValue in
+                                    configuration.kmeansConfig?.filesFit = newValue
+                                    configuration.touch()
+                                }
+                            )
+                        )
+                    }
+                }
+            }
+            
+            Section("Classify Rasters") {
+                if configuration.kmeansConfig != nil && !availableFiles.isEmpty {
+                    FileSelectionView(
+                        availableFiles: availableFiles,
+                        selectedFiles: Binding(
+                            get: { configuration.kmeansConfig?.filesClassify ?? [] },
+                            set: { newValue in
+                                configuration.kmeansConfig?.filesClassify = newValue
+                                configuration.touch()
+                            }
+                        )
+                    )
+                }
+            }
+            
+            if runner.isRunning || !runner.progress.logs.isEmpty {
+                Section("Progress") {
+                    ToolProgressView(runner: runner)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle(configuration.name)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if runner.isRunning {
+                    Button("Cancel", role: .destructive) {
+                        runner.cancel()
+                    }
+                } else {
+                    Button("Run K-Means") {
+                        Task {
+                            do {
+                                try await runner.run(configuration: configuration)
+                            } catch {
+                                print("Error running K-Means: \(error)")
+                            }
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(configuration.kmeansConfig?.filesFit.isEmpty != false)
+                }
+            }
+        }
+        .onAppear {
+            loadWorkspaceFiles()
+        }
+    }
+    
+    private func loadWorkspaceFiles() {
+        isLoadingFiles = true
+        Task {
+            do {
+                let fileManager = FileManager.default
+                let workspaceURL = URL(fileURLWithPath: configuration.workspacePath)
+                let files = try fileManager.contentsOfDirectory(
+                    at: workspaceURL,
+                    includingPropertiesForKeys: [.isRegularFileKey],
+                    options: [.skipsHiddenFiles]
+                )
+                
+                await MainActor.run {
+                    self.availableFiles = files
+                        .filter { $0.pathExtension.lowercased() == "tif" || $0.pathExtension.lowercased() == "tiff" }
+                        .map { $0.lastPathComponent }
+                        .sorted()
+                    self.isLoadingFiles = false
+                }
+            } catch {
+                print("Error loading files: \(error)")
+                await MainActor.run {
+                    self.isLoadingFiles = false
+                }
+            }
+        }
+    }
+}
+
