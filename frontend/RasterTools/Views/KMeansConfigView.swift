@@ -14,6 +14,17 @@ struct KMeansConfigView: View {
     @State private var runner = KMeansRunner()
     @State private var showingFitPicker = false
     @State private var showingClassifyPicker = false
+    @State private var fitSortKey: OutputSortKey = .date
+    @State private var fitSortAscending: Bool = false
+    @State private var classifySortKey: OutputSortKey = .date
+    @State private var classifySortAscending: Bool = false
+    @State private var outputSortKey: OutputSortKey = .date
+    @State private var outputSortAscending: Bool = false
+
+    private let inputKinds: [ResourceKind] = [.clipped, .masked, .ndvi, .ndci]
+    @State private var fitActiveKinds: Set<ResourceKind> = [.clipped, .masked, .ndvi, .ndci]
+    @State private var classifyActiveKinds: Set<ResourceKind> = [.clipped, .masked, .ndvi, .ndci]
+    @State private var outputActiveKinds: Set<ResourceKind> = []
 
     private var workspace: Workspace? { configuration.workspace }
 
@@ -91,17 +102,29 @@ struct KMeansConfigView: View {
                         Text("No raster files selected")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(kmeansConfig.filesFit, id: \.id) { resource in
-                            ResourceTableRow(
-                                icon: resource.kind.iconName,
-                                label: resource.displayLabel,
-                                fileSize: resource.formattedFileSize,
-                                badges: resource.tableBadges,
-                                onDelete: {
-                                    configuration.kmeansConfig?.filesFit.removeAll { $0.id == resource.id }
-                                    configuration.touch()
-                                }
-                            )
+                        HStack {
+                            ResourceFilterBar(kinds: inputKinds, activeKinds: $fitActiveKinds)
+                            Spacer()
+                            OutputSortBar(sortKey: $fitSortKey, ascending: $fitSortAscending)
+                        }
+                        let filtered = kmeansConfig.filesFit.filter { fitActiveKinds.contains($0.kind) }
+                        let groups = groupedOutputs(filtered, sortKey: fitSortKey, ascending: fitSortAscending)
+                        ForEach(groups, id: \.groupLabel) { group in
+                            if let label = group.groupLabel, group.resources.count > 1 {
+                                Text(label).font(.caption).foregroundStyle(.secondary)
+                            }
+                            ForEach(group.resources, id: \.id) { resource in
+                                ResourceTableRow(
+                                    icon: resource.kind.iconName,
+                                    label: resource.displayLabel,
+                                    fileSize: resource.formattedFileSize,
+                                    badges: resource.tableBadges,
+                                    onDelete: {
+                                        configuration.kmeansConfig?.filesFit.removeAll { $0.id == resource.id }
+                                        configuration.touch()
+                                    }
+                                )
+                            }
                         }
                     }
                     if let workspace {
@@ -109,8 +132,8 @@ struct KMeansConfigView: View {
                             .sheet(isPresented: $showingFitPicker) {
                                 ResourcePickerView(
                                     workspace: workspace,
-                                    defaultKinds: [.clipped, .masked],
-                                    selectableKinds: [.sourceRaster, .clipped, .masked, .ndvi, .ndci],
+                                    defaultKinds: [.clipped, .masked, .ndvi, .ndci],
+                                    selectableKinds: [.clipped, .masked, .ndvi, .ndci],
                                     selection: Binding(
                                         get: { configuration.kmeansConfig?.filesFit ?? [] },
                                         set: { configuration.kmeansConfig?.filesFit = $0; configuration.touch() }
@@ -128,17 +151,29 @@ struct KMeansConfigView: View {
                         Text("No raster files selected")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(kmeansConfig.filesClassify, id: \.id) { resource in
-                            ResourceTableRow(
-                                icon: resource.kind.iconName,
-                                label: resource.displayLabel,
-                                fileSize: resource.formattedFileSize,
-                                badges: resource.tableBadges,
-                                onDelete: {
-                                    configuration.kmeansConfig?.filesClassify.removeAll { $0.id == resource.id }
-                                    configuration.touch()
-                                }
-                            )
+                        HStack {
+                            ResourceFilterBar(kinds: inputKinds, activeKinds: $classifyActiveKinds)
+                            Spacer()
+                            OutputSortBar(sortKey: $classifySortKey, ascending: $classifySortAscending)
+                        }
+                        let filtered = kmeansConfig.filesClassify.filter { classifyActiveKinds.contains($0.kind) }
+                        let groups = groupedOutputs(filtered, sortKey: classifySortKey, ascending: classifySortAscending)
+                        ForEach(groups, id: \.groupLabel) { group in
+                            if let label = group.groupLabel, group.resources.count > 1 {
+                                Text(label).font(.caption).foregroundStyle(.secondary)
+                            }
+                            ForEach(group.resources, id: \.id) { resource in
+                                ResourceTableRow(
+                                    icon: resource.kind.iconName,
+                                    label: resource.displayLabel,
+                                    fileSize: resource.formattedFileSize,
+                                    badges: resource.tableBadges,
+                                    onDelete: {
+                                        configuration.kmeansConfig?.filesClassify.removeAll { $0.id == resource.id }
+                                        configuration.touch()
+                                    }
+                                )
+                            }
                         }
                     }
                     if let workspace {
@@ -147,7 +182,7 @@ struct KMeansConfigView: View {
                                 ResourcePickerView(
                                     workspace: workspace,
                                     defaultKinds: [.clipped, .masked],
-                                    selectableKinds: [.sourceRaster, .clipped, .masked, .ndvi, .ndci],
+                                    selectableKinds: [.clipped, .masked, .ndvi, .ndci],
                                     selection: Binding(
                                         get: { configuration.kmeansConfig?.filesClassify ?? [] },
                                         set: { configuration.kmeansConfig?.filesClassify = $0; configuration.touch() }
@@ -161,12 +196,28 @@ struct KMeansConfigView: View {
 
             // Outputs produced by this configuration
             let outputs = workspace?.resources.filter { $0.producedBy?.id == configuration.id } ?? []
-            let outputGroups = groupOutputsByKind(outputs)
-            if !outputGroups.isEmpty {
+            if !outputs.isEmpty {
+                let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
                 Section("Outputs") {
-                    ForEach(outputGroups, id: \.kind) { group in
-                        if outputGroups.count > 1 {
-                            Text(group.kind.displayName)
+                    HStack {
+                        if outputKinds.count > 1 {
+                            ResourceFilterBar(kinds: outputKinds, activeKinds: $outputActiveKinds)
+                                .onAppear {
+                                    if outputActiveKinds.isEmpty { outputActiveKinds = Set(outputKinds) }
+                                }
+                                .onChange(of: outputKinds) { _, newKinds in
+                                    let newSet = Set(newKinds)
+                                    outputActiveKinds.formUnion(newSet.subtracting(outputActiveKinds))
+                                }
+                        }
+                        Spacer()
+                        OutputSortBar(sortKey: $outputSortKey, ascending: $outputSortAscending)
+                    }
+                    let activeOutputs = outputKinds.count > 1 ? outputs.filter { outputActiveKinds.contains($0.kind) } : outputs
+                    let groups = groupedOutputs(activeOutputs, sortKey: outputSortKey, ascending: outputSortAscending)
+                    ForEach(groups, id: \.groupLabel) { group in
+                        if let label = group.groupLabel, group.resources.count > 1 {
+                            Text(label)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

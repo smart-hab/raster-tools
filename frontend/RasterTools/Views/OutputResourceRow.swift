@@ -8,28 +8,136 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Sort model
+
+enum OutputSortKey: String, CaseIterable {
+    case date, kind, size
+}
+
 // MARK: - Grouping helper
 
 func groupOutputsByKind(_ outputs: [WorkspaceResource]) -> [(kind: ResourceKind, resources: [WorkspaceResource])] {
-    let sorted = outputs.sorted {
-        switch ($0.date, $1.date) {
-        case (nil, nil): return false
-        case (nil, _): return false
-        case (_, nil): return true
-        case let (d1?, d2?): return d1 > d2
+    let groups = groupedOutputs(outputs, sortKey: .date, ascending: false)
+    return groups.compactMap { group in
+        guard group.groupLabel != nil else { return nil }
+        // Find the kind from the first resource
+        guard let kind = group.resources.first?.kind else { return nil }
+        return (kind: kind, resources: group.resources)
+    }
+}
+
+func groupedOutputs(
+    _ outputs: [WorkspaceResource],
+    sortKey: OutputSortKey,
+    ascending: Bool
+) -> [(groupLabel: String?, resources: [WorkspaceResource])] {
+    let sorted = outputs.sorted { a, b in
+        switch sortKey {
+        case .date:
+            switch (a.date, b.date) {
+            case (nil, nil): return false
+            case (nil, _): return ascending
+            case (_, nil): return !ascending
+            case let (d1?, d2?): return ascending ? d1 < d2 : d1 > d2
+            }
+        case .kind:
+            let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
+            return ascending ? cmp == .orderedAscending : cmp == .orderedDescending
+        case .size:
+            return ascending ? a.fileSize < b.fileSize : a.fileSize > b.fileSize
         }
     }
-    var groups: [(kind: ResourceKind, resources: [WorkspaceResource])] = []
-    var seen: Set<ResourceKind> = []
-    for resource in sorted {
-        if !seen.contains(resource.kind) {
-            seen.insert(resource.kind)
-            groups.append((kind: resource.kind, resources: []))
+
+    switch sortKey {
+    case .date:
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy MMMM d"
+        var groups: [(groupLabel: String?, resources: [WorkspaceResource])] = []
+        var labelToIndex: [String: Int] = [:]
+        for resource in sorted {
+            let label = resource.date.map { formatter.string(from: $0) } ?? "Unknown Date"
+            if let idx = labelToIndex[label] {
+                groups[idx].resources.append(resource)
+            } else {
+                labelToIndex[label] = groups.count
+                groups.append((groupLabel: label, resources: [resource]))
+            }
         }
-        let idx = groups.firstIndex { $0.kind == resource.kind }!
-        groups[idx].resources.append(resource)
+        return groups
+    case .kind:
+        var groups: [(groupLabel: String?, resources: [WorkspaceResource])] = []
+        var kindToIndex: [ResourceKind: Int] = [:]
+        for resource in sorted {
+            if let idx = kindToIndex[resource.kind] {
+                groups[idx].resources.append(resource)
+            } else {
+                kindToIndex[resource.kind] = groups.count
+                groups.append((groupLabel: resource.kind.displayName, resources: [resource]))
+            }
+        }
+        return groups
+    case .size:
+        return [(groupLabel: nil, resources: sorted)]
     }
-    return groups
+}
+
+// MARK: - Filter bar
+
+struct ResourceFilterBar: View {
+    let kinds: [ResourceKind]
+    @Binding var activeKinds: Set<ResourceKind>
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(kinds, id: \.self) { kind in
+                Button {
+                    if activeKinds.contains(kind) {
+                        activeKinds.remove(kind)
+                    } else {
+                        activeKinds.insert(kind)
+                    }
+                } label: {
+                    BadgeCapsule(label: kind.filterBadgeLabel)
+                }
+                .buttonStyle(.plain)
+                .opacity(activeKinds.contains(kind) ? 1.0 : 0.4)
+            }
+        }
+    }
+}
+
+// MARK: - Sort bar
+
+struct OutputSortBar: View {
+    @Binding var sortKey: OutputSortKey
+    @Binding var ascending: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Spacer()
+            ForEach(OutputSortKey.allCases, id: \.self) { key in
+                Button {
+                    if sortKey == key {
+                        ascending.toggle()
+                    } else {
+                        sortKey = key
+                        ascending = key == .kind
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Text(key.rawValue)
+                        if sortKey == key {
+                            Image(systemName: ascending ? "chevron.up" : "chevron.down")
+                        }
+                    }
+                    .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(sortKey == key ? .primary : .secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
 }
 
 // MARK: - Delete helper
@@ -146,7 +254,7 @@ struct PNGPreviewView: View {
 
                 HStack(spacing: 8) {
                     if let date = resource.date {
-                        Text(date.formatted(.dateTime.month(.wide).day().year()))
+                        Text(date.displayString)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

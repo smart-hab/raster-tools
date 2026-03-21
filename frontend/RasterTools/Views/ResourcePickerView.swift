@@ -17,41 +17,57 @@ struct ResourcePickerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var activeKinds: Set<ResourceKind> = []
+    @State private var sortKey: OutputSortKey = .date
+    @State private var sortAscending: Bool = false
+
+    private var sortedKinds: [ResourceKind] {
+        Array(selectableKinds).sorted { $0.rawValue < $1.rawValue }
+    }
 
     private var filteredResources: [WorkspaceResource] {
-        workspace.resources.filter { resource in
-            guard activeKinds.contains(resource.kind) else { return false }
-            return true
+        let filtered = workspace.resources.filter { activeKinds.contains($0.kind) }
+        return filtered.sorted { a, b in
+            switch sortKey {
+            case .date:
+                switch (a.date, b.date) {
+                case (nil, nil):
+                    let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
+                    return sortAscending ? cmp == .orderedAscending : cmp == .orderedDescending
+                case (nil, _): return sortAscending
+                case (_, nil): return !sortAscending
+                case let (d1?, d2?) where d1 == d2:
+                    let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
+                    return sortAscending ? cmp == .orderedAscending : cmp == .orderedDescending
+                case let (d1?, d2?): return sortAscending ? d1 < d2 : d1 > d2
+                }
+            case .kind:
+                let kindCmp = a.kind.displayName.localizedCompare(b.kind.displayName)
+                if kindCmp != .orderedSame {
+                    return sortAscending ? kindCmp == .orderedAscending : kindCmp == .orderedDescending
+                }
+                switch (a.date, b.date) {
+                case (nil, nil): return false
+                case (nil, _): return sortAscending
+                case (_, nil): return !sortAscending
+                case let (d1?, d2?): return sortAscending ? d1 < d2 : d1 > d2
+                }
+            case .size:
+                return sortAscending ? a.fileSize < b.fileSize : a.fileSize > b.fileSize
+            }
         }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Kind toggle bar
-            if selectableKinds.count > 1 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(selectableKinds).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { kind in
-                            Toggle(isOn: Binding(
-                                get: { activeKinds.contains(kind) },
-                                set: { on in
-                                    if on { activeKinds.insert(kind) }
-                                    else { activeKinds.remove(kind) }
-                                }
-                            )) {
-                                Label(kind.displayName, systemImage: kind.iconName)
-                                    .font(.caption)
-                            }
-                            .toggleStyle(.button)
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical, 8)
-                Divider()
+            // Filter + sort bar
+            HStack {
+                ResourceFilterBar(kinds: sortedKinds, activeKinds: $activeKinds)
+                Spacer()
+                OutputSortBar(sortKey: $sortKey, ascending: $sortAscending)
             }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            Divider()
 
             // Resource list
             if filteredResources.isEmpty {

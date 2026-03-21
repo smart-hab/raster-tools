@@ -14,6 +14,13 @@ struct PreprocessConfigView: View {
     @State private var runner = PreprocessRunner()
     @State private var showingShapePicker = false
     @State private var showingRasterPicker = false
+    @State private var rasterSortKey: OutputSortKey = .date
+    @State private var rasterSortAscending: Bool = false
+    @State private var outputSortKey: OutputSortKey = .date
+    @State private var outputSortAscending: Bool = false
+    private let rasterKinds: [ResourceKind] = [.sourceRaster, .udm]
+    @State private var rasterActiveKinds: Set<ResourceKind> = [.sourceRaster, .udm]
+    @State private var outputActiveKinds: Set<ResourceKind> = []
 
     private var workspace: Workspace? { configuration.workspace }
 
@@ -135,17 +142,29 @@ struct PreprocessConfigView: View {
                     Text("No raster files selected")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(preprocessConfig.files, id: \.id) { resource in
-                        ResourceTableRow(
-                            icon: resource.kind.iconName,
-                            label: resource.displayLabel,
-                            fileSize: resource.formattedFileSize,
-                            badges: resource.tableBadges,
-                            onDelete: {
-                                configuration.preprocessConfig?.files.removeAll { $0.id == resource.id }
-                                configuration.touch()
-                            }
-                        )
+                    HStack {
+                        ResourceFilterBar(kinds: rasterKinds, activeKinds: $rasterActiveKinds)
+                        Spacer()
+                        OutputSortBar(sortKey: $rasterSortKey, ascending: $rasterSortAscending)
+                    }
+                    let filteredRasters = preprocessConfig.files.filter { rasterActiveKinds.contains($0.kind) }
+                    let groups = groupedOutputs(filteredRasters, sortKey: rasterSortKey, ascending: rasterSortAscending)
+                    ForEach(groups, id: \.groupLabel) { group in
+                        if let label = group.groupLabel, group.resources.count > 1 {
+                            Text(label).font(.caption).foregroundStyle(.secondary)
+                        }
+                        ForEach(group.resources, id: \.id) { resource in
+                            ResourceTableRow(
+                                icon: resource.kind.iconName,
+                                label: resource.displayLabel,
+                                fileSize: resource.formattedFileSize,
+                                badges: resource.tableBadges,
+                                onDelete: {
+                                    configuration.preprocessConfig?.files.removeAll { $0.id == resource.id }
+                                    configuration.touch()
+                                }
+                            )
+                        }
                     }
                 }
                 if let workspace {
@@ -174,12 +193,28 @@ struct PreprocessConfigView: View {
     @ViewBuilder
     private var outputsSection: some View {
         let outputs = workspace?.resources.filter { $0.producedBy?.id == configuration.id } ?? []
-        let outputGroups = groupOutputsByKind(outputs)
-        if !outputGroups.isEmpty {
+        if !outputs.isEmpty {
+            let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
             Section("Outputs") {
-                ForEach(outputGroups, id: \.kind) { group in
-                    if outputGroups.count > 1 {
-                        Text(group.kind.displayName)
+                HStack {
+                    if outputKinds.count > 1 {
+                        ResourceFilterBar(kinds: outputKinds, activeKinds: $outputActiveKinds)
+                            .onAppear {
+                                if outputActiveKinds.isEmpty { outputActiveKinds = Set(outputKinds) }
+                            }
+                            .onChange(of: outputKinds) { _, newKinds in
+                                let newSet = Set(newKinds)
+                                outputActiveKinds.formUnion(newSet.subtracting(outputActiveKinds))
+                            }
+                    }
+                    Spacer()
+                    OutputSortBar(sortKey: $outputSortKey, ascending: $outputSortAscending)
+                }
+                let activeOutputs = outputKinds.count > 1 ? outputs.filter { outputActiveKinds.contains($0.kind) } : outputs
+                let groups = groupedOutputs(activeOutputs, sortKey: outputSortKey, ascending: outputSortAscending)
+                ForEach(groups, id: \.groupLabel) { group in
+                    if let label = group.groupLabel, group.resources.count > 1 {
+                        Text(label)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

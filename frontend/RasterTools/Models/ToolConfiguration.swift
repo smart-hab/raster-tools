@@ -40,6 +40,21 @@ enum ResourceKind: String, Codable {
     case output        // other generated output files
     case unknown
 
+    var filterBadgeLabel: String {
+        switch self {
+        case .sourceRaster:  return "source"
+        case .udm:           return "udm2"
+        case .clipped:       return "clipped"
+        case .masked:        return "masked"
+        case .ndvi:          return "ndvi"
+        case .ndci:          return "ndci"
+        case .kmeansClassed: return "classified"
+        case .kmeansMean:    return "mean"
+        case .kmeansDiff:    return "difference"
+        default:             return rawValue
+        }
+    }
+
     var iconName: String {
         switch self {
         case .sourceRaster:  return "photo.fill"
@@ -129,9 +144,17 @@ final class WorkspaceResource {
 
     var displayLabel: String {
         if let date {
-            return date.formatted(.dateTime.month(.wide).day().year())
+            return date.displayString
         }
         return filename
+    }
+}
+
+extension Date {
+    var displayString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy MMMM d"
+        return formatter.string(from: self)
     }
 }
 

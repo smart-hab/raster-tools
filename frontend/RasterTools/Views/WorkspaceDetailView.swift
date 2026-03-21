@@ -70,7 +70,7 @@ struct WorkspaceDetailView: View {
                     ForEach(sources, id: \.id) { resource in
                         ResourceTableRow(
                             icon: resource.kind.iconName,
-                            label: resource.date.map { $0.formatted(.dateTime.month(.wide).day().year()) } ?? resource.filename,
+                            label: resource.date.map { $0.displayString } ?? resource.filename,
                             fileSize: resource.formattedFileSize,
                             badges: badges(for: resource)
                         )
@@ -92,7 +92,7 @@ struct WorkspaceDetailView: View {
                         ForEach(group.resources, id: \.id) { resource in
                             ResourceTableRow(
                                 icon: resource.kind.iconName,
-                                label: resource.date.map { $0.formatted(.dateTime.month(.wide).day().year()) } ?? resource.filename,
+                                label: resource.date.map { $0.displayString } ?? resource.filename,
                                 fileSize: resource.formattedFileSize,
                                 badges: badges(for: resource),
                                 pngPath: resource.pngPath,
