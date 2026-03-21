@@ -70,11 +70,7 @@ class KMeansRunner: ToolRunner {
         args += ["-t", String(config.nTimes)]
         args += ["-c", String(config.centroids)]
         args += ["-r", String(config.seed)]
-        
-        // Add input files
-        for file in config.filesFit {
-            args += ["-i", file]
-        }
+        args += ["-i"] + config.filesFit
         
         try await runProcess(executable: "kmeans_fit", arguments: args)
         await log("✓ Fitted K-means model: \(config.centersFile)")
@@ -129,10 +125,7 @@ class KMeansRunner: ToolRunner {
 
         await updateStep("Generating mean raster")
         
-        var args = ["-o", outputPath]
-        for file in config.filesFit {
-            args += ["-i", file]
-        }
+        var args = ["-o", outputPath, "-i"] + config.filesFit
         
         try await runProcess(executable: "means", arguments: args)
         
