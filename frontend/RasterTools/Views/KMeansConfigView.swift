@@ -8,13 +8,13 @@
 
 import SwiftUI
 import SwiftData
+import AppKit
+import UniformTypeIdentifiers
 
 struct KMeansConfigView: View {
     @Bindable var configuration: ToolConfiguration
     @State private var runner = KMeansRunner()
-    @State private var availableFiles: [String] = []
-    @State private var isLoadingFiles = false
-    
+
     var body: some View {
         Form {
             Section("Configuration") {
@@ -22,7 +22,7 @@ struct KMeansConfigView: View {
                     Text(configuration.name)
                         .foregroundStyle(.secondary)
                 }
-                
+
                 LabeledContent("Workspace") {
                     Text(configuration.workspacePath)
                         .foregroundStyle(.secondary)
@@ -30,7 +30,7 @@ struct KMeansConfigView: View {
                         .lineLimit(1)
                 }
             }
-            
+
             Section("K-Means Parameters") {
                 if configuration.kmeansConfig != nil {
                     LabeledContent("Centers File") {
@@ -43,7 +43,7 @@ struct KMeansConfigView: View {
                         ))
                         .textFieldStyle(.roundedBorder)
                     }
-                    
+
                     LabeledContent("Centroids") {
                         Stepper(value: Binding(
                             get: { configuration.kmeansConfig?.centroids ?? 6 },
@@ -56,7 +56,7 @@ struct KMeansConfigView: View {
                                 .monospacedDigit()
                         }
                     }
-                    
+
                     LabeledContent("Iterations") {
                         Stepper(value: Binding(
                             get: { configuration.kmeansConfig?.nTimes ?? 10 },
@@ -69,7 +69,7 @@ struct KMeansConfigView: View {
                                 .monospacedDigit()
                         }
                     }
-                    
+
                     LabeledContent("Random Seed") {
                         TextField("42", value: Binding(
                             get: { configuration.kmeansConfig?.seed ?? 42 },
@@ -82,45 +82,77 @@ struct KMeansConfigView: View {
                     }
                 }
             }
-            
+
             Section("Fit Rasters") {
-                if configuration.kmeansConfig != nil {
-                    if isLoadingFiles {
-                        ProgressView()
-                    } else if availableFiles.isEmpty {
-                        Button("Retry") {
-                            loadWorkspaceFiles()
-                        }
+                if let kmeansConfig = configuration.kmeansConfig {
+                    if kmeansConfig.filesFit.isEmpty {
+                        Text("No raster files selected")
+                            .foregroundStyle(.secondary)
                     } else {
-                        FileSelectionView(
-                            availableFiles: availableFiles,
-                            selectedFiles: Binding(
-                                get: { configuration.kmeansConfig?.filesFit ?? [] },
-                                set: { newValue in
-                                    configuration.kmeansConfig?.filesFit = newValue
+                        ForEach(kmeansConfig.filesFit, id: \.self) { path in
+                            HStack {
+                                Text(URL(fileURLWithPath: path).lastPathComponent)
+                                Spacer()
+                                Button {
+                                    configuration.kmeansConfig?.filesFit.removeAll { $0 == path }
                                     configuration.touch()
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
                                 }
-                            )
-                        )
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    Button("Add Files...") {
+                        pickRasterFiles { urls in
+                            for url in urls {
+                                BookmarkManager.shared.saveBookmark(for: url)
+                                if !(configuration.kmeansConfig?.filesFit.contains(url.path) ?? false) {
+                                    configuration.kmeansConfig?.filesFit.append(url.path)
+                                }
+                            }
+                            configuration.touch()
+                        }
                     }
                 }
             }
-            
+
             Section("Classify Rasters") {
-                if configuration.kmeansConfig != nil && !availableFiles.isEmpty {
-                    FileSelectionView(
-                        availableFiles: availableFiles,
-                        selectedFiles: Binding(
-                            get: { configuration.kmeansConfig?.filesClassify ?? [] },
-                            set: { newValue in
-                                configuration.kmeansConfig?.filesClassify = newValue
-                                configuration.touch()
+                if let kmeansConfig = configuration.kmeansConfig {
+                    if kmeansConfig.filesClassify.isEmpty {
+                        Text("No raster files selected")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(kmeansConfig.filesClassify, id: \.self) { path in
+                            HStack {
+                                Text(URL(fileURLWithPath: path).lastPathComponent)
+                                Spacer()
+                                Button {
+                                    configuration.kmeansConfig?.filesClassify.removeAll { $0 == path }
+                                    configuration.touch()
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
                             }
-                        )
-                    )
+                        }
+                    }
+                    Button("Add Files...") {
+                        pickRasterFiles { urls in
+                            for url in urls {
+                                BookmarkManager.shared.saveBookmark(for: url)
+                                if !(configuration.kmeansConfig?.filesClassify.contains(url.path) ?? false) {
+                                    configuration.kmeansConfig?.filesClassify.append(url.path)
+                                }
+                            }
+                            configuration.touch()
+                        }
+                    }
                 }
             }
-            
+
             if runner.isRunning || !runner.progress.logs.isEmpty {
                 Section("Progress") {
                     ToolProgressView(runner: runner)
@@ -150,37 +182,20 @@ struct KMeansConfigView: View {
                 }
             }
         }
-        .onAppear {
-            loadWorkspaceFiles()
-        }
     }
-    
-    private func loadWorkspaceFiles() {
-        isLoadingFiles = true
-        Task {
-            do {
-                let fileManager = FileManager.default
-                let workspaceURL = URL(fileURLWithPath: configuration.workspacePath)
-                let files = try fileManager.contentsOfDirectory(
-                    at: workspaceURL,
-                    includingPropertiesForKeys: [.isRegularFileKey],
-                    options: [.skipsHiddenFiles]
-                )
-                
-                await MainActor.run {
-                    self.availableFiles = files
-                        .filter { $0.pathExtension.lowercased() == "tif" || $0.pathExtension.lowercased() == "tiff" }
-                        .map { $0.lastPathComponent }
-                        .sorted()
-                    self.isLoadingFiles = false
-                }
-            } catch {
-                print("Error loading files: \(error)")
-                await MainActor.run {
-                    self.isLoadingFiles = false
-                }
-            }
+
+    private func pickRasterFiles(completion: @escaping ([URL]) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.directoryURL = URL(fileURLWithPath: configuration.workspacePath)
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "tif")!,
+            UTType(filenameExtension: "tiff")!
+        ]
+        if panel.runModal() == .OK {
+            completion(panel.urls)
         }
     }
 }
-

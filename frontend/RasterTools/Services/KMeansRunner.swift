@@ -73,7 +73,7 @@ class KMeansRunner: ToolRunner {
         
         // Add input files
         for file in config.filesFit {
-            args += ["-i", "\(workspace)/\(file)"]
+            args += ["-i", file]
         }
         
         try await runProcess(executable: "kmeans_fit", arguments: args)
@@ -87,12 +87,13 @@ class KMeansRunner: ToolRunner {
         let centersPath = "\(workspace)/\(config.centersFile)"
         
         for inputFile in config.filesClassify {
-            let inputPath = "\(workspace)/\(inputFile)"
-            let outputFile = inputFile.replacingOccurrences(of: ".tif", with: "_classed.tif")
+            let inputPath = inputFile
+            let baseName = URL(fileURLWithPath: inputFile).lastPathComponent
+            let outputFile = baseName.replacingOccurrences(of: ".tif", with: "_classed.tif")
             let outputPath = "\(workspace)/\(outputFile)"
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
-            
-            updateStep("Classifying", file: inputFile)
+
+            updateStep("Classifying", file: baseName)
             
             // Classify if output doesn't exist
             if !FileManager.default.fileExists(atPath: outputPath) {
@@ -130,7 +131,7 @@ class KMeansRunner: ToolRunner {
         
         var args = ["-o", outputPath]
         for file in config.filesFit {
-            args += ["-i", "\(workspace)/\(file)"]
+            args += ["-i", file]
         }
         
         try await runProcess(executable: "means", arguments: args)
@@ -154,19 +155,19 @@ class KMeansRunner: ToolRunner {
         
         for inputFile in config.filesClassify {
             // Extract date from filename (assumes YYYYMMDD format at start)
-            let filename = (inputFile as NSString).lastPathComponent
+            let filename = URL(fileURLWithPath: inputFile).lastPathComponent
             let date = String(filename.prefix(8))
-            
+
             let outputPath = "\(workspace)/\(baseName)_mean_diff_\(date).tif"
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
-            
+
             updateStep("Calculating difference", file: date)
-            
+
             // Generate difference if it doesn't exist
             if !FileManager.default.fileExists(atPath: outputPath) {
                 try await runProcess(
                     executable: "subtract",
-                    arguments: ["-i", meanPath, "\(workspace)/\(inputFile)", "-o", outputPath]
+                    arguments: ["-i", meanPath, inputFile, "-o", outputPath]
                 )
             }
             

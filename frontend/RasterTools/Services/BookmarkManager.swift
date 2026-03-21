@@ -71,6 +71,10 @@ class BookmarkManager {
         }
     }
 
+    func hasBookmark(for url: URL) -> Bool {
+        storedBookmarks()[url.path] != nil
+    }
+
     // MARK: - Private
 
     private func storedBookmarks() -> [String: Data] {

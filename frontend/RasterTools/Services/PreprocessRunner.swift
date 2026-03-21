@@ -66,11 +66,11 @@ class PreprocessRunner: ToolRunner {
         shapeFile: String,
         processes: [PreprocessType]
     ) async throws {
-        let baseName = rasterFile.replacingOccurrences(of: ".tif", with: "")
-        let inputPath = "\(workspace)/\(rasterFile)"
+        let inputPath = rasterFile
+        let baseName = URL(fileURLWithPath: rasterFile).deletingPathExtension().lastPathComponent
         let udmPath = "\(workspace)/\(baseName)_udm2.tif"
-        
-        log("Processing: \(rasterFile)")
+
+        log("Processing: \(baseName)")
         
         // Step 1: Clip to shape boundary
         let clippedPath = "\(workspace)/\(baseName)_clipped.tif"

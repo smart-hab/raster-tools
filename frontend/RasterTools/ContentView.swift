@@ -181,7 +181,9 @@ struct NewConfigurationSheet: View {
             }
 
             let parentURL = url.deletingLastPathComponent()
-            requestParentFolderAccess(for: parentURL)
+            if !BookmarkManager.shared.hasBookmark(for: parentURL) {
+                requestParentFolderAccess(for: parentURL)
+            }
         }
     }
 

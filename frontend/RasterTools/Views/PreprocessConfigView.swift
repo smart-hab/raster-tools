@@ -7,11 +7,12 @@
 
 import SwiftUI
 import SwiftData
+import AppKit
+import UniformTypeIdentifiers
 
 struct PreprocessConfigView: View {
     @Bindable var configuration: ToolConfiguration
     @State private var runner = PreprocessRunner()
-    @State private var availableFiles: [String] = []
     @State private var availableShapeFiles: [String] = []
     @State private var isLoadingFiles = false
     
@@ -89,24 +90,45 @@ struct PreprocessConfigView: View {
             }
             
             Section("Raster Files") {
-                if configuration.preprocessConfig != nil {
-                    if isLoadingFiles {
-                        ProgressView()
-                    } else if availableFiles.isEmpty {
-                        Button("Retry") {
-                            loadWorkspaceFiles()
-                        }
+                if let preprocessConfig = configuration.preprocessConfig {
+                    if preprocessConfig.files.isEmpty {
+                        Text("No raster files selected")
+                            .foregroundStyle(.secondary)
                     } else {
-                        FileSelectionView(
-                            availableFiles: availableFiles,
-                            selectedFiles: Binding(
-                                get: { configuration.preprocessConfig?.files ?? [] },
-                                set: { newValue in
-                                    configuration.preprocessConfig?.files = newValue
+                        ForEach(preprocessConfig.files, id: \.self) { path in
+                            HStack {
+                                Text(URL(fileURLWithPath: path).lastPathComponent)
+                                Spacer()
+                                Button {
+                                    configuration.preprocessConfig?.files.removeAll { $0 == path }
                                     configuration.touch()
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
                                 }
-                            )
-                        )
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    Button("Add Files...") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseFiles = true
+                        panel.canChooseDirectories = false
+                        panel.allowsMultipleSelection = true
+                        panel.directoryURL = URL(fileURLWithPath: configuration.workspacePath)
+                        panel.allowedContentTypes = [
+                            UTType(filenameExtension: "tif")!,
+                            UTType(filenameExtension: "tiff")!
+                        ]
+                        if panel.runModal() == .OK {
+                            for url in panel.urls {
+                                BookmarkManager.shared.saveBookmark(for: url)
+                                if !(configuration.preprocessConfig?.files.contains(url.path) ?? false) {
+                                    configuration.preprocessConfig?.files.append(url.path)
+                                }
+                            }
+                            configuration.touch()
+                        }
                     }
                 }
             }
@@ -147,7 +169,7 @@ struct PreprocessConfigView: View {
             loadWorkspaceFiles()
         }
     }
-    
+
     private func loadWorkspaceFiles() {
         isLoadingFiles = true
         Task {
@@ -159,23 +181,16 @@ struct PreprocessConfigView: View {
                     includingPropertiesForKeys: [.isRegularFileKey],
                     options: [.skipsHiddenFiles]
                 )
-                
+
                 await MainActor.run {
-                    // Load raster files
-                    self.availableFiles = files
-                        .filter { $0.pathExtension.lowercased() == "tif" || $0.pathExtension.lowercased() == "tiff" }
-                        .map { $0.lastPathComponent }
-                        .sorted()
-                    
-                    // Load shape files
                     self.availableShapeFiles = files
-                        .filter { 
+                        .filter {
                             let ext = $0.pathExtension.lowercased()
                             return ext == "geojson" || ext == "shp"
                         }
                         .map { $0.lastPathComponent }
                         .sorted()
-                    
+
                     self.isLoadingFiles = false
                 }
             } catch {
