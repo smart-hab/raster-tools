@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Progress information for tool execution
 struct ToolProgress {
@@ -104,6 +105,40 @@ class ToolRunner {
     }
 }
 
+
+// MARK: - Output Resource Helper
+
+extension ToolRunner {
+    @discardableResult
+    func makeOutputResource(
+        path: String,
+        kind: ResourceKind,
+        date: Date?,
+        parents: [WorkspaceResource],
+        pngPath: String? = nil,
+        producedBy: ToolConfiguration,
+        workspace: Workspace,
+        context: ModelContext
+    ) -> WorkspaceResource {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        let size = attrs?[.size] as? Int ?? 0
+        let r = WorkspaceResource(
+            originalPath: path,
+            filename: URL(fileURLWithPath: path).lastPathComponent,
+            date: date,
+            fileExtension: URL(fileURLWithPath: path).pathExtension.lowercased(),
+            kind: kind,
+            fileSize: size,
+            pngPath: pngPath
+        )
+        r.parents = parents
+        r.producedBy = producedBy
+        r.workspace = workspace
+        context.insert(r)
+        workspace.resources.append(r)
+        return r
+    }
+}
 
 enum ToolError: LocalizedError {
     case processError(code: Int32, message: String)

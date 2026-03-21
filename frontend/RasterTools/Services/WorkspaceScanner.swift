@@ -6,10 +6,12 @@
 //
 
 import Foundation
+import SwiftData
 
 struct WorkspaceScanner {
 
     /// Scans a source directory and returns WorkspaceResource records.
+    /// Source rasters are paired with their UDM sibling when present.
     /// Does not write to disk or create symlinks.
     static func scan(directory: String) -> [WorkspaceResource] {
         let fm = FileManager.default
@@ -33,19 +35,67 @@ struct WorkspaceScanner {
             let filename = fileURL.lastPathComponent
             let ext = fileURL.pathExtension.lowercased()
 
-            guard isMatchingFile(filename: filename, ext: ext) else { continue }
+            // Shape files: match by extension
+            if ext == "geojson" || ext == "shp" {
+                let date = extractDate(from: fileURL)
+                let resource = WorkspaceResource(
+                    originalPath: fileURL.path(percentEncoded: false),
+                    filename: filename,
+                    date: date,
+                    fileExtension: ext,
+                    kind: .shapeFile,
+                    fileSize: fileSize(at: fileURL)
+                )
+                resources.append(resource)
+                continue
+            }
 
-            let kind = inferKind(filename: filename, ext: ext)
+            // Metadata
+            if filename == "composite_metadata.json" {
+                let date = extractDate(from: fileURL)
+                let resource = WorkspaceResource(
+                    originalPath: fileURL.path(percentEncoded: false),
+                    filename: filename,
+                    date: date,
+                    fileExtension: ext,
+                    kind: .metadata,
+                    fileSize: fileSize(at: fileURL)
+                )
+                resources.append(resource)
+                continue
+            }
+
+            // Source raster — only composite.tif drives the scan
+            guard filename == "composite.tif" else { continue }
+
+            let dir = fileURL.deletingLastPathComponent()
             let date = extractDate(from: fileURL)
 
-            let resource = WorkspaceResource(
+            let source = WorkspaceResource(
                 originalPath: fileURL.path(percentEncoded: false),
                 filename: filename,
                 date: date,
                 fileExtension: ext,
-                kind: kind
+                kind: .sourceRaster,
+                fileSize: fileSize(at: fileURL)
             )
-            resources.append(resource)
+
+            // Check for UDM sibling in the same directory
+            let udmURL = dir.appendingPathComponent("composite_udm2.tif")
+            if fm.fileExists(atPath: udmURL.path(percentEncoded: false)) {
+                let udm = WorkspaceResource(
+                    originalPath: udmURL.path(percentEncoded: false),
+                    filename: "composite_udm2.tif",
+                    date: date,
+                    fileExtension: "tif",
+                    kind: .udm,
+                    fileSize: fileSize(at: udmURL)
+                )
+                source.udm = udm
+                resources.append(udm)
+            }
+
+            resources.append(source)
         }
 
         return resources
@@ -53,22 +103,9 @@ struct WorkspaceScanner {
 
     // MARK: - Private helpers
 
-    private static func isMatchingFile(filename: String, ext: String) -> Bool {
-        let knownNames: Set<String> = ["composite.tif", "composite_udm2.tif", "composite_metadata.json"]
-        if knownNames.contains(filename) { return true }
-        if ext == "geojson" || ext == "shp" { return true }
-        return false
-    }
-
-    private static func inferKind(filename: String, ext: String) -> ResourceKind {
-        switch filename {
-        case "composite.tif":         return .sourceRaster
-        case "composite_udm2.tif":    return .udm
-        case "composite_metadata.json": return .metadata
-        default:
-            if ext == "geojson" || ext == "shp" { return .shapeFile }
-            return .unknown
-        }
+    private static func fileSize(at url: URL) -> Int {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))
+        return attrs?[.size] as? Int ?? 0
     }
 
     /// Extracts a date from a directory component matching `<base>-YYYYMMDD-*` pattern.

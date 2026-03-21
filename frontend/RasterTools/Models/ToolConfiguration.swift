@@ -30,21 +30,31 @@ enum ResourceKind: String, Codable {
     case udm           // composite_udm2.tif
     case metadata      // composite_metadata.json
     case shapeFile     // .geojson / .shp
+    case clipped       // *_clipped.tif (generated)
+    case masked        // *_clipped_masked.tif (generated)
     case ndvi          // generated NDVI
     case ndci          // generated NDCI
+    case kmeansClassed // *_classed.tif (k-means classification)
+    case kmeansMean    // *_mean.tif (k-means mean raster)
+    case kmeansDiff    // *_mean_diff_*.tif (k-means difference raster)
     case output        // other generated output files
     case unknown
 
     var iconName: String {
         switch self {
-        case .sourceRaster: return "photo.fill"
-        case .udm: return "cloud.fill"
-        case .metadata: return "doc.text.fill"
-        case .shapeFile: return "map.fill"
-        case .ndvi: return "leaf.fill"
-        case .ndci: return "drop.fill"
-        case .output: return "square.and.arrow.down.fill"
-        case .unknown: return "questionmark.square.fill"
+        case .sourceRaster:  return "photo.fill"
+        case .udm:           return "cloud.fill"
+        case .metadata:      return "doc.text.fill"
+        case .shapeFile:     return "map.fill"
+        case .clipped:       return "crop"
+        case .masked:        return "sparkles"
+        case .ndvi:          return "leaf.fill"
+        case .ndci:          return "drop.fill"
+        case .kmeansClassed: return "circle.hexagongrid.fill"
+        case .kmeansMean:    return "chart.bar.xaxis"
+        case .kmeansDiff:    return "plusminus"
+        case .output:        return "square.and.arrow.down.fill"
+        case .unknown:       return "questionmark.square.fill"
         }
     }
 }
@@ -84,13 +94,44 @@ final class WorkspaceResource {
     var kind: ResourceKind
     var workspace: Workspace?
 
-    init(originalPath: String, filename: String, date: Date?, fileExtension: String, kind: ResourceKind) {
+    // UDM companion — only non-nil for kind == .sourceRaster
+    var udm: WorkspaceResource?
+
+    // Provenance — children/parents for self-referential many-to-many
+    var children: [WorkspaceResource]
+    @Relationship(inverse: \WorkspaceResource.children) var parents: [WorkspaceResource]
+
+    // Which config produced this resource (nil for source resources)
+    var producedBy: ToolConfiguration?
+
+    // File metadata
+    var fileSize: Int = 0
+    var pngPath: String? = nil
+
+    init(originalPath: String, filename: String, date: Date?, fileExtension: String, kind: ResourceKind,
+         fileSize: Int, pngPath: String? = nil) {
         self.id = UUID()
         self.originalPath = originalPath
         self.filename = filename
         self.date = date
         self.fileExtension = fileExtension
         self.kind = kind
+        self.children = []
+        self.parents = []
+        self.fileSize = fileSize
+        self.pngPath = pngPath
+    }
+
+    var formattedFileSize: String {
+        guard fileSize > 0 else { return "" }
+        return ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
+    }
+
+    var displayLabel: String {
+        if let date {
+            return date.formatted(.dateTime.month(.wide).day().year())
+        }
+        return filename
     }
 }
 
@@ -141,15 +182,15 @@ final class KMeansConfiguration {
     var centroids: Int
     var nTimes: Int
     var seed: Int
-    var filesFit: [String]
-    var filesClassify: [String]
+    @Relationship var filesFit: [WorkspaceResource]
+    @Relationship var filesClassify: [WorkspaceResource]
 
     init(centersFile: String = "centers.txt",
          centroids: Int = 6,
          nTimes: Int = 10,
          seed: Int = 42,
-         filesFit: [String] = [],
-         filesClassify: [String] = []) {
+         filesFit: [WorkspaceResource] = [],
+         filesClassify: [WorkspaceResource] = []) {
         self.centersFile = centersFile
         self.centroids = centroids
         self.nTimes = nTimes
@@ -163,13 +204,13 @@ final class KMeansConfiguration {
 
 @Model
 final class PreprocessConfiguration {
-    var shapeFile: String
     var processes: [String] // Store as strings for SwiftData compatibility
-    var files: [String]
+    @Relationship var shapeFile: WorkspaceResource?
+    @Relationship var files: [WorkspaceResource]
 
-    init(shapeFile: String = "",
+    init(shapeFile: WorkspaceResource? = nil,
          processes: [PreprocessType] = [.ndci, .ndvi],
-         files: [String] = []) {
+         files: [WorkspaceResource] = []) {
         self.shapeFile = shapeFile
         self.processes = processes.map { $0.rawValue }
         self.files = files

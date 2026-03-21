@@ -14,10 +14,26 @@ struct WorkspaceDetailView: View {
 
     @State private var showingNewConfigSheet = false
 
+    private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansClassed, .kmeansMean, .kmeansDiff, .output, .unknown]
+
+    private func resources(for kinds: Set<ResourceKind>, producedOnly: Bool = false) -> [WorkspaceResource] {
+        workspace.resources
+            .filter { kinds.contains($0.kind) && (!producedOnly || $0.producedBy != nil) }
+            .sorted {
+                switch ($0.date, $1.date) {
+                case (nil, nil): return false
+                case (nil, _): return false
+                case (_, nil): return true
+                case let (d1?, d2?): return d1 > d2
+                }
+            }
+    }
+
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Header
+                // Source directory header
                 GroupBox("Source Directory") {
                     HStack {
                         Text(workspace.sourceDirectory)
@@ -33,25 +49,57 @@ struct WorkspaceDetailView: View {
                     .padding(4)
                 }
 
-                // Stats
-                let rasters = workspace.resources.filter { $0.kind == .sourceRaster }
-                let metadataFiles = workspace.resources.filter { $0.kind == .metadata }
-                GroupBox("Resources") {
-                    if workspace.resources.isEmpty {
-                        Text("No resources found. Click Refresh to scan the source directory.")
-                            .foregroundStyle(.secondary)
-                            .padding(4)
-                    } else {
-                        HStack {
-                            Label("\(rasters.count) raster\(rasters.count == 1 ? "" : "s")", systemImage: "photo.fill")
-                            Spacer()
-                            Label("\(metadataFiles.count) metadata file\(metadataFiles.count == 1 ? "" : "s")", systemImage: "doc.text.fill")
+                // Shapes section
+                let shapes = resources(for: [.shapeFile])
+                ResourceTableSection(label: "Shapes", isEmpty: shapes.isEmpty,
+                                     emptyMessage: "No shape files found.") {
+                    ForEach(shapes, id: \.id) { resource in
+                        ResourceTableRow(
+                            icon: resource.kind.iconName,
+                            label: resource.filename,
+                            fileSize: resource.formattedFileSize,
+                            badges: badges(for: resource)
+                        )
+                    }
+                }
+
+                // Sources section
+                let sources = resources(for: [.sourceRaster])
+                ResourceTableSection(label: "Sources", isEmpty: sources.isEmpty,
+                                     emptyMessage: "No sources found. Click Refresh to scan the source directory.") {
+                    ForEach(sources, id: \.id) { resource in
+                        ResourceTableRow(
+                            icon: resource.kind.iconName,
+                            label: resource.date.map { $0.formatted(.dateTime.month(.wide).day().year()) } ?? resource.filename,
+                            fileSize: resource.formattedFileSize,
+                            badges: badges(for: resource)
+                        )
+                    }
+                }
+
+                // Outputs section
+                let outputGroups = groupOutputsByKind(resources(for: WorkspaceDetailView.outputKinds, producedOnly: true))
+                ResourceTableSection(label: "Outputs", isEmpty: outputGroups.isEmpty,
+                                     emptyMessage: "No outputs yet. Run a configuration to generate outputs.") {
+                    ForEach(outputGroups, id: \.kind) { group in
+                        if outputGroups.count > 1 {
+                            Text(group.kind.displayName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 6)
+                                .padding(.bottom, 2)
                         }
-                        .padding(4)
-
-                        Divider()
-
-                        ResourceListView(resources: workspace.resources)
+                        ForEach(group.resources, id: \.id) { resource in
+                            ResourceTableRow(
+                                icon: resource.kind.iconName,
+                                label: resource.date.map { $0.formatted(.dateTime.month(.wide).day().year()) } ?? resource.filename,
+                                fileSize: resource.formattedFileSize,
+                                badges: badges(for: resource),
+                                pngPath: resource.pngPath,
+                                originalPath: resource.originalPath,
+                                onDelete: { deleteOutputResource(resource, context: modelContext) }
+                            )
+                        }
                     }
                 }
 
@@ -76,79 +124,70 @@ struct WorkspaceDetailView: View {
         }
     }
 
+    private func badges(for resource: WorkspaceResource) -> [String] {
+        resource.tableBadges
+    }
+
     private func refreshResources() {
         let scanned = WorkspaceScanner.scan(directory: workspace.sourceDirectory)
-        let scannedPaths = Set(scanned.map { $0.originalPath })
-        let existingPaths = Set(workspace.resources.map { $0.originalPath })
 
-        // Remove resources no longer on disk
-        for resource in workspace.resources where !scannedPaths.contains(resource.originalPath) {
-            workspace.resources.removeAll { $0.originalPath == resource.originalPath }
+        var existingByPath: [String: WorkspaceResource] = [:]
+        for resource in workspace.resources where resource.originalPath.hasPrefix(workspace.sourceDirectory) {
+            existingByPath[resource.originalPath] = resource
+        }
+
+        let scannedPaths = Set(scanned.map { $0.originalPath })
+
+        for (path, resource) in existingByPath where !scannedPaths.contains(path) {
+            workspace.resources.removeAll { $0.id == resource.id }
             modelContext.delete(resource)
         }
 
-        // Add newly discovered resources
-        for resource in scanned where !existingPaths.contains(resource.originalPath) {
-            resource.workspace = workspace
-            modelContext.insert(resource)
-            workspace.resources.append(resource)
+        for scannedResource in scanned {
+            if existingByPath[scannedResource.originalPath] == nil {
+                scannedResource.workspace = workspace
+                modelContext.insert(scannedResource)
+                workspace.resources.append(scannedResource)
+            } else if let existing = existingByPath[scannedResource.originalPath],
+                      scannedResource.kind == .sourceRaster,
+                      existing.udm == nil,
+                      let scannedUDM = scannedResource.udm {
+                if let existingUDM = existingByPath[scannedUDM.originalPath] {
+                    existing.udm = existingUDM
+                } else if workspace.resources.first(where: { $0.originalPath == scannedUDM.originalPath }) == nil {
+                    scannedUDM.workspace = workspace
+                    modelContext.insert(scannedUDM)
+                    workspace.resources.append(scannedUDM)
+                    existing.udm = scannedUDM
+                }
+            }
         }
 
         workspace.modifiedAt = Date()
     }
 }
 
-// MARK: - Resource List
+// MARK: - Resource Table Section
 
-private struct ResourceListView: View {
-    let resources: [WorkspaceResource]
-
-    var groupedByDate: [(Date?, [WorkspaceResource])] {
-        var byDate: [Date?: [WorkspaceResource]] = [:]
-        for resource in resources {
-            byDate[resource.date, default: []].append(resource)
-        }
-        return byDate.sorted { a, b in
-            switch (a.key, b.key) {
-            case (nil, nil): return false
-            case (nil, _): return false
-            case (_, nil): return true
-            case let (d1?, d2?): return d1 > d2
-            }
-        }
-    }
+private struct ResourceTableSection<Content: View>: View {
+    let label: String
+    let isEmpty: Bool
+    let emptyMessage: String
+    @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(groupedByDate, id: \.0) { date, items in
-                if let date {
-                    Text(date, format: .dateTime.year().month().day())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 4)
-                } else {
-                    Text("Unknown date")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 4)
+        GroupBox(label) {
+            if isEmpty {
+                Text(emptyMessage)
+                    .foregroundStyle(.secondary)
+                    .padding(4)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    content()
                 }
-                ForEach(items) { resource in
-                    HStack {
-                        Image(systemName: resource.kind.iconName)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 16)
-                        Text(resource.filename)
-                            .font(.system(.body, design: .monospaced))
-                        Spacer()
-                        Text(resource.kind.rawValue)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.vertical, 2)
-                }
-                Divider()
+                .padding(4)
             }
         }
-        .padding(4)
     }
 }
+

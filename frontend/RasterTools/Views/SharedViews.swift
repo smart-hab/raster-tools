@@ -7,6 +7,34 @@
 
 import SwiftUI
 
+// MARK: - Badge Capsule
+
+struct BadgeCapsule: View {
+    let label: String
+
+    private var color: Color {
+        switch label {
+        case "source":  return .secondary
+        case "udm2":    return .blue
+        case "shape":   return .green
+        case "clipped": return .orange
+        case "masked":  return .red
+        case "ndvi":    return .teal
+        case "ndci":    return .purple
+        default:        return .secondary
+        }
+    }
+
+    var body: some View {
+        Text(label)
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule())
+            .foregroundStyle(color)
+    }
+}
+
 // MARK: - File Selection
 
 struct FileSelectionView: View {
