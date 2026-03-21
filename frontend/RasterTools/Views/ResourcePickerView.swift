@@ -101,6 +101,18 @@ struct ResourcePickerView: View {
                         .foregroundStyle(.secondary)
                         .font(.callout)
                     Spacer()
+                    Button(filteredResources.allSatisfy({ r in selection.contains { $0.id == r.id } }) ? "Select None" : "Select All") {
+                        if filteredResources.allSatisfy({ r in selection.contains { $0.id == r.id } }) {
+                            let filteredIDs = Set(filteredResources.map(\.id))
+                            selection.removeAll { filteredIDs.contains($0.id) }
+                        } else {
+                            for resource in filteredResources {
+                                if !selection.contains(where: { $0.id == resource.id }) {
+                                    selection.append(resource)
+                                }
+                            }
+                        }
+                    }
                     Button("Done") { dismiss() }
                         .keyboardShortcut(.defaultAction)
                         .buttonStyle(.borderedProminent)
@@ -109,6 +121,7 @@ struct ResourcePickerView: View {
             }
         }
         .frame(minWidth: 400, minHeight: 300)
+        .frame(idealWidth: 1000, idealHeight: 750)
         .onAppear {
             activeKinds = defaultKinds
         }

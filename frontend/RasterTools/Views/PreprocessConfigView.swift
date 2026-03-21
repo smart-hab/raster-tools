@@ -21,6 +21,8 @@ struct PreprocessConfigView: View {
     private let rasterKinds: [ResourceKind] = [.sourceRaster, .udm]
     @State private var rasterActiveKinds: Set<ResourceKind> = [.sourceRaster, .udm]
     @State private var outputActiveKinds: Set<ResourceKind> = []
+    @State private var rasterSelection: Set<UUID> = []
+    @State private var outputSelection: Set<UUID> = []
 
     private var workspace: Workspace? { configuration.workspace }
 
@@ -54,6 +56,16 @@ struct PreprocessConfigView: View {
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .lineLimit(1)
+            }
+            if let workspace {
+                LabeledContent("Output Dir") {
+                    Button {
+                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace))
+                    } label: {
+                        Image(systemName: "folder")
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }
@@ -159,19 +171,45 @@ struct PreprocessConfigView: View {
                                 label: resource.displayLabel,
                                 fileSize: resource.formattedFileSize,
                                 badges: resource.tableBadges,
-                                onDelete: {
-                                    configuration.preprocessConfig?.files.removeAll { $0.id == resource.id }
-                                    configuration.touch()
-                                }
+                                isSelected: rasterSelection.contains(resource.id)
                             )
+                            .onTapGesture {
+                                if rasterSelection.contains(resource.id) {
+                                    rasterSelection.remove(resource.id)
+                                } else {
+                                    rasterSelection.insert(resource.id)
+                                }
+                            }
                         }
                     }
                 }
                 if let workspace {
-                    Button("Add Files...") { showingRasterPicker = true }
-                        .sheet(isPresented: $showingRasterPicker) {
-                            rasterPickerSheet(workspace: workspace)
+                    let visibleRasterIDs = Set(preprocessConfig.files.filter { rasterActiveKinds.contains($0.kind) }.map(\.id))
+                    HStack {
+                        Button("Add Files...") { showingRasterPicker = true }
+                            .sheet(isPresented: $showingRasterPicker) {
+                                rasterPickerSheet(workspace: workspace)
+                            }
+                        Spacer()
+                        Button(visibleRasterIDs.isSubset(of: rasterSelection) ? "Select None" : "Select All") {
+                            if visibleRasterIDs.isSubset(of: rasterSelection) {
+                                rasterSelection.subtract(visibleRasterIDs)
+                            } else {
+                                rasterSelection.formUnion(visibleRasterIDs)
+                            }
                         }
+                        Button("Delete") {
+                            let files = preprocessConfig.files
+                            for id in rasterSelection {
+                                if let resource = files.first(where: { $0.id == id }) {
+                                    configuration.preprocessConfig?.files.removeAll { $0.id == resource.id }
+                                    configuration.touch()
+                                }
+                            }
+                            rasterSelection.removeAll()
+                        }
+                        .disabled(rasterSelection.isEmpty)
+                    }
                 }
             }
         }
@@ -225,9 +263,36 @@ struct PreprocessConfigView: View {
                             fileSize: resource.formattedFileSize,
                             badges: resource.tableBadges,
                             pngPath: resource.pngPath,
-                            onDelete: { deleteOutputResource(resource, context: modelContext) }
+                            isSelected: outputSelection.contains(resource.id)
                         )
+                        .onTapGesture {
+                            if outputSelection.contains(resource.id) {
+                                outputSelection.remove(resource.id)
+                            } else {
+                                outputSelection.insert(resource.id)
+                            }
+                        }
                     }
+                }
+                let activeOutputIDs = Set(activeOutputs.map(\.id))
+                HStack {
+                    Spacer()
+                    Button(activeOutputIDs.isSubset(of: outputSelection) ? "Select None" : "Select All") {
+                        if activeOutputIDs.isSubset(of: outputSelection) {
+                            outputSelection.subtract(activeOutputIDs)
+                        } else {
+                            outputSelection.formUnion(activeOutputIDs)
+                        }
+                    }
+                    Button("Delete") {
+                        for id in outputSelection {
+                            if let resource = outputs.first(where: { $0.id == id }) {
+                                deleteOutputResource(resource, context: modelContext)
+                            }
+                        }
+                        outputSelection.removeAll()
+                    }
+                    .disabled(outputSelection.isEmpty)
                 }
             }
         }
