@@ -35,41 +35,33 @@ class ToolRunner {
         isRunning = false
     }
     
+    /// Resolve an executable name to a full path using the configured virtualenv.
     /// Run a subprocess and capture output
     @discardableResult
     func runProcess(executable: String, arguments: [String]) async throws -> String {
         let process = Process()
         currentProcess = process
-        
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        
+
+        let venv = AppSettings.shared.virtualEnvPath
+        guard !venv.isEmpty else {
+            throw ToolError.missingVirtualEnv
+        }
+        let venvBin = (venv as NSString).appendingPathComponent("bin")
+        let python = (venvBin as NSString).appendingPathComponent("python")
+        let script = (venvBin as NSString).appendingPathComponent(executable)
+        process.executableURL = URL(fileURLWithPath: python)
+        process.arguments = [script] + arguments
+
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         process.standardOutput = outputPipe
         process.standardError = errorPipe
-        
-        var outputData = Data()
-        var errorData = Data()
-        
-        // Read output
-        outputPipe.fileHandleForReading.readabilityHandler = { handle in
-            outputData.append(handle.availableData)
-        }
-        
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            errorData.append(handle.availableData)
-        }
-        
+
         try process.run()
         process.waitUntilExit()
-        
-        // Stop reading
-        outputPipe.fileHandleForReading.readabilityHandler = nil
-        errorPipe.fileHandleForReading.readabilityHandler = nil
-        
-        let output = String(data: outputData, encoding: .utf8) ?? ""
-        let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
+
+        let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let errorOutput = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         
         if process.terminationStatus != 0 {
             throw ToolError.processError(
@@ -106,17 +98,21 @@ class ToolRunner {
     }
 }
 
+
 enum ToolError: LocalizedError {
     case processError(code: Int32, message: String)
     case missingConfiguration
+    case missingVirtualEnv
     case fileNotFound(String)
-    
+
     var errorDescription: String? {
         switch self {
         case .processError(let code, let message):
             return "Process failed with exit code \(code): \(message)"
         case .missingConfiguration:
             return "Configuration is missing or invalid"
+        case .missingVirtualEnv:
+            return "No virtual environment configured. Set it in Settings."
         case .fileNotFound(let path):
             return "File not found: \(path)"
         }

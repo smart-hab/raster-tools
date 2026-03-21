@@ -25,15 +25,15 @@ struct RasterToolsApp: App {
         }
     }()
 
-    init() {
-        BookmarkManager.shared.restoreAllBookmarks()
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
         .defaultSize(width: 1000, height: 700)
+
+        Settings {
+            SettingsView()
+        }
     }
 }

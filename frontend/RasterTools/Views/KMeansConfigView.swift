@@ -107,7 +107,6 @@ struct KMeansConfigView: View {
                     Button("Add Files...") {
                         pickRasterFiles { urls in
                             for url in urls {
-                                BookmarkManager.shared.saveBookmark(for: url)
                                 if !(configuration.kmeansConfig?.filesFit.contains(url.path) ?? false) {
                                     configuration.kmeansConfig?.filesFit.append(url.path)
                                 }
@@ -142,7 +141,6 @@ struct KMeansConfigView: View {
                     Button("Add Files...") {
                         pickRasterFiles { urls in
                             for url in urls {
-                                BookmarkManager.shared.saveBookmark(for: url)
                                 if !(configuration.kmeansConfig?.filesClassify.contains(url.path) ?? false) {
                                     configuration.kmeansConfig?.filesClassify.append(url.path)
                                 }
@@ -189,6 +187,7 @@ struct KMeansConfigView: View {
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
+        panel.resolvesAliases = false
         panel.directoryURL = URL(fileURLWithPath: configuration.workspacePath)
         panel.allowedContentTypes = [
             UTType(filenameExtension: "tif")!,

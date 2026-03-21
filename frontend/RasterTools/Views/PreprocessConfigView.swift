@@ -115,6 +115,7 @@ struct PreprocessConfigView: View {
                         panel.canChooseFiles = true
                         panel.canChooseDirectories = false
                         panel.allowsMultipleSelection = true
+                        panel.resolvesAliases = false
                         panel.directoryURL = URL(fileURLWithPath: configuration.workspacePath)
                         panel.allowedContentTypes = [
                             UTType(filenameExtension: "tif")!,
@@ -122,7 +123,6 @@ struct PreprocessConfigView: View {
                         ]
                         if panel.runModal() == .OK {
                             for url in panel.urls {
-                                BookmarkManager.shared.saveBookmark(for: url)
                                 if !(configuration.preprocessConfig?.files.contains(url.path) ?? false) {
                                     configuration.preprocessConfig?.files.append(url.path)
                                 }

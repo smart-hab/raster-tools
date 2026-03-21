@@ -180,26 +180,6 @@ struct NewConfigurationSheet: View {
                 configName = "\(prefix)_\(url.lastPathComponent)"
             }
 
-            let parentURL = url.deletingLastPathComponent()
-            if !BookmarkManager.shared.hasBookmark(for: parentURL) {
-                requestParentFolderAccess(for: parentURL)
-            }
-        }
-    }
-
-    private func requestParentFolderAccess(for parentURL: URL) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = parentURL
-        panel.prompt = "Grant Access"
-        panel.message = "Allow RasterTools to access \"\(parentURL.lastPathComponent)\" so it can read files after relaunch."
-
-        panel.begin { response in
-            guard response == .OK, let granted = panel.url else { return }
-            BookmarkManager.shared.saveBookmark(for: granted)
-            _ = granted.startAccessingSecurityScopedResource()
         }
     }
 }

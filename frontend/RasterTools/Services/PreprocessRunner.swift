@@ -68,7 +68,7 @@ class PreprocessRunner: ToolRunner {
     ) async throws {
         let inputPath = rasterFile
         let baseName = URL(fileURLWithPath: rasterFile).deletingPathExtension().lastPathComponent
-        let udmPath = "\(workspace)/\(baseName)_udm2.tif"
+        let udmPath = URL(fileURLWithPath: inputPath).deletingPathExtension().path + "_udm2.tif"
 
         log("Processing: \(baseName)")
         
