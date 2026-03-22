@@ -110,77 +110,23 @@ struct WorkspaceDetailView: View {
                     Text("No outputs yet. Run a configuration to generate outputs.")
                         .foregroundStyle(.secondary)
                 } else {
-                    if outputKinds.count > 1 {
-                        HStack {
-                            ResourceFilterBar(kinds: outputKinds, activeKinds: $outputActiveKinds)
-                                .onAppear {
-                                    if outputActiveKinds.isEmpty { outputActiveKinds = Set(outputKinds) }
-                                }
-                                .onChange(of: outputKinds) { _, newKinds in
-                                    outputActiveKinds.formUnion(Set(newKinds).subtracting(outputActiveKinds))
-                                }
-                            Spacer()
-                            OutputSortBar(sortKey: $outputSortKey, ascending: $outputSortAscending)
-                        }
-                    }
-                    let activeOutputs = outputKinds.count > 1 ? allOutputs.filter { outputActiveKinds.contains($0.kind) } : allOutputs
-                    let groups = groupedOutputs(activeOutputs, sortKey: outputSortKey, ascending: outputSortAscending)
-                    ForEach(groups, id: \.groupLabel) { group in
-                        if let label = group.groupLabel, group.resources.count > 1 {
-                            Text(label)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        ForEach(group.resources, id: \.id) { resource in
-                            ResourceTableRow(
-                                icon: resource.kind.iconName,
-                                label: resource.date.map { $0.displayString } ?? resource.filename,
-                                fileSize: resource.formattedFileSize,
-                                badges: badges(for: resource),
-                                pngPath: resource.pngPath,
-                                originalPath: resource.originalPath,
-                                isSelected: outputSelection.contains(resource.id)
-                            )
-                            .onTapGesture {
-                                if outputSelection.contains(resource.id) {
-                                    outputSelection.remove(resource.id)
-                                } else {
-                                    outputSelection.insert(resource.id)
-                                }
-                            }
-                        }
-                    }
-                    let activeOutputIDs = Set(activeOutputs.map(\.id))
-                    let outputSelectionBytes = allOutputs.filter { outputSelection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
-                    HStack {
-                        Spacer()
-                        Text(selectionLabel(outputSelection.count, bytes: outputSelectionBytes))
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button {
-                            for id in outputSelection {
+                    ResourceSectionContent(
+                        resources: allOutputs,
+                        filterKinds: outputKinds,
+                        activeKinds: $outputActiveKinds,
+                        sortKey: $outputSortKey,
+                        sortAscending: $outputSortAscending,
+                        selection: $outputSelection,
+                        rowLabel: { $0.date.map { $0.displayString } ?? $0.filename },
+                        onDeleteSelected: { ids in
+                            for id in ids {
                                 if let resource = allOutputs.first(where: { $0.id == id }) {
                                     deleteOutputResource(resource, context: modelContext)
                                 }
                             }
                             outputSelection.removeAll()
-                        } label: {
-                            Image(systemName: "trash")
                         }
-                        .buttonStyle(.plain)
-                        .disabled(outputSelection.isEmpty)
-                        Button {
-                            if activeOutputIDs.isSubset(of: outputSelection) {
-                                outputSelection.subtract(activeOutputIDs)
-                            } else {
-                                outputSelection.formUnion(activeOutputIDs)
-                            }
-                        } label: {
-                            Image(systemName: activeOutputIDs.isSubset(of: outputSelection) ? "minus.circle" : "checkmark.circle")
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    )
                 }
             }
         }
@@ -211,12 +157,6 @@ struct WorkspaceDetailView: View {
 
     private func badges(for resource: WorkspaceResource) -> [String] {
         resource.tableBadges
-    }
-
-    private func selectionLabel(_ count: Int, bytes: Int) -> String {
-        guard count > 0, bytes > 0 else { return "\(count) selected" }
-        let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
-        return "\(count) selected (\(size))"
     }
 
     private func refreshResources() {
