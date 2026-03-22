@@ -201,20 +201,17 @@ final class ToolConfiguration {
 
 @Model
 final class KMeansConfiguration {
-    var centersFile: String
     var centroids: Int
     var nTimes: Int
     var seed: Int
     @Relationship var filesFit: [WorkspaceResource]
     @Relationship var filesClassify: [WorkspaceResource]
 
-    init(centersFile: String = "centers.txt",
-         centroids: Int = 6,
+    init(centroids: Int = 6,
          nTimes: Int = 10,
          seed: Int = 42,
          filesFit: [WorkspaceResource] = [],
          filesClassify: [WorkspaceResource] = []) {
-        self.centersFile = centersFile
         self.centroids = centroids
         self.nTimes = nTimes
         self.seed = seed

@@ -31,7 +31,7 @@ class KMeansRunner: ToolRunner {
         }
 
         do {
-            let outputDir = AppStorage.outputDirectory(for: workspace).path
+            let outputDir = AppStorage.outputDirectory(for: workspace, configuration: configuration).path
 
             // Step 1: Fit K-means model
             try await fitKMeans(outputDir: outputDir, config: config, configuration: configuration, workspace: workspace, context: context)
@@ -66,11 +66,11 @@ class KMeansRunner: ToolRunner {
         workspace: Workspace,
         context: ModelContext
     ) async throws {
-        let centersPath = "\(outputDir)/\(config.centersFile)"
+        let centersPath = "\(outputDir)/centers.txt"
 
         // Skip if centers file already exists on disk
         if FileManager.default.fileExists(atPath: centersPath) {
-            await log("✓ Using existing centers file: \(config.centersFile)")
+            await log("✓ Using existing centers file: centers.txt")
             return
         }
 
@@ -84,7 +84,7 @@ class KMeansRunner: ToolRunner {
         args += ["-i"] + inputPaths
 
         try await runProcess(executable: "kmeans_fit", arguments: args)
-        await log("✓ Fitted K-means model: \(config.centersFile)")
+        await log("✓ Fitted K-means model: centers.txt")
         await completeFile()
     }
 
@@ -97,7 +97,7 @@ class KMeansRunner: ToolRunner {
     ) async throws {
         await updateStep("Classifying rasters")
 
-        let centersPath = "\(outputDir)/\(config.centersFile)"
+        let centersPath = "\(outputDir)/centers.txt"
 
         for sourceResource in config.filesClassify {
             let inputPath = sourceResource.originalPath
@@ -144,8 +144,7 @@ class KMeansRunner: ToolRunner {
         workspace: Workspace,
         context: ModelContext
     ) async throws {
-        let baseName = config.centersFile.replacingOccurrences(of: ".txt", with: "")
-        let outputPath = "\(outputDir)/\(baseName)_mean.tif"
+        let outputPath = "\(outputDir)/mean.tif"
         let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
 
         let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
@@ -177,7 +176,7 @@ class KMeansRunner: ToolRunner {
             context: context
         )
 
-        await log("✓ \(baseName)_mean.tif")
+        await log("✓ mean.tif")
     }
 
     private func generateDifferenceRasters(
@@ -189,15 +188,14 @@ class KMeansRunner: ToolRunner {
     ) async throws {
         await updateStep("Generating difference rasters")
 
-        let baseName = config.centersFile.replacingOccurrences(of: ".txt", with: "")
-        let meanPath = "\(outputDir)/\(baseName)_mean.tif"
+        let meanPath = "\(outputDir)/mean.tif"
 
         for sourceResource in config.filesClassify {
             let inputPath = sourceResource.originalPath
             let filename = URL(fileURLWithPath: inputPath).lastPathComponent
             let date = String(filename.prefix(8))
 
-            let outputPath = "\(outputDir)/\(baseName)_mean_diff_\(date).tif"
+            let outputPath = "\(outputDir)/mean_diff_\(date).tif"
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
 
             await updateStep("Calculating difference", file: date)
@@ -229,7 +227,7 @@ class KMeansRunner: ToolRunner {
                 )
             }
 
-            await log("✓ \(baseName)_mean_diff_\(date).tif")
+            await log("✓ mean_diff_\(date).tif")
         }
     }
 }

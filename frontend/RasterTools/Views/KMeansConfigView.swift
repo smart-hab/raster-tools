@@ -48,7 +48,7 @@ struct KMeansConfigView: View {
                 if let workspace {
                     LabeledContent("Output Dir") {
                         Button {
-                            NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace))
+                            NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
                         } label: {
                             Image(systemName: "folder")
                         }
@@ -59,17 +59,6 @@ struct KMeansConfigView: View {
 
             Section("K-Means Parameters") {
                 if configuration.kmeansConfig != nil {
-                    LabeledContent("Centers File") {
-                        TextField("centers.txt", text: Binding(
-                            get: { configuration.kmeansConfig?.centersFile ?? "centers.txt" },
-                            set: { newValue in
-                                configuration.kmeansConfig?.centersFile = newValue
-                                configuration.touch()
-                            }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                    }
-
                     LabeledContent("Centroids") {
                         Stepper(value: Binding(
                             get: { configuration.kmeansConfig?.centroids ?? 6 },
@@ -97,7 +86,7 @@ struct KMeansConfigView: View {
                     }
 
                     LabeledContent("Random Seed") {
-                        TextField("42", value: Binding(
+                        TextField("", value: Binding(
                             get: { configuration.kmeansConfig?.seed ?? 42 },
                             set: { newValue in
                                 configuration.kmeansConfig?.seed = newValue
