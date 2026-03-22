@@ -6,6 +6,114 @@
 //
 
 import SwiftUI
+import SwiftData
+
+// MARK: - Compact Job Row
+
+struct CompactJobRow: View {
+    let job: Job
+    @State private var showingDetail = false
+    @Environment(JobRegistry.self) private var registry
+
+    private var statusIcon: some View {
+        Group {
+            if job.runner.isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            } else if job.runner.error != nil {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.red)
+            } else {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+        }
+        .frame(width: 16, height: 16)
+    }
+
+    private var fileFraction: String {
+        let p = job.runner.progress
+        if job.runner.isRunning {
+            if p.totalFiles > 0 {
+                return "\(p.completedFiles)/\(p.totalFiles)"
+            }
+            return ""
+        }
+        if job.runner.error != nil { return "Error" }
+        return "Done"
+    }
+
+    var body: some View {
+        Button {
+            showingDetail = true
+        } label: {
+            HStack(spacing: 8) {
+                statusIcon
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("\(job.workspaceName) / \(job.configName)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        if !fileFraction.isEmpty {
+                            Text(fileFraction)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                    Text(job.runner.progress.currentStep)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Button {
+                    if job.runner.isRunning {
+                        job.runner.cancel()
+                    }
+                    registry.remove(job)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingDetail) {
+            ToolProgressDetailSheet(job: job)
+        }
+    }
+}
+
+// MARK: - Tool Progress Detail Sheet
+
+struct ToolProgressDetailSheet: View {
+    let job: Job
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                ToolProgressView(runner: job.runner)
+                    .padding()
+            }
+            .navigationTitle("\(job.workspaceName) / \(job.configName)")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .frame(minWidth: 480, minHeight: 360)
+    }
+}
 
 // MARK: - Badge Capsule
 

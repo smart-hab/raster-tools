@@ -11,7 +11,8 @@ import SwiftData
 struct PreprocessConfigView: View {
     @Bindable var configuration: ToolConfiguration
     @Environment(\.modelContext) private var modelContext
-    @State private var runner = PreprocessRunner()
+    @Environment(JobRegistry.self) private var registry
+    @State private var activeRunner: PreprocessRunner?
     @State private var showingShapePicker = false
     @State private var showingRasterPicker = false
     @State private var rasterSortKey: OutputSortKey = .date
@@ -33,7 +34,6 @@ struct PreprocessConfigView: View {
             processesSection
             rasterFilesSection
             outputsSection
-            progressSection
         }
         .formStyle(.grouped)
         .navigationTitle(configuration.name)
@@ -324,22 +324,20 @@ struct PreprocessConfigView: View {
     }
 
     @ViewBuilder
-    private var progressSection: some View {
-        if runner.isRunning || !runner.progress.logs.isEmpty {
-            Section("Progress") {
-                ToolProgressView(runner: runner)
-            }
-        }
-    }
-
-    @ViewBuilder
     private var runButton: some View {
-        if runner.isRunning {
+        if let runner = activeRunner, runner.isRunning {
             Button("Cancel", role: .destructive) {
                 runner.cancel()
             }
         } else {
             Button("Run Preprocessing") {
+                let runner = PreprocessRunner()
+                activeRunner = runner
+                registry.register(
+                    runner: runner,
+                    configName: configuration.name,
+                    workspaceName: workspace?.name ?? ""
+                )
                 Task {
                     do {
                         try await runner.run(configuration: configuration, context: modelContext)

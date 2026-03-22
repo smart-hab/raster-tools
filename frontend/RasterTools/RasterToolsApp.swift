@@ -30,6 +30,7 @@ struct RasterToolsApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(JobRegistry.shared)
         }
         .modelContainer(sharedModelContainer)
         .defaultSize(width: 1000, height: 700)

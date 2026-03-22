@@ -66,19 +66,36 @@ struct SidebarView: View {
     let workspaces: [Workspace]
     @Binding var selection: SidebarSelection?
     let onAddWorkspace: () -> Void
+    @Environment(JobRegistry.self) private var registry
 
     var body: some View {
-        List(selection: $selection) {
-            ForEach(workspaces) { workspace in
-                WorkspaceSidebarRow(workspace: workspace, selection: $selection)
-            }
-        }
-        .navigationTitle("RasterTools")
-        .toolbar {
-            ToolbarItem {
-                Button(action: onAddWorkspace) {
-                    Label("Add Workspace", systemImage: "plus")
+        VStack(spacing: 0) {
+            List(selection: $selection) {
+                ForEach(workspaces) { workspace in
+                    WorkspaceSidebarRow(workspace: workspace, selection: $selection)
                 }
+            }
+            .navigationTitle("RasterTools")
+            .toolbar {
+                ToolbarItem {
+                    Button(action: onAddWorkspace) {
+                        Label("Add Workspace", systemImage: "plus")
+                    }
+                }
+            }
+
+            if !registry.jobs.isEmpty {
+                Divider()
+                VStack(spacing: 0) {
+                    ForEach(registry.jobs.reversed()) { job in
+                        CompactJobRow(job: job)
+                        if job.id != registry.jobs.first?.id {
+                            Divider()
+                                .padding(.leading, 34)
+                        }
+                    }
+                }
+                .background(Color(nsColor: .windowBackgroundColor))
             }
         }
     }

@@ -11,7 +11,8 @@ import SwiftData
 struct KMeansConfigView: View {
     @Bindable var configuration: ToolConfiguration
     @Environment(\.modelContext) private var modelContext
-    @State private var runner = KMeansRunner()
+    @Environment(JobRegistry.self) private var registry
+    @State private var activeRunner: KMeansRunner?
     @State private var showingFitPicker = false
     @State private var showingClassifyPicker = false
     @State private var fitSortKey: OutputSortKey = .date
@@ -349,22 +350,24 @@ struct KMeansConfigView: View {
                 }
             }
 
-            if runner.isRunning || !runner.progress.logs.isEmpty {
-                Section("Progress") {
-                    ToolProgressView(runner: runner)
-                }
-            }
         }
         .formStyle(.grouped)
         .navigationTitle(configuration.name)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                if runner.isRunning {
+                if let runner = activeRunner, runner.isRunning {
                     Button("Cancel", role: .destructive) {
                         runner.cancel()
                     }
                 } else {
                     Button("Run K-Means") {
+                        let runner = KMeansRunner()
+                        activeRunner = runner
+                        registry.register(
+                            runner: runner,
+                            configName: configuration.name,
+                            workspaceName: workspace?.name ?? ""
+                        )
                         Task {
                             do {
                                 try await runner.run(configuration: configuration, context: modelContext)
