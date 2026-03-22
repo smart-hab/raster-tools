@@ -49,8 +49,12 @@ struct ContentView: View {
         self.selection = nil
         switch selection {
         case .workspace(let ws):
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: ws))
             modelContext.delete(ws)
         case .configuration(let config):
+            if let workspace = config.workspace {
+                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
+            }
             modelContext.delete(config)
         }
     }
@@ -100,6 +104,7 @@ struct WorkspaceSidebarRow: View {
                     .tag(SidebarSelection.configuration(config))
                     .contextMenu {
                         Button("Delete", role: .destructive) {
+                            NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
                             selection = nil
                             modelContext.delete(config)
                         }
@@ -139,6 +144,7 @@ struct WorkspaceSidebarRow: View {
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
+                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace))
                 if case .workspace(let ws) = selection, ws.id == workspace.id {
                     selection = nil
                 }
