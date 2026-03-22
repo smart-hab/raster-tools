@@ -84,17 +84,15 @@ class KMeansRunner: ToolRunner {
         args += ["-i"] + inputPaths
 
         try await runProcess(executable: "kmeans_fit", arguments: args)
-        await MainActor.run {
-            makeOutputResource(
-                path: centersPath,
-                kind: .kmeansCenters,
-                date: nil,
-                parents: config.filesFit,
-                producedBy: configuration,
-                workspace: workspace,
-                context: context
-            )
-        }
+        makeOutputResource(
+            path: centersPath,
+            kind: .kmeansCenters,
+            date: nil,
+            parents: config.filesFit,
+            producedBy: configuration,
+            workspace: workspace,
+            context: context
+        )
         await log("✓ Fitted K-means model: centers.txt")
         await completeFile()
     }
