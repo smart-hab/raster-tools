@@ -119,7 +119,7 @@ struct PreprocessConfigView: View {
     @ViewBuilder
     private var processesSection: some View {
         Section("Processes") {
-            if configuration.preprocessConfig != nil {
+            if let preprocessConfig = configuration.preprocessConfig {
                 Text("Select which indices to calculate")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -128,7 +128,7 @@ struct PreprocessConfigView: View {
                     ForEach([ResourceKind.ndci, .ndvi], id: \.self) { processType in
                         ProcessTile(
                             processType: processType,
-                            isSelected: configuration.preprocessConfig?.processTypes.contains(processType) ?? false
+                            isSelected: preprocessConfig.processTypes.contains(processType)
                         ) {
                             guard var types = configuration.preprocessConfig?.processTypes else { return }
                             if types.contains(processType) {

@@ -48,11 +48,11 @@ struct ResourcePickerView: View {
                         .keyboardShortcut(.defaultAction)
                         .buttonStyle(.borderedProminent)
                 }
-                .padding()
+                .padding(.top)
             }
         }
         .padding()
-        .frame(minWidth: 400, minHeight: 300)
+        .frame(minWidth: 800, minHeight: 600)
         .frame(idealWidth: 1000, idealHeight: 750)
         .onAppear {
             activeKinds = defaultKinds

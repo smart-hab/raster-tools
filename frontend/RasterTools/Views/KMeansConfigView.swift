@@ -63,7 +63,7 @@ struct KMeansConfigView: View {
             }
 
             Section("K-Means Parameters") {
-                if configuration.kmeansConfig != nil {
+                if let kmeansConfig = configuration.kmeansConfig {
                     LabeledContent("Centers") {
                         Button("Reset") {
                             if let resource = centersResource {
@@ -75,33 +75,33 @@ struct KMeansConfigView: View {
 
                     LabeledContent("Centroids") {
                         Stepper(value: Binding(
-                            get: { configuration.kmeansConfig?.centroids ?? 6 },
+                            get: { kmeansConfig.centroids },
                             set: { newValue in
                                 configuration.kmeansConfig?.centroids = newValue
                                 configuration.touch()
                             }
                         ), in: 2...20) {
-                            Text("\(configuration.kmeansConfig?.centroids ?? 6)")
+                            Text("\(kmeansConfig.centroids)")
                                 .monospacedDigit()
                         }
                     }
 
                     LabeledContent("Iterations") {
                         Stepper(value: Binding(
-                            get: { configuration.kmeansConfig?.nTimes ?? 10 },
+                            get: { kmeansConfig.nTimes },
                             set: { newValue in
                                 configuration.kmeansConfig?.nTimes = newValue
                                 configuration.touch()
                             }
                         ), in: 1...100) {
-                            Text("\(configuration.kmeansConfig?.nTimes ?? 10)")
+                            Text("\(kmeansConfig.nTimes)")
                                 .monospacedDigit()
                         }
                     }
 
                     LabeledContent("Random Seed") {
                         TextField("", value: Binding(
-                            get: { configuration.kmeansConfig?.seed ?? 42 },
+                            get: { kmeansConfig.seed },
                             set: { newValue in
                                 configuration.kmeansConfig?.seed = newValue
                                 configuration.touch()

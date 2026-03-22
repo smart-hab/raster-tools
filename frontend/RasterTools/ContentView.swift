@@ -190,16 +190,14 @@ struct NewWorkspaceSheet: View {
                     TextField("Name", text: $name)
 
                     if let url = directoryURL {
-                        LabeledContent("Source Directory") {
-                            HStack {
+                        Button(action: selectDirectory) {
+                            LabeledContent("Source Directory") {
                                 Label(url.lastPathComponent, systemImage: "folder")
                                     .foregroundStyle(.primary)
-                                Spacer()
-                                Button("Change") { selectDirectory() }
-                                    .buttonStyle(.borderless)
-                                    .foregroundColor(.accentColor)
                             }
                         }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                     } else {
                         Button("Choose Source Directory…") { selectDirectory() }
                     }

@@ -362,13 +362,13 @@ struct ResourceSectionContent: View {
                     let items = orderedResources.filter { selection.contains($0.id) }.map { GalleryItem($0) }
                     galleryRequest = GalleryRequest(items: items, initialIndex: 0)
                 } label: {
-                    Image(systemName: "eye")
+                    Image(systemName: "photo.on.rectangle.angled")
                 }
                 .buttonStyle(.plain)
                 .disabled(selectedWithPNG.isEmpty)
-                if onDeleteSelected != nil {
+                if let onDeleteSelected {
                     Button {
-                        onDeleteSelected?(selection)
+                        onDeleteSelected(selection)
                     } label: {
                         Image(systemName: "trash")
                     }
@@ -382,7 +382,7 @@ struct ResourceSectionContent: View {
                         selection.formUnion(visibleIDs)
                     }
                 } label: {
-                    Image(systemName: visibleIDs.isSubset(of: selection) ? "minus.circle" : "checkmark.circle")
+                    Image(systemName: visibleIDs.isSubset(of: selection) ? "circle.slash" : "checkmark.circle")
                 }
                 .buttonStyle(.plain)
             }

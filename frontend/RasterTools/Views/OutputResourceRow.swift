@@ -216,7 +216,7 @@ struct OutputResourceRow: View {
 
             Spacer()
 
-            if resource.pngPath != nil {
+            if let pngPath = resource.pngPath {
                 Button {
                     showingPreview = true
                 } label: {
@@ -225,9 +225,7 @@ struct OutputResourceRow: View {
                 }
                 .buttonStyle(.plain)
                 .sheet(isPresented: $showingPreview) {
-                    if let pngPath = resource.pngPath {
-                        PNGPreviewView(resource: resource, pngPath: pngPath, onDelete: onDelete)
-                    }
+                    PNGPreviewView(resource: resource, pngPath: pngPath, onDelete: onDelete)
                 }
             }
 

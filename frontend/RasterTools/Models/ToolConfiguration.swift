@@ -16,7 +16,7 @@ enum ToolType: String, Codable, CaseIterable {
     var iconName: String {
         switch self {
         case .kmeans: return "circle.hexagongrid.fill"
-        case .preprocess: return "wand.and.stars"
+        case .preprocess: return "wand.and.rays"
         }
     }
 }
@@ -57,18 +57,18 @@ enum ResourceKind: String, Codable {
 
     var iconName: String {
         switch self {
-        case .sourceRaster:  return "photo.fill"
+        case .sourceRaster:  return "photo"
         case .udm:           return "cloud.fill"
         case .metadata:      return "doc.text.fill"
-        case .shapeFile:     return "map.fill"
+        case .shapeFile:     return "globe.europe.africa.fill"
         case .clipped:       return "crop"
-        case .masked:        return "sparkles"
+        case .masked:        return "rectangle.pattern.checkered"
         case .ndvi:          return "leaf.fill"
         case .ndci:          return "drop.fill"
         case .kmeansCenters: return "target"
         case .kmeansClassed: return "circle.hexagongrid.fill"
-        case .kmeansMean:    return "chart.bar.xaxis"
-        case .kmeansDiff:    return "plusminus"
+        case .kmeansMean:    return "square.3.layers.3d"
+        case .kmeansDiff:    return "plus.forwardslash.minus"
         case .unknown:       return "questionmark.square.fill"
         }
     }
