@@ -23,4 +23,19 @@ struct AppStorage {
         )
         return dir
     }
+
+    static func outputDirectory(for workspace: Workspace, configuration: ToolConfiguration) -> URL {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = support
+            .appendingPathComponent("RasterTools")
+            .appendingPathComponent("outputs")
+            .appendingPathComponent(workspace.id.uuidString)
+            .appendingPathComponent(configuration.id.uuidString)
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true
+        )
+        return dir
+    }
 }

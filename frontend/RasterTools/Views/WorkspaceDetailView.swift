@@ -20,7 +20,6 @@ struct WorkspaceDetailView: View {
     @State private var outputSortAscending: Bool = false
     @State private var outputActiveKinds: Set<ResourceKind> = []
 
-
     private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansClassed, .kmeansMean, .kmeansDiff, .output, .unknown]
 
     private func resources(for kinds: Set<ResourceKind>, producedOnly: Bool = false) -> [WorkspaceResource] {
@@ -36,30 +35,32 @@ struct WorkspaceDetailView: View {
             }
     }
 
-
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Source directory header
-                GroupBox("Source Directory") {
-                    HStack {
-                        Text(workspace.sourceDirectory)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                        Spacer()
-                        Button("Refresh") {
-                            refreshResources()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .padding(4)
+        Form {
+            Section("Workspace") {
+                LabeledContent("Source Dir") {
+                    Text(workspace.sourceDirectory)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
                 }
+                LabeledContent("Output Dir") {
+                    Button {
+                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace))
+                    } label: {
+                        Image(systemName: "folder")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
 
-                // Shapes section
-                let shapes = resources(for: [.shapeFile])
-                ResourceTableSection(label: "Shapes", isEmpty: shapes.isEmpty,
-                                     emptyMessage: "No shape files found.") {
+            // Shapes section
+            let shapes = resources(for: [.shapeFile])
+            Section("Shapes") {
+                if shapes.isEmpty {
+                    Text("No shape files found.")
+                        .foregroundStyle(.secondary)
+                } else {
                     ForEach(shapes, id: \.id) { resource in
                         ResourceTableRow(
                             icon: resource.kind.iconName,
@@ -69,11 +70,15 @@ struct WorkspaceDetailView: View {
                         )
                     }
                 }
+            }
 
-                // Sources section
-                let allSources = resources(for: [.sourceRaster])
-                ResourceTableSection(label: "Sources", isEmpty: allSources.isEmpty,
-                                     emptyMessage: "No sources found. Click Refresh to scan the source directory.") {
+            // Sources section
+            let allSources = resources(for: [.sourceRaster])
+            Section("Sources") {
+                if allSources.isEmpty {
+                    Text("No sources found. Click Refresh to scan the source directory.")
+                        .foregroundStyle(.secondary)
+                } else {
                     HStack {
                         Spacer()
                         OutputSortBar(sortKey: $sourceSortKey, ascending: $sourceSortAscending)
@@ -95,12 +100,16 @@ struct WorkspaceDetailView: View {
                         }
                     }
                 }
+            }
 
-                // Outputs section
-                let allOutputs = resources(for: WorkspaceDetailView.outputKinds, producedOnly: true)
-                let outputKinds = Array(Set(allOutputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
-                ResourceTableSection(label: "Outputs", isEmpty: allOutputs.isEmpty,
-                                     emptyMessage: "No outputs yet. Run a configuration to generate outputs.") {
+            // Outputs section
+            let allOutputs = resources(for: WorkspaceDetailView.outputKinds, producedOnly: true)
+            let outputKinds = Array(Set(allOutputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
+            Section("Outputs") {
+                if allOutputs.isEmpty {
+                    Text("No outputs yet. Run a configuration to generate outputs.")
+                        .foregroundStyle(.secondary)
+                } else {
                     if outputKinds.count > 1 {
                         HStack {
                             ResourceFilterBar(kinds: outputKinds, activeKinds: $outputActiveKinds)
@@ -173,13 +182,18 @@ struct WorkspaceDetailView: View {
                         .buttonStyle(.plain)
                     }
                 }
-
-                Spacer()
             }
-            .padding()
         }
+        .formStyle(.grouped)
         .navigationTitle(workspace.name)
         .toolbar {
+            ToolbarItem {
+                Button {
+                    refreshResources()
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+            }
             ToolbarItem {
                 Button {
                     showingNewConfigSheet = true
@@ -243,28 +257,3 @@ struct WorkspaceDetailView: View {
         workspace.modifiedAt = Date()
     }
 }
-
-// MARK: - Resource Table Section
-
-private struct ResourceTableSection<Content: View>: View {
-    let label: String
-    let isEmpty: Bool
-    let emptyMessage: String
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        GroupBox(label) {
-            if isEmpty {
-                Text(emptyMessage)
-                    .foregroundStyle(.secondary)
-                    .padding(4)
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    content()
-                }
-                .padding(4)
-            }
-        }
-    }
-}
-

@@ -35,7 +35,7 @@ class PreprocessRunner: ToolRunner {
 
         do {
             let shapeFilePath = shapeFileResource.originalPath
-            let outputDir = AppStorage.outputDirectory(for: workspace).path
+            let outputDir = AppStorage.outputDirectory(for: workspace, configuration: configuration).path
 
             guard FileManager.default.fileExists(atPath: shapeFilePath) else {
                 throw ToolError.fileNotFound(shapeFilePath)

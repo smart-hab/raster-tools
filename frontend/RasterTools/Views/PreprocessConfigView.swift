@@ -60,7 +60,7 @@ struct PreprocessConfigView: View {
             if let workspace {
                 LabeledContent("Output Dir") {
                     Button {
-                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace))
+                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
                     } label: {
                         Image(systemName: "folder")
                     }
