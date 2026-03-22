@@ -26,35 +26,7 @@ struct ResourcePickerView: View {
 
     private var filteredResources: [WorkspaceResource] {
         let filtered = workspace.resources.filter { activeKinds.contains($0.kind) }
-        return filtered.sorted { a, b in
-            switch sortKey {
-            case .date:
-                switch (a.date, b.date) {
-                case (nil, nil):
-                    let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
-                    return sortAscending ? cmp == .orderedAscending : cmp == .orderedDescending
-                case (nil, _): return sortAscending
-                case (_, nil): return !sortAscending
-                case let (d1?, d2?) where d1 == d2:
-                    let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
-                    return sortAscending ? cmp == .orderedAscending : cmp == .orderedDescending
-                case let (d1?, d2?): return sortAscending ? d1 < d2 : d1 > d2
-                }
-            case .kind:
-                let kindCmp = a.kind.displayName.localizedCompare(b.kind.displayName)
-                if kindCmp != .orderedSame {
-                    return sortAscending ? kindCmp == .orderedAscending : kindCmp == .orderedDescending
-                }
-                switch (a.date, b.date) {
-                case (nil, nil): return false
-                case (nil, _): return sortAscending
-                case (_, nil): return !sortAscending
-                case let (d1?, d2?): return sortAscending ? d1 < d2 : d1 > d2
-                }
-            case .size:
-                return sortAscending ? a.fileSize < b.fileSize : a.fileSize > b.fileSize
-            }
-        }
+        return sortedOutputs(filtered, sortKey: sortKey, ascending: sortAscending)
     }
 
     var body: some View {

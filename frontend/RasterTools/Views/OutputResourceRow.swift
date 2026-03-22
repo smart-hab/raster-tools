@@ -26,40 +26,49 @@ func groupOutputsByKind(_ outputs: [WorkspaceResource]) -> [(kind: ResourceKind,
     }
 }
 
+private func compareDate(_ a: WorkspaceResource, _ b: WorkspaceResource, ascending: Bool) -> ComparisonResult {
+    switch (a.date, b.date) {
+    case (nil, nil): return .orderedSame
+    case (nil, _):   return ascending ? .orderedAscending : .orderedDescending
+    case (_, nil):   return ascending ? .orderedDescending : .orderedAscending
+    case let (d1?, d2?):
+        if d1 < d2 { return ascending ? .orderedAscending : .orderedDescending }
+        if d1 > d2 { return ascending ? .orderedDescending : .orderedAscending }
+        return .orderedSame
+    }
+}
+
+private func compareKind(_ a: WorkspaceResource, _ b: WorkspaceResource, ascending: Bool) -> ComparisonResult {
+    let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
+    if cmp == .orderedSame { return .orderedSame }
+    return (ascending ? cmp == .orderedAscending : cmp == .orderedDescending) ? .orderedAscending : .orderedDescending
+}
+
+func sortedOutputs(
+    _ outputs: [WorkspaceResource],
+    sortKey: OutputSortKey,
+    ascending: Bool
+) -> [WorkspaceResource] {
+    return outputs.sorted { a, b in
+        switch sortKey {
+        case .date:
+            let d = compareDate(a, b, ascending: ascending)
+            return (d == .orderedSame ? compareKind(a, b, ascending: ascending) : d) == .orderedAscending
+        case .kind:
+            let k = compareKind(a, b, ascending: ascending)
+            return (k == .orderedSame ? compareDate(a, b, ascending: ascending) : k) == .orderedAscending
+        case .size:
+            return ascending ? a.fileSize < b.fileSize : a.fileSize > b.fileSize
+        }
+    }
+}
+
 func groupedOutputs(
     _ outputs: [WorkspaceResource],
     sortKey: OutputSortKey,
     ascending: Bool
 ) -> [(groupLabel: String?, resources: [WorkspaceResource])] {
-    func compareDate(_ a: WorkspaceResource, _ b: WorkspaceResource) -> ComparisonResult {
-        switch (a.date, b.date) {
-        case (nil, nil): return .orderedSame
-        case (nil, _):   return ascending ? .orderedAscending : .orderedDescending
-        case (_, nil):   return ascending ? .orderedDescending : .orderedAscending
-        case let (d1?, d2?):
-            if d1 < d2 { return ascending ? .orderedAscending : .orderedDescending }
-            if d1 > d2 { return ascending ? .orderedDescending : .orderedAscending }
-            return .orderedSame
-        }
-    }
-    func compareKind(_ a: WorkspaceResource, _ b: WorkspaceResource) -> ComparisonResult {
-        let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
-        if cmp == .orderedSame { return .orderedSame }
-        return (ascending ? cmp == .orderedAscending : cmp == .orderedDescending) ? .orderedAscending : .orderedDescending
-    }
-
-    let sorted = outputs.sorted { a, b in
-        switch sortKey {
-        case .date:
-            let d = compareDate(a, b)
-            return (d == .orderedSame ? compareKind(a, b) : d) == .orderedAscending
-        case .kind:
-            let k = compareKind(a, b)
-            return (k == .orderedSame ? compareDate(a, b) : k) == .orderedAscending
-        case .size:
-            return ascending ? a.fileSize < b.fileSize : a.fileSize > b.fileSize
-        }
-    }
+    let sorted = sortedOutputs(outputs, sortKey: sortKey, ascending: ascending)
 
     switch sortKey {
     case .date:
