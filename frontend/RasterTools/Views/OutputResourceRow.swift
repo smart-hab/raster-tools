@@ -258,7 +258,7 @@ struct PNGPreviewView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 12) {
-                    Image(systemName: "photo.slash")
+                    Image(systemName: "photo")
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
                     Text("Preview not available")
