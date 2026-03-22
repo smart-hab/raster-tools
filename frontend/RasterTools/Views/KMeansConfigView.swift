@@ -15,11 +15,11 @@ struct KMeansConfigView: View {
     @State private var activeRunner: KMeansRunner?
     @State private var showingFitPicker = false
     @State private var showingClassifyPicker = false
-    @State private var fitSortKey: OutputSortKey = .date
+    @State private var fitSortKey: OutputSortKey = .kind
     @State private var fitSortAscending: Bool = false
-    @State private var classifySortKey: OutputSortKey = .date
+    @State private var classifySortKey: OutputSortKey = .kind
     @State private var classifySortAscending: Bool = false
-    @State private var outputSortKey: OutputSortKey = .date
+    @State private var outputSortKey: OutputSortKey = .kind
     @State private var outputSortAscending: Bool = false
 
     private let inputKinds: [ResourceKind] = [.clipped, .masked, .ndvi, .ndci]

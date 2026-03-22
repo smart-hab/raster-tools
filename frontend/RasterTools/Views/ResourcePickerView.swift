@@ -17,7 +17,7 @@ struct ResourcePickerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var activeKinds: Set<ResourceKind> = []
-    @State private var sortKey: OutputSortKey = .date
+    @State private var sortKey: OutputSortKey = .kind
     @State private var sortAscending: Bool = false
 
     private var sortedKinds: [ResourceKind] {

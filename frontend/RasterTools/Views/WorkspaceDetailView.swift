@@ -13,10 +13,10 @@ struct WorkspaceDetailView: View {
     let workspace: Workspace
 
     @State private var showingNewConfigSheet = false
-    @State private var sourceSortKey: OutputSortKey = .date
+    @State private var sourceSortKey: OutputSortKey = .kind
     @State private var sourceSortAscending: Bool = false
     @State private var outputSelection: Set<UUID> = []
-    @State private var outputSortKey: OutputSortKey = .date
+    @State private var outputSortKey: OutputSortKey = .kind
     @State private var outputSortAscending: Bool = false
     @State private var outputActiveKinds: Set<ResourceKind> = []
 

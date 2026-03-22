@@ -15,9 +15,9 @@ struct PreprocessConfigView: View {
     @State private var activeRunner: PreprocessRunner?
     @State private var showingShapePicker = false
     @State private var showingRasterPicker = false
-    @State private var rasterSortKey: OutputSortKey = .date
+    @State private var rasterSortKey: OutputSortKey = .kind
     @State private var rasterSortAscending: Bool = false
-    @State private var outputSortKey: OutputSortKey = .date
+    @State private var outputSortKey: OutputSortKey = .kind
     @State private var outputSortAscending: Bool = false
     private let rasterKinds: [ResourceKind] = [.sourceRaster, .udm]
     @State private var rasterActiveKinds: Set<ResourceKind> = [.sourceRaster, .udm]
