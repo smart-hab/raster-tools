@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 
 enum ToolType: String, Codable, CaseIterable {
     case kmeans = "K-Means Clustering"
@@ -20,10 +21,6 @@ enum ToolType: String, Codable, CaseIterable {
     }
 }
 
-enum PreprocessType: String, Codable, CaseIterable {
-    case ndci = "NDCI"
-    case ndvi = "NDVI"
-}
 
 enum ResourceKind: String, Codable {
     case sourceRaster  // composite.tif
@@ -58,8 +55,6 @@ enum ResourceKind: String, Codable {
         }
     }
 
-    var filterBadgeLabel: String { displayName.lowercased() }
-
     var iconName: String {
         switch self {
         case .sourceRaster:  return "photo.fill"
@@ -75,6 +70,24 @@ enum ResourceKind: String, Codable {
         case .kmeansMean:    return "chart.bar.xaxis"
         case .kmeansDiff:    return "plusminus"
         case .unknown:       return "questionmark.square.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .sourceRaster:  return .secondary
+        case .udm:           return .yellow
+        case .metadata:      return .secondary
+        case .shapeFile:     return .brown
+        case .clipped:       return .orange
+        case .masked:        return .red
+        case .ndvi:          return .green
+        case .ndci:          return .teal
+        case .kmeansCenters: return .secondary
+        case .kmeansClassed: return .indigo
+        case .kmeansMean:    return .secondary
+        case .kmeansDiff:    return .purple
+        case .unknown:       return .secondary
         }
     }
 }
@@ -234,15 +247,15 @@ final class PreprocessConfiguration {
     @Relationship var files: [WorkspaceResource]
 
     init(shapeFile: WorkspaceResource? = nil,
-         processes: [PreprocessType] = [.ndci, .ndvi],
+         processes: [ResourceKind] = [.ndci, .ndvi],
          files: [WorkspaceResource] = []) {
         self.shapeFile = shapeFile
         self.processes = processes.map { $0.rawValue }
         self.files = files
     }
 
-    var processTypes: [PreprocessType] {
-        get { processes.compactMap { PreprocessType(rawValue: $0) } }
+    var processTypes: [ResourceKind] {
+        get { processes.compactMap { ResourceKind(rawValue: $0) } }
         set { processes = newValue.map { $0.rawValue } }
     }
 }

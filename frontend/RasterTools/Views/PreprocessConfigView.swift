@@ -124,24 +124,24 @@ struct PreprocessConfigView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                ForEach(PreprocessType.allCases, id: \.self) { processType in
-                    Toggle(processType.rawValue, isOn: Binding(
-                        get: {
-                            configuration.preprocessConfig?.processTypes.contains(processType) ?? false
-                        },
-                        set: { isSelected in
+                HStack(spacing: 12) {
+                    ForEach([ResourceKind.ndci, .ndvi], id: \.self) { processType in
+                        ProcessTile(
+                            processType: processType,
+                            isSelected: configuration.preprocessConfig?.processTypes.contains(processType) ?? false
+                        ) {
                             guard var types = configuration.preprocessConfig?.processTypes else { return }
-                            if isSelected {
-                                if !types.contains(processType) { types.append(processType) }
-                            } else {
+                            if types.contains(processType) {
                                 types.removeAll { $0 == processType }
+                            } else {
+                                types.append(processType)
                             }
                             configuration.preprocessConfig?.processTypes = types
                             configuration.touch()
                         }
-                    ))
-                    .toggleStyle(.checkmark)
+                    }
                 }
+                .padding(.vertical, 4)
             }
         }
     }
@@ -249,4 +249,36 @@ struct PreprocessConfigView: View {
         }
     }
 
+}
+
+private struct ProcessTile: View {
+    let processType: ResourceKind
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 6) {
+                Image(systemName: processType.iconName)
+                    .font(.system(size: 28))
+                Text(processType.displayName)
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(isSelected ? processType.color.opacity(0.15) : Color.primary.opacity(0.001))
+            .foregroundStyle(isSelected ? processType.color : Color.secondary)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(
+                        isSelected ? processType.color : Color.secondary.opacity(0.3),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            )
+            .cornerRadius(10)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+    }
 }

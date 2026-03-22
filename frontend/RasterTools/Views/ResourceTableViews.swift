@@ -13,7 +13,7 @@ struct ResourceTableRow: View {
     let icon: String
     let label: String
     let fileSize: String
-    let badges: [String]
+    let badges: [ResourceKind]
     var pngPath: String? = nil
     var originalPath: String? = nil
     var onDelete: (() -> Void)? = nil
@@ -35,8 +35,8 @@ struct ResourceTableRow: View {
             Spacer()
 
             HStack(spacing: 4) {
-                ForEach(badges, id: \.self) { badge in
-                    BadgeCapsule(label: badge)
+                ForEach(badges, id: \.self) { kind in
+                    BadgeCapsule(kind: kind)
                 }
             }
 
@@ -69,7 +69,7 @@ struct GalleryItem {
     var filename: String
     var date: String?
     var fileSize: String
-    var badges: [String]
+    var badges: [ResourceKind]
     var originalPath: String?
 
     init(_ resource: WorkspaceResource) {
@@ -174,8 +174,8 @@ struct ImageGallerySheet: View {
                 Text(current?.date ?? "Unknown")
                     .font(.headline)
                 Spacer()
-                ForEach(current?.badges ?? [], id: \.self) { badge in
-                    BadgeCapsule(label: badge)
+                ForEach(current?.badges ?? [], id: \.self) { kind in
+                    BadgeCapsule(kind: kind)
                 }
                 let fileSize = current?.fileSize ?? ""
                 if !fileSize.isEmpty {
@@ -376,13 +376,10 @@ struct ResourceSectionContent: View {
 // MARK: - WorkspaceResource badges
 
 extension WorkspaceResource {
-    var tableBadges: [String] {
+    var tableBadges: [ResourceKind] {
         switch kind {
-        case .sourceRaster: return [kind.filterBadgeLabel] + (udm != nil ? ["udm2"] : [])
-        case .unknown:
-            return [producedBy?.toolType.rawValue.lowercased() ?? kind.rawValue]
-        default:
-            return [kind.filterBadgeLabel]
+        case .sourceRaster: return [.sourceRaster] + (udm != nil ? [.udm] : [])
+        default:            return [kind]
         }
     }
 }

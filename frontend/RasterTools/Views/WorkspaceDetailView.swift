@@ -155,7 +155,7 @@ struct WorkspaceDetailView: View {
         }
     }
 
-    private func badges(for resource: WorkspaceResource) -> [String] {
+    private func badges(for resource: WorkspaceResource) -> [ResourceKind] {
         resource.tableBadges
     }
 

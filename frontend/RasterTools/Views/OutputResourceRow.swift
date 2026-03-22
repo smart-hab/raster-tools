@@ -112,7 +112,7 @@ struct ResourceFilterBar: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(kinds, id: \.self) { kind in
-                BadgeCapsule(label: kind.filterBadgeLabel)
+                BadgeCapsule(kind: kind)
                     .opacity(activeKinds.contains(kind) ? 1.0 : 0.4)
                     .overlay(
                         MouseClickView(
@@ -296,8 +296,8 @@ struct PNGPreviewView: View {
                             .foregroundStyle(.secondary)
                     }
                     HStack(spacing: 4) {
-                        ForEach(resource.tableBadges, id: \.self) { badge in
-                            BadgeCapsule(label: badge)
+                        ForEach(resource.tableBadges, id: \.self) { kind in
+                            BadgeCapsule(kind: kind)
                         }
                     }
                 }

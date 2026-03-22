@@ -115,31 +115,18 @@ struct ToolProgressDetailSheet: View {
     }
 }
 
-// MARK: - Badge Capsule
+/// MARK: - Badge Capsule
 
 struct BadgeCapsule: View {
-    let label: String
-
-    private var color: Color {
-        switch label {
-        case "source":  return .secondary
-        case "udm2":    return .blue
-        case "shape":   return .green
-        case "clipped": return .orange
-        case "masked":  return .red
-        case "ndvi":    return .teal
-        case "ndci":    return .purple
-        default:        return .secondary
-        }
-    }
+    let kind: ResourceKind
 
     var body: some View {
-        Text(label)
+        Text(kind.displayName)
             .font(.caption2)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(color.opacity(0.15), in: Capsule())
-            .foregroundStyle(color)
+            .background(kind.color.opacity(0.15), in: Capsule())
+            .foregroundStyle(kind.color)
     }
 }
 

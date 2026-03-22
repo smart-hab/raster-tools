@@ -72,7 +72,7 @@ class PreprocessRunner: ToolRunner {
         rasterResource: WorkspaceResource,
         outputDir: String,
         shapeFile: String,
-        processes: [PreprocessType],
+        processes: [ResourceKind],
         configuration: ToolConfiguration,
         workspace: Workspace,
         context: ModelContext
@@ -201,6 +201,9 @@ class PreprocessRunner: ToolRunner {
                     workspace: workspace,
                     context: context
                 )
+
+            default:
+                await log("⚠️ Unimplemented preprocess kind: \(process)")
             }
         }
     }
