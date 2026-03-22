@@ -54,7 +54,7 @@ class PreprocessRunner: ToolRunner {
                 await completeFile()
             }
 
-            await updateStep("✅ Preprocessing complete!")
+            await updateStep("Preprocessing complete!")
 
         } catch {
             await MainActor.run {

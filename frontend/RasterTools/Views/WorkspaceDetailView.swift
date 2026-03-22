@@ -20,7 +20,7 @@ struct WorkspaceDetailView: View {
     @State private var outputSortAscending: Bool = false
     @State private var outputActiveKinds: Set<ResourceKind> = []
 
-    private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansClassed, .kmeansMean, .kmeansDiff, .output, .unknown]
+    private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansCenters, .kmeansClassed, .kmeansMean, .kmeansDiff, .unknown]
 
     private func resources(for kinds: Set<ResourceKind>, producedOnly: Bool = false) -> [WorkspaceResource] {
         workspace.resources

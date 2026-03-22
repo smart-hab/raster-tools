@@ -32,6 +32,10 @@ struct KMeansConfigView: View {
 
     private var workspace: Workspace? { configuration.workspace }
 
+    private var centersResource: WorkspaceResource? {
+        workspace?.resources.first { $0.kind == .kmeansCenters && $0.producedBy?.id == configuration.id }
+    }
+
     var body: some View {
         Form {
             Section("Configuration") {
@@ -60,6 +64,15 @@ struct KMeansConfigView: View {
 
             Section("K-Means Parameters") {
                 if configuration.kmeansConfig != nil {
+                    LabeledContent("Centers") {
+                        Button("Reset") {
+                            if let resource = centersResource {
+                                deleteOutputResource(resource, context: modelContext)
+                            }
+                        }
+                        .disabled(centersResource == nil)
+                    }
+
                     LabeledContent("Centroids") {
                         Stepper(value: Binding(
                             get: { configuration.kmeansConfig?.centroids ?? 6 },

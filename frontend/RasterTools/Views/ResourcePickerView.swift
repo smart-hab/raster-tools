@@ -161,24 +161,3 @@ private struct ResourcePickerRow: View {
     }
 }
 
-// MARK: - ResourceKind display name
-
-extension ResourceKind {
-    var displayName: String {
-        switch self {
-        case .sourceRaster: return "Source"
-        case .udm: return "UDM"
-        case .metadata: return "Metadata"
-        case .shapeFile: return "Shape"
-        case .clipped: return "Clipped"
-        case .masked: return "Masked"
-        case .ndvi: return "NDVI"
-        case .ndci: return "NDCI"
-        case .kmeansClassed: return "Classified"
-        case .kmeansMean: return "Mean"
-        case .kmeansDiff: return "Difference"
-        case .output: return "Output"
-        case .unknown: return "Unknown"
-        }
-    }
-}

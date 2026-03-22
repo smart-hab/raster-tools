@@ -278,19 +278,11 @@ struct ResourceSectionContent: View {
 extension WorkspaceResource {
     var tableBadges: [String] {
         switch kind {
-        case .sourceRaster: return ["source"] + (udm != nil ? ["udm2"] : [])
-        case .udm:          return ["udm2"]
-        case .shapeFile:    return ["shape"]
-        case .clipped:      return ["clipped"]
-        case .masked:       return ["masked"]
-        case .ndci:          return ["ndci"]
-        case .ndvi:          return ["ndvi"]
-        case .kmeansClassed: return ["classified"]
-        case .kmeansMean:    return ["mean"]
-        case .kmeansDiff:    return ["difference"]
-        case .output, .unknown:
+        case .sourceRaster: return [kind.filterBadgeLabel] + (udm != nil ? ["udm2"] : [])
+        case .unknown:
             return [producedBy?.toolType.rawValue.lowercased() ?? kind.rawValue]
-        default:            return [kind.rawValue]
+        default:
+            return [kind.filterBadgeLabel]
         }
     }
 }

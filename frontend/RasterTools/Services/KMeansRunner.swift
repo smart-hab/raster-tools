@@ -45,7 +45,7 @@ class KMeansRunner: ToolRunner {
             // Step 4: Generate difference rasters
             try await generateDifferenceRasters(outputDir: outputDir, config: config, configuration: configuration, workspace: workspace, context: context)
 
-            await updateStep("✅ K-Means processing complete!")
+            await updateStep("K-Means processing complete!")
 
         } catch {
             await MainActor.run {
@@ -68,8 +68,8 @@ class KMeansRunner: ToolRunner {
     ) async throws {
         let centersPath = "\(outputDir)/centers.txt"
 
-        // Skip if centers file already exists on disk
-        if FileManager.default.fileExists(atPath: centersPath) {
+        // Skip if centers resource already registered
+        if workspace.resources.contains(where: { $0.originalPath == centersPath }) {
             await log("✓ Using existing centers file: centers.txt")
             return
         }
@@ -84,6 +84,17 @@ class KMeansRunner: ToolRunner {
         args += ["-i"] + inputPaths
 
         try await runProcess(executable: "kmeans_fit", arguments: args)
+        await MainActor.run {
+            makeOutputResource(
+                path: centersPath,
+                kind: .kmeansCenters,
+                date: nil,
+                parents: config.filesFit,
+                producedBy: configuration,
+                workspace: workspace,
+                context: context
+            )
+        }
         await log("✓ Fitted K-means model: centers.txt")
         await completeFile()
     }

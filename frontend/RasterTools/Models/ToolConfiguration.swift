@@ -34,26 +34,31 @@ enum ResourceKind: String, Codable {
     case masked        // *_clipped_masked.tif (generated)
     case ndvi          // generated NDVI
     case ndci          // generated NDCI
+    case kmeansCenters // centers.txt (k-means fitted model)
     case kmeansClassed // *_classed.tif (k-means classification)
-    case kmeansMean    // *_mean.tif (k-means mean raster)
-    case kmeansDiff    // *_mean_diff_*.tif (k-means difference raster)
-    case output        // other generated output files
+    case kmeansMean    // mean.tif (k-means mean raster)
+    case kmeansDiff    // mean_diff_*.tif (k-means difference raster)
     case unknown
 
-    var filterBadgeLabel: String {
+    var displayName: String {
         switch self {
-        case .sourceRaster:  return "source"
-        case .udm:           return "udm2"
-        case .clipped:       return "clipped"
-        case .masked:        return "masked"
-        case .ndvi:          return "ndvi"
-        case .ndci:          return "ndci"
-        case .kmeansClassed: return "classified"
-        case .kmeansMean:    return "mean"
-        case .kmeansDiff:    return "difference"
-        default:             return rawValue
+        case .sourceRaster:  return "Source"
+        case .udm:           return "UDM2"
+        case .metadata:      return "Metadata"
+        case .shapeFile:     return "Shape"
+        case .clipped:       return "Clipped"
+        case .masked:        return "Masked"
+        case .ndvi:          return "NDVI"
+        case .ndci:          return "NDCI"
+        case .kmeansCenters: return "Centers"
+        case .kmeansClassed: return "Classed"
+        case .kmeansMean:    return "Mean"
+        case .kmeansDiff:    return "Diff"
+        case .unknown:       return "Unknown"
         }
     }
+
+    var filterBadgeLabel: String { displayName.lowercased() }
 
     var iconName: String {
         switch self {
@@ -65,10 +70,10 @@ enum ResourceKind: String, Codable {
         case .masked:        return "sparkles"
         case .ndvi:          return "leaf.fill"
         case .ndci:          return "drop.fill"
+        case .kmeansCenters: return "target"
         case .kmeansClassed: return "circle.hexagongrid.fill"
         case .kmeansMean:    return "chart.bar.xaxis"
         case .kmeansDiff:    return "plusminus"
-        case .output:        return "square.and.arrow.down.fill"
         case .unknown:       return "questionmark.square.fill"
         }
     }
