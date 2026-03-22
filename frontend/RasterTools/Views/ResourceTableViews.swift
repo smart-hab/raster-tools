@@ -272,6 +272,7 @@ struct ResourceSectionContent: View {
     var onDeleteSelected: ((Set<UUID>) -> Void)? = nil
 
     @State private var galleryRequest: GalleryRequest? = nil
+    @State private var lastClickedID: UUID? = nil
 
     private var visibleResources: [WorkspaceResource] {
         guard let filterKinds, filterKinds.count > 1 else { return resources }
@@ -299,28 +300,43 @@ struct ResourceSectionContent: View {
                     Spacer()
                     OutputSortBar(sortKey: $sortKey, ascending: $sortAscending)
                 }
-                ForEach(groups, id: \.groupLabel) { group in
-                    if let label = group.groupLabel, group.resources.count > 1 {
-                        Text(label).font(.caption).foregroundStyle(.secondary)
-                    }
-                    ForEach(group.resources, id: \.id) { resource in
-                        ResourceTableRow(
-                            icon: resource.kind.iconName,
-                            label: rowLabel(resource),
-                            fileSize: resource.formattedFileSize,
-                            badges: resource.tableBadges,
-                            pngPath: resource.pngPath,
-                            originalPath: resource.originalPath,
-                            isSelected: selection.contains(resource.id),
-                            onPreview: {
-                                galleryRequest = GalleryRequest(items: [GalleryItem(resource)], initialIndex: 0)
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(groups, id: \.groupLabel) { group in
+                            if let label = group.groupLabel, group.resources.count > 1 {
+                                Text(label).font(.caption).foregroundStyle(.secondary)
                             }
-                        )
-                        .onTapGesture {
-                            if selection.contains(resource.id) {
-                                selection.remove(resource.id)
-                            } else {
-                                selection.insert(resource.id)
+                            ForEach(group.resources, id: \.id) { resource in
+                                ResourceTableRow(
+                                    icon: resource.kind.iconName,
+                                    label: rowLabel(resource),
+                                    fileSize: resource.formattedFileSize,
+                                    badges: resource.tableBadges,
+                                    pngPath: resource.pngPath,
+                                    originalPath: resource.originalPath,
+                                    isSelected: selection.contains(resource.id),
+                                    onPreview: {
+                                        galleryRequest = GalleryRequest(items: [GalleryItem(resource)], initialIndex: 0)
+                                    }
+                                )
+                                .onTapGesture {
+                                    let isShift = NSEvent.modifierFlags.contains(.shift)
+                                    if isShift, let lastID = lastClickedID,
+                                       let lastIdx = orderedResources.firstIndex(where: { $0.id == lastID }),
+                                       let currentIdx = orderedResources.firstIndex(where: { $0.id == resource.id }) {
+                                        let range = min(lastIdx, currentIdx)...max(lastIdx, currentIdx)
+                                        let rangeIDs = orderedResources[range].map(\.id)
+                                        rangeIDs.forEach { selection.insert($0) }
+                                    } else {
+                                        if selection.contains(resource.id) {
+                                            selection.remove(resource.id)
+                                        } else {
+                                            selection.insert(resource.id)
+                                        }
+                                    }
+                                    lastClickedID = resource.id
+                                }
                             }
                         }
                     }
@@ -348,13 +364,15 @@ struct ResourceSectionContent: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(selectedWithPNG.isEmpty)
-                Button {
-                    onDeleteSelected?(selection)
-                } label: {
-                    Image(systemName: "trash")
+                if onDeleteSelected != nil {
+                    Button {
+                        onDeleteSelected?(selection)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(selection.isEmpty)
                 }
-                .buttonStyle(.plain)
-                .disabled(selection.isEmpty)
                 Button {
                     if visibleIDs.isSubset(of: selection) {
                         selection.subtract(visibleIDs)
@@ -366,6 +384,7 @@ struct ResourceSectionContent: View {
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.vertical, 6)
         }
         .sheet(item: $galleryRequest) { request in
             ImageGallerySheet(items: request.items, initialIndex: request.initialIndex)

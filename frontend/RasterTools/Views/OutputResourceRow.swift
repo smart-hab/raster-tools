@@ -165,6 +165,7 @@ struct OutputSortBar: View {
                     .font(.caption)
                 }
                 .buttonStyle(.plain)
+                .focusEffectDisabled()
                 .foregroundStyle(sortKey == key ? .primary : .secondary)
             }
         }
