@@ -73,7 +73,7 @@ func groupedOutputs(
     switch sortKey {
     case .date:
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy MMMM d"
+        formatter.dateFormat = "yyyy"
         var groups: [(groupLabel: String?, resources: [WorkspaceResource])] = []
         var labelToIndex: [String: Int] = [:]
         for resource in sorted {
@@ -153,7 +153,6 @@ struct OutputSortBar: View {
                         ascending.toggle()
                     } else {
                         sortKey = key
-                        ascending = key == .kind
                     }
                 } label: {
                     HStack(spacing: 2) {

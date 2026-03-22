@@ -300,12 +300,14 @@ struct ResourceSectionContent: View {
                     Spacer()
                     OutputSortBar(sortKey: $sortKey, ascending: $sortAscending)
                 }
+                .padding(.bottom, 4)
 
                 ScrollView {
-                    VStack(spacing: 0) {
+                    VStack(alignment: .leading) {
                         ForEach(groups, id: \.groupLabel) { group in
-                            if let label = group.groupLabel, group.resources.count > 1 {
+                            if let label = group.groupLabel {
                                 Text(label).font(.caption).foregroundStyle(.secondary)
+                                    .padding(.top, 8)
                             }
                             ForEach(group.resources, id: \.id) { resource in
                                 ResourceTableRow(

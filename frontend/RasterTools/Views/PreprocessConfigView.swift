@@ -15,7 +15,7 @@ struct PreprocessConfigView: View {
     @State private var activeRunner: PreprocessRunner?
     @State private var showingShapePicker = false
     @State private var showingRasterPicker = false
-    @State private var rasterSortKey: OutputSortKey = .kind
+    @State private var rasterSortKey: OutputSortKey = .date
     @State private var rasterSortAscending: Bool = false
     @State private var outputSortKey: OutputSortKey = .kind
     @State private var outputSortAscending: Bool = false
