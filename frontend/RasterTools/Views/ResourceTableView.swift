@@ -382,35 +382,3 @@ func deleteOutputResource(_ resource: WorkspaceResource, context: ModelContext) 
     resource.workspace?.resources.removeAll { $0.id == resource.id }
     context.delete(resource)
 }
-
-// MARK: - Resource Filter Click Handler (left + right)
-
-struct MouseClickView: NSViewRepresentable {
-    let onLeftClick: () -> Void
-    let onRightClick: () -> Void
-
-    func makeNSView(context: Context) -> ClickableNSView {
-        let view = ClickableNSView()
-        view.onLeftClick = onLeftClick
-        view.onRightClick = onRightClick
-        return view
-    }
-
-    func updateNSView(_ nsView: ClickableNSView, context: Context) {
-        nsView.onLeftClick = onLeftClick
-        nsView.onRightClick = onRightClick
-    }
-}
-
-class ClickableNSView: NSView {
-    var onLeftClick: (() -> Void)?
-    var onRightClick: (() -> Void)?
-
-    override func mouseDown(with event: NSEvent) {
-        onLeftClick?()
-    }
-
-    override func rightMouseDown(with event: NSEvent) {
-        onRightClick?()
-    }
-}
