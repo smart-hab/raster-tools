@@ -14,6 +14,8 @@ struct ResourcePickerView: View {
     let selectableKinds: Set<ResourceKind>
     @Binding var selection: [WorkspaceResource]
     var allowsMultiple: Bool = true
+    var defaultSortKey: OutputSortKey = .kind
+    var defaultSortAscending: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @State private var activeKinds: Set<ResourceKind> = []
@@ -57,6 +59,8 @@ struct ResourcePickerView: View {
         .onAppear {
             activeKinds = defaultKinds
             selectionIDs = Set(selection.map(\.id))
+            sortKey = defaultSortKey
+            sortAscending = defaultSortAscending
         }
         .onChange(of: selectionIDs) { _, newIDs in
             selection = workspace.resources.filter { newIDs.contains($0.id) }

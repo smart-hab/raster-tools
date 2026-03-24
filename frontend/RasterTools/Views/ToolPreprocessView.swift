@@ -172,24 +172,22 @@ struct ToolPreprocessView: View {
                         }
                     )
                     .sheet(isPresented: $showingRasterPicker) {
-                        rasterPickerSheet(workspace: workspace)
+                        ResourcePickerView(
+                            workspace: workspace,
+                            defaultKinds: [.sourceRaster],
+                            selectableKinds: [.sourceRaster],
+                            selection: Binding(
+                                get: { configuration.preprocessConfig?.files ?? [] },
+                                set: { configuration.preprocessConfig?.files = $0; configuration.touch() }
+                            ),
+                            allowsMultiple: true,
+                            defaultSortKey: .date,
+                            defaultSortAscending: false
+                        )
                     }
                 }
             }
         }
-    }
-
-    private func rasterPickerSheet(workspace: Workspace) -> some View {
-        ResourcePickerView(
-            workspace: workspace,
-            defaultKinds: [.sourceRaster],
-            selectableKinds: [.sourceRaster],
-            selection: Binding(
-                get: { configuration.preprocessConfig?.files ?? [] },
-                set: { configuration.preprocessConfig?.files = $0; configuration.touch() }
-            ),
-            allowsMultiple: true
-        )
     }
 
     @ViewBuilder
