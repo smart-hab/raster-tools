@@ -31,7 +31,7 @@ struct ResourcePickerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ResourceSectionContent(
+            ResourceTableView(
                 resources: selectableResources,
                 filterKinds: sortedKinds,
                 activeKinds: $activeKinds,

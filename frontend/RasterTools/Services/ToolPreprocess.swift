@@ -1,5 +1,5 @@
 //
-//  PreprocessRunner.swift
+//  ToolPreprocess.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-20.
@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 /// Runs preprocessing workflow on satellite imagery
-class PreprocessRunner: ToolRunner {
+class ToolPreprocess: ToolRunner {
 
     func run(configuration: ToolConfiguration, context: ModelContext) async throws {
         guard let config = configuration.preprocessConfig else {
@@ -115,7 +115,7 @@ class PreprocessRunner: ToolRunner {
                     arguments: ["--rgb", "6", "4", "2", "-i", clippedPath, "-o", clippedPng]
                 )
             }
-            clippedResource = makeOutputResource(
+            clippedResource = makeResource(
                 path: clippedPath,
                 kind: .clipped,
                 date: rasterResource.date,
@@ -153,7 +153,7 @@ class PreprocessRunner: ToolRunner {
             var maskParents: [WorkspaceResource] = []
             if let cr = clippedResource { maskParents.append(cr) }
             if let udm = rasterResource.udm { maskParents.append(udm) }
-            maskedResource = makeOutputResource(
+            maskedResource = makeResource(
                 path: maskedPath,
                 kind: .masked,
                 date: rasterResource.date,
@@ -238,7 +238,7 @@ class PreprocessRunner: ToolRunner {
             }
             var parents: [WorkspaceResource] = []
             if let mr = maskedResource { parents.append(mr) }
-            makeOutputResource(
+            makeResource(
                 path: outputPath,
                 kind: kind,
                 date: date,

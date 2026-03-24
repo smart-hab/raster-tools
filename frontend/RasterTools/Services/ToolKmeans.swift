@@ -1,5 +1,5 @@
 //
-//  KMeansRunner.swift
+//  ToolKMeans.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-20.
@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 /// Runs K-means clustering workflow on raster data
-class KMeansRunner: ToolRunner {
+class ToolKmeans: ToolRunner {
 
     func run(configuration: ToolConfiguration, context: ModelContext) async throws {
         guard let config = configuration.kmeansConfig else {
@@ -34,7 +34,7 @@ class KMeansRunner: ToolRunner {
             let outputDir = AppStorage.outputDirectory(for: workspace, configuration: configuration).path
 
             // Step 1: Fit K-means model
-            try await fitKMeans(outputDir: outputDir, config: config, configuration: configuration, workspace: workspace, context: context)
+            try await fitKmeans(outputDir: outputDir, config: config, configuration: configuration, workspace: workspace, context: context)
 
             // Step 2: Classify rasters
             try await classifyRasters(outputDir: outputDir, config: config, configuration: configuration, workspace: workspace, context: context)
@@ -59,9 +59,9 @@ class KMeansRunner: ToolRunner {
         }
     }
 
-    private func fitKMeans(
+    private func fitKmeans(
         outputDir: String,
-        config: KMeansConfiguration,
+        config: KmeansConfiguration,
         configuration: ToolConfiguration,
         workspace: Workspace,
         context: ModelContext
@@ -84,7 +84,7 @@ class KMeansRunner: ToolRunner {
         args += ["-i"] + inputPaths
 
         try await runProcess(executable: "kmeans_fit", arguments: args)
-        makeOutputResource(
+        makeResource(
             path: centersPath,
             kind: .kmeansCenters,
             date: nil,
@@ -99,7 +99,7 @@ class KMeansRunner: ToolRunner {
 
     private func classifyRasters(
         outputDir: String,
-        config: KMeansConfiguration,
+        config: KmeansConfiguration,
         configuration: ToolConfiguration,
         workspace: Workspace,
         context: ModelContext
@@ -129,7 +129,7 @@ class KMeansRunner: ToolRunner {
                         arguments: ["-i", outputPath, "-o", pngPath]
                     )
                 }
-                makeOutputResource(
+                makeResource(
                     path: outputPath,
                     kind: .kmeansClassed,
                     date: sourceResource.date,
@@ -148,7 +148,7 @@ class KMeansRunner: ToolRunner {
 
     private func generateMeanRaster(
         outputDir: String,
-        config: KMeansConfiguration,
+        config: KmeansConfiguration,
         configuration: ToolConfiguration,
         workspace: Workspace,
         context: ModelContext
@@ -174,7 +174,7 @@ class KMeansRunner: ToolRunner {
                 arguments: ["-i", outputPath, "-o", pngPath]
             )
         }
-        makeOutputResource(
+        makeResource(
             path: outputPath,
             kind: .kmeansMean,
             date: nil,
@@ -190,7 +190,7 @@ class KMeansRunner: ToolRunner {
 
     private func generateDifferenceRasters(
         outputDir: String,
-        config: KMeansConfiguration,
+        config: KmeansConfiguration,
         configuration: ToolConfiguration,
         workspace: Workspace,
         context: ModelContext
@@ -224,7 +224,7 @@ class KMeansRunner: ToolRunner {
                 let meanResource = workspace.resources.first { $0.originalPath == meanPath }
                 var parents: [WorkspaceResource] = [sourceResource]
                 if let mr = meanResource { parents.append(mr) }
-                makeOutputResource(
+                makeResource(
                     path: outputPath,
                     kind: .kmeansDiff,
                     date: sourceResource.date,

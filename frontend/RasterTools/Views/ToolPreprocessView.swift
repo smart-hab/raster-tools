@@ -1,5 +1,5 @@
 //
-//  PreprocessConfigView.swift
+//  ToolPreprocessView.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-20.
@@ -8,11 +8,11 @@
 import SwiftUI
 import SwiftData
 
-struct PreprocessConfigView: View {
+struct ToolPreprocessView: View {
     @Bindable var configuration: ToolConfiguration
     @Environment(\.modelContext) private var modelContext
     @Environment(JobRegistry.self) private var registry
-    @State private var activeRunner: PreprocessRunner?
+    @State private var activeRunner: ToolPreprocess?
     @State private var showingShapePicker = false
     @State private var showingRasterPicker = false
     @State private var rasterSortKey: OutputSortKey = .date
@@ -155,7 +155,7 @@ struct PreprocessConfigView: View {
                         .foregroundStyle(.secondary)
                 }
                 if let workspace {
-                    ResourceSectionContent(
+                    ResourceTableView(
                         resources: preprocessConfig.files,
                         filterKinds: rasterKinds,
                         activeKinds: $rasterActiveKinds,
@@ -198,7 +198,7 @@ struct PreprocessConfigView: View {
         if !outputs.isEmpty {
             let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
             Section("Outputs") {
-                ResourceSectionContent(
+                ResourceTableView(
                     resources: outputs,
                     filterKinds: outputKinds,
                     activeKinds: $outputActiveKinds,
@@ -226,7 +226,7 @@ struct PreprocessConfigView: View {
             }
         } else {
             Button("Run Preprocessing") {
-                let runner = PreprocessRunner()
+                let runner = ToolPreprocess()
                 activeRunner = runner
                 registry.register(
                     runner: runner,

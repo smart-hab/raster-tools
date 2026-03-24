@@ -13,6 +13,7 @@ struct AppStorage {
     static func outputDirectory(for workspace: Workspace) -> URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        // ~/Library/Application Support/RasterTools/outputs/{Workspace-UUID}/
         let dir = support
             .appendingPathComponent("RasterTools")
             .appendingPathComponent("outputs")
@@ -27,6 +28,7 @@ struct AppStorage {
     static func outputDirectory(for workspace: Workspace, configuration: ToolConfiguration) -> URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        // ~/Library/Application Support/RasterTools/outputs/{Workspace-UUID}/{ToolConfiguration-UUID}/
         let dir = support
             .appendingPathComponent("RasterTools")
             .appendingPathComponent("outputs")

@@ -110,7 +110,7 @@ class ToolRunner {
 
 extension ToolRunner {
     @discardableResult
-    func makeOutputResource(
+    func makeResource(
         path: String,
         kind: ResourceKind,
         date: Date?,

@@ -1,11 +1,12 @@
 //
-//  ResourceTableViews.swift
+//  ResourceTableView.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-21.
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - Resource Table Row
 
@@ -62,204 +63,80 @@ struct ResourceTableRow: View {
     }
 }
 
-// MARK: - Image Gallery Sheet
+// MARK: - Resource Table Filter View
 
-struct GalleryItem {
-    var pngPath: String?
-    var filename: String
-    var date: String?
-    var fileSize: String
-    var badges: [ResourceKind]
-    var originalPath: String?
-
-    init(_ resource: WorkspaceResource) {
-        self.pngPath = resource.pngPath
-        self.filename = resource.filename
-        self.date = resource.date?.displayString
-        self.fileSize = resource.formattedFileSize
-        self.badges = resource.tableBadges
-        self.originalPath = resource.originalPath
-    }
-}
-
-struct GalleryRequest: Identifiable {
-    let id = UUID()
-    let items: [GalleryItem]
-    let initialIndex: Int
-}
-
-struct ImageGallerySheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let items: [GalleryItem]
-    let initialIndex: Int
-
-    @State private var currentIndex: Int
-
-    init(items: [GalleryItem], initialIndex: Int = 0) {
-        self.items = items
-        self.initialIndex = initialIndex
-        self._currentIndex = State(initialValue: initialIndex)
-    }
-
-    private var current: GalleryItem? {
-        guard items.indices.contains(currentIndex) else { return nil }
-        return items[currentIndex]
-    }
+struct ResourceTableFilterView: View {
+    let kinds: [ResourceKind]
+    @Binding var activeKinds: Set<ResourceKind>
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Left panel: big image + metadata footer
-            VStack(spacing: 0) {
-                imageView
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Divider()
-                metadataFooter
+        HStack(spacing: 4) {
+            ForEach(kinds, id: \.self) { kind in
+                BadgeCapsule(kind: kind)
+                    .opacity(activeKinds.contains(kind) ? 1.0 : 0.4)
+                    .overlay(
+                        MouseClickView(
+                            onLeftClick: {
+                                if activeKinds.contains(kind) {
+                                    activeKinds.remove(kind)
+                                } else {
+                                    activeKinds.insert(kind)
+                                }
+                            },
+                            onRightClick: {
+                                let others = Set(kinds).subtracting([kind])
+                                if others.isSubset(of: activeKinds) {
+                                    activeKinds.subtract(others)
+                                } else {
+                                    activeKinds.formUnion(others)
+                                }
+                            }
+                        )
+                    )
             }
+        }
+    }
+}
 
-            Divider()
+// MARK: - Resource Table Soter View
 
-            // Right sidebar: thumbnail strip
-            ScrollViewReader { proxy in
-                ScrollView(.vertical) {
-                    VStack(spacing: 4) {
-                        ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                            thumbnailView(for: item, index: index)
-                                .id(index)
+struct ResourceTableSorterView: View {
+    @Binding var sortKey: OutputSortKey
+    @Binding var ascending: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Spacer()
+            ForEach(OutputSortKey.allCases, id: \.self) { key in
+                Button {
+                    if sortKey == key {
+                        ascending.toggle()
+                    } else {
+                        sortKey = key
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Text(key.rawValue)
+                        if sortKey == key {
+                            Image(systemName: ascending ? "chevron.up" : "chevron.down")
                         }
                     }
-                    .padding(8)
+                    .font(.caption)
                 }
-                .frame(width: 88)
-                .onChange(of: currentIndex) { _, newIndex in
-                    withAnimation {
-                        proxy.scrollTo(newIndex, anchor: .center)
-                    }
-                }
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
+                .foregroundStyle(sortKey == key ? .primary : .secondary)
             }
         }
-        .frame(minWidth: 600, minHeight: 450)
-        .overlay {
-            Button("") { dismiss() }
-                .keyboardShortcut(.escape, modifiers: [])
-                .opacity(0)
-        }
-        .focusable()
-        .focusEffectDisabled()
-        .onKeyPress(.leftArrow) { navigatePrevious(); return .handled }
-        .onKeyPress(.upArrow) { navigatePrevious(); return .handled }
-        .onKeyPress(.rightArrow) { navigateNext(); return .handled }
-        .onKeyPress(.downArrow) { navigateNext(); return .handled }
-    }
-
-    @ViewBuilder
-    private var imageView: some View {
-        if let path = current?.pngPath, let image = NSImage(contentsOfFile: path) {
-            Image(nsImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            VStack(spacing: 12) {
-                Image(systemName: "photo")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-                Text("Preview not available")
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var metadataFooter: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
-                Text(current?.date ?? "Unknown")
-                    .font(.headline)
-                Spacer()
-                ForEach(current?.badges ?? [], id: \.self) { kind in
-                    BadgeCapsule(kind: kind)
-                }
-                let fileSize = current?.fileSize ?? ""
-                if !fileSize.isEmpty {
-                    Text(fileSize)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
-            Text(current?.filename ?? "")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            Divider()
-                .padding(.vertical, 4)
-
-            HStack(spacing: 8) {
-                if let revealPath = current?.originalPath ?? current?.pngPath {
-                    Button {
-                        NSWorkspace.shared.activateFileViewerSelecting(
-                            [URL(fileURLWithPath: revealPath)]
-                        )
-                    } label: {
-                        Label("Show in Finder", systemImage: "folder")
-                    }
-                    .buttonStyle(.bordered)
-                    .focusEffectDisabled()
-                }
-                Spacer()
-            }
-        }
-        .padding()
-    }
-
-    @ViewBuilder
-    private func thumbnailView(for item: GalleryItem, index: Int) -> some View {
-        let isActive = index == currentIndex
-        Group {
-            if let path = item.pngPath, let image = NSImage(contentsOfFile: path) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 64, height: 64)
-                    .clipped()
-            } else {
-                Image(systemName: "photo")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 64, height: 64)
-                    .background(Color.secondary.opacity(0.1))
-            }
-        }
-        .cornerRadius(4)
-        .overlay(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(isActive ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
-        .onTapGesture { currentIndex = index }
-    }
-
-    private func navigatePrevious() {
-        guard !items.isEmpty else { return }
-        currentIndex = (currentIndex - 1 + items.count) % items.count
-    }
-
-    private func navigateNext() {
-        guard !items.isEmpty else { return }
-        currentIndex = (currentIndex + 1) % items.count
+        .padding(.vertical, 2)
     }
 }
 
-// MARK: - Selection label
-
-func selectionLabel(_ count: Int, bytes: Int) -> String {
-    guard count > 0, bytes > 0 else { return "\(count) selected" }
-    let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
-    return "\(count) selected (\(size))"
-}
-
-// MARK: - Resource Section Content
+// MARK: - Resource Table View
 
 /// Encapsulates the repeated filter bar + grouped rows + action bar pattern used across
 /// raster input sections and output sections in config and workspace views.
-struct ResourceSectionContent: View {
+struct ResourceTableView: View {
     let resources: [WorkspaceResource]
     /// Pass the full kind list to show a filter bar; nil hides it.
     let filterKinds: [ResourceKind]?
@@ -289,7 +166,7 @@ struct ResourceSectionContent: View {
             if !resources.isEmpty {
                 HStack {
                     if let filterKinds, filterKinds.count > 1 {
-                        ResourceFilterBar(kinds: filterKinds, activeKinds: $activeKinds)
+                        ResourceTableFilterView(kinds: filterKinds, activeKinds: $activeKinds)
                             .onAppear {
                                 if activeKinds.isEmpty { activeKinds = Set(filterKinds) }
                             }
@@ -298,7 +175,7 @@ struct ResourceSectionContent: View {
                             }
                     }
                     Spacer()
-                    OutputSortBar(sortKey: $sortKey, ascending: $sortAscending)
+                    ResourceTableSorterView(sortKey: $sortKey, ascending: $sortAscending)
                 }
                 .padding(.bottom, 4)
 
@@ -389,7 +266,7 @@ struct ResourceSectionContent: View {
             .padding(.vertical, 6)
         }
         .sheet(item: $galleryRequest) { request in
-            ImageGallerySheet(items: request.items, initialIndex: request.initialIndex)
+            ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
         }
     }
 }
@@ -402,5 +279,138 @@ extension WorkspaceResource {
         case .sourceRaster: return [.sourceRaster] + (udm != nil ? [.udm] : [])
         default:            return [kind]
         }
+    }
+}
+
+// MARK: - Selection label
+
+func selectionLabel(_ count: Int, bytes: Int) -> String {
+    guard count > 0, bytes > 0 else { return "\(count) selected" }
+    let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    return "\(count) selected (\(size))"
+}
+
+// MARK: - Grouping and Sorting
+
+enum OutputSortKey: String, CaseIterable {
+    case date, kind, size
+}
+
+private func compareDate(_ a: WorkspaceResource, _ b: WorkspaceResource, ascending: Bool) -> ComparisonResult {
+    switch (a.date, b.date) {
+    case (nil, nil): return .orderedSame
+    case (nil, _):   return ascending ? .orderedAscending : .orderedDescending
+    case (_, nil):   return ascending ? .orderedDescending : .orderedAscending
+    case let (d1?, d2?):
+        if d1 < d2 { return ascending ? .orderedAscending : .orderedDescending }
+        if d1 > d2 { return ascending ? .orderedDescending : .orderedAscending }
+        return .orderedSame
+    }
+}
+
+private func compareKind(_ a: WorkspaceResource, _ b: WorkspaceResource, ascending: Bool) -> ComparisonResult {
+    let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
+    if cmp == .orderedSame { return .orderedSame }
+    return (ascending ? cmp == .orderedAscending : cmp == .orderedDescending) ? .orderedAscending : .orderedDescending
+}
+
+func sortedOutputs(
+    _ outputs: [WorkspaceResource],
+    sortKey: OutputSortKey,
+    ascending: Bool
+) -> [WorkspaceResource] {
+    return outputs.sorted { a, b in
+        switch sortKey {
+        case .date:
+            let d = compareDate(a, b, ascending: ascending)
+            return (d == .orderedSame ? compareKind(a, b, ascending: ascending) : d) == .orderedAscending
+        case .kind:
+            let k = compareKind(a, b, ascending: ascending)
+            return (k == .orderedSame ? compareDate(a, b, ascending: ascending) : k) == .orderedAscending
+        case .size:
+            return ascending ? a.fileSize < b.fileSize : a.fileSize > b.fileSize
+        }
+    }
+}
+
+func groupedOutputs(
+    _ outputs: [WorkspaceResource],
+    sortKey: OutputSortKey,
+    ascending: Bool
+) -> [(groupLabel: String?, resources: [WorkspaceResource])] {
+    let sorted = sortedOutputs(outputs, sortKey: sortKey, ascending: ascending)
+
+    switch sortKey {
+    case .date:
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        var groups: [(groupLabel: String?, resources: [WorkspaceResource])] = []
+        var labelToIndex: [String: Int] = [:]
+        for resource in sorted {
+            let label = resource.date.map { formatter.string(from: $0) } ?? "Unknown Date"
+            if let idx = labelToIndex[label] {
+                groups[idx].resources.append(resource)
+            } else {
+                labelToIndex[label] = groups.count
+                groups.append((groupLabel: label, resources: [resource]))
+            }
+        }
+        return groups
+    case .kind:
+        var groups: [(groupLabel: String?, resources: [WorkspaceResource])] = []
+        var kindToIndex: [ResourceKind: Int] = [:]
+        for resource in sorted {
+            if let idx = kindToIndex[resource.kind] {
+                groups[idx].resources.append(resource)
+            } else {
+                kindToIndex[resource.kind] = groups.count
+                groups.append((groupLabel: resource.kind.displayName, resources: [resource]))
+            }
+        }
+        return groups
+    case .size:
+        return [(groupLabel: nil, resources: sorted)]
+    }
+}
+// MARK: - Delete helper
+
+func deleteOutputResource(_ resource: WorkspaceResource, context: ModelContext) {
+    try? FileManager.default.removeItem(atPath: resource.originalPath)
+    if let pngPath = resource.pngPath {
+        try? FileManager.default.removeItem(atPath: pngPath)
+    }
+    resource.workspace?.resources.removeAll { $0.id == resource.id }
+    context.delete(resource)
+}
+
+// MARK: - Resource Filter Click Handler (left + right)
+
+struct MouseClickView: NSViewRepresentable {
+    let onLeftClick: () -> Void
+    let onRightClick: () -> Void
+
+    func makeNSView(context: Context) -> ClickableNSView {
+        let view = ClickableNSView()
+        view.onLeftClick = onLeftClick
+        view.onRightClick = onRightClick
+        return view
+    }
+
+    func updateNSView(_ nsView: ClickableNSView, context: Context) {
+        nsView.onLeftClick = onLeftClick
+        nsView.onRightClick = onRightClick
+    }
+}
+
+class ClickableNSView: NSView {
+    var onLeftClick: (() -> Void)?
+    var onRightClick: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        onLeftClick?()
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        onRightClick?()
     }
 }

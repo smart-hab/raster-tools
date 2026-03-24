@@ -15,7 +15,7 @@ struct RasterToolsApp: App {
             Workspace.self,
             WorkspaceResource.self,
             ToolConfiguration.self,
-            KMeansConfiguration.self,
+            KmeansConfiguration.self,
             PreprocessConfiguration.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -23,13 +23,14 @@ struct RasterToolsApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
+            // Store location: ~/Library/Containers/org.swimalert.RasterTools/Data/Library/Application Support/default.store
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppView()
                 .environment(JobRegistry.shared)
         }
         .modelContainer(sharedModelContainer)

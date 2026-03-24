@@ -81,7 +81,7 @@ struct WorkspaceDetailView: View {
                 } else {
                     HStack {
                         Spacer()
-                        OutputSortBar(sortKey: $sourceSortKey, ascending: $sourceSortAscending)
+                        ResourceTableSorterView(sortKey: $sourceSortKey, ascending: $sourceSortAscending)
                     }
                     let sourceGroups = groupedOutputs(allSources, sortKey: sourceSortKey, ascending: sourceSortAscending)
                     ForEach(sourceGroups, id: \.groupLabel) { group in
@@ -110,7 +110,7 @@ struct WorkspaceDetailView: View {
                     Text("No outputs yet. Run a configuration to generate outputs.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ResourceSectionContent(
+                    ResourceTableView(
                         resources: allOutputs,
                         filterKinds: outputKinds,
                         activeKinds: $outputActiveKinds,
@@ -149,7 +149,7 @@ struct WorkspaceDetailView: View {
             }
         }
         .sheet(isPresented: $showingNewConfigSheet) {
-            NewConfigurationSheet(workspace: workspace) {
+            ToolCreateSheet(workspace: workspace) {
                 showingNewConfigSheet = false
             }
         }

@@ -1,5 +1,5 @@
 //
-//  KMeansConfigView.swift
+//  ToolKmeansView.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-20.
@@ -8,11 +8,11 @@
 import SwiftUI
 import SwiftData
 
-struct KMeansConfigView: View {
+struct ToolKmeansView: View {
     @Bindable var configuration: ToolConfiguration
     @Environment(\.modelContext) private var modelContext
     @Environment(JobRegistry.self) private var registry
-    @State private var activeRunner: KMeansRunner?
+    @State private var activeRunner: ToolKmeans?
     @State private var showingFitPicker = false
     @State private var showingClassifyPicker = false
     @State private var fitSortKey: OutputSortKey = .kind
@@ -119,7 +119,7 @@ struct KMeansConfigView: View {
                             .foregroundStyle(.secondary)
                     }
                     if let workspace {
-                        ResourceSectionContent(
+                        ResourceTableView(
                             resources: kmeansConfig.filesFit,
                             filterKinds: inputKinds,
                             activeKinds: $fitActiveKinds,
@@ -158,7 +158,7 @@ struct KMeansConfigView: View {
                             .foregroundStyle(.secondary)
                     }
                     if let workspace {
-                        ResourceSectionContent(
+                        ResourceTableView(
                             resources: kmeansConfig.filesClassify,
                             filterKinds: inputKinds,
                             activeKinds: $classifyActiveKinds,
@@ -195,7 +195,7 @@ struct KMeansConfigView: View {
             if !outputs.isEmpty {
                 let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
                 Section("Outputs") {
-                    ResourceSectionContent(
+                    ResourceTableView(
                         resources: outputs,
                         filterKinds: outputKinds,
                         activeKinds: $outputActiveKinds,
@@ -225,7 +225,7 @@ struct KMeansConfigView: View {
                     }
                 } else {
                     Button("Run K-Means") {
-                        let runner = KMeansRunner()
+                        let runner = ToolKmeans()
                         activeRunner = runner
                         registry.register(
                             runner: runner,
