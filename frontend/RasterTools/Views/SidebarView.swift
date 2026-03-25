@@ -170,7 +170,7 @@ struct SidebarToolRunnerRow: View {
             HStack(spacing: 8) {
                 statusIcon
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(job.workspaceName) / \(job.configName)")
+                    Text(job.workspaceName.isEmpty ? job.configName : "\(job.workspaceName) / \(job.configName)")
                         .font(.caption)
                         .fontWeight(.medium)
                         .lineLimit(1)
