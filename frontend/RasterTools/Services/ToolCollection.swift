@@ -53,6 +53,8 @@ final class ToolCollection: ToolRunner {
             )
 
             do {
+                await log("Queued for order")
+
                 // 5-minute countdown
                 for i in 0..<300 {
                     let remaining = 300 - i
@@ -66,7 +68,8 @@ final class ToolCollection: ToolRunner {
                     try await Task.sleep(for: .seconds(1))
                 }
 
-                await update(ToolProgress(statusText: "Submitting order to Planet", progress: 1.0))
+                await update(ToolProgress(statusText: "Submitting order", progress: 1.0))
+                await log("Submitting order...")
 
                 guard let shapePath = configuration.shapeFile?.originalPath else {
                     throw PlanetAPIError.missingShapeFile
@@ -86,15 +89,18 @@ final class ToolCollection: ToolRunner {
                 let orderId = try await PlanetAPI.createOrder(request, apiKey: apiKey)
                 configuration.orderMemory[key] = OrderMemoryStatus.ordered.rawValue
 
-                await update(ToolProgress(statusText: "Order placed", progress: 1.0, logText: "Order ID: \(orderId)"))
+                await update(ToolProgress(statusText: "Order placed", progress: 1.0))
+                await log("  Order ID: \(orderId)")
 
             } catch is CancellationError {
                 configuration.orderMemory.removeValue(forKey: key)
-                await update(ToolProgress(statusText: "Cancelled", progress: progress.progress, logText: "Cancelled"))
+                await update(ToolProgress(statusText: "Cancelled", progress: progress.progress))
+                await log("Cancelled")
             } catch {
                 configuration.orderMemory.removeValue(forKey: key)
                 self.error = error
-                await update(ToolProgress(statusText: "Error", progress: progress.progress, logText: error.localizedDescription))
+                await update(ToolProgress(statusText: "Error", progress: progress.progress))
+                await log("Error: \(error.localizedDescription)")
             }
         }
     }

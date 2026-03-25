@@ -19,11 +19,12 @@ class ToolKmeans: ToolRunner {
             throw ToolError.missingConfiguration
         }
 
-        let total = config.filesFit.count + config.filesClassify.count
+        let total = 1 + config.filesClassify.count
         await MainActor.run {
             isRunning = true
-            progress = ToolProgress(statusText: "Starting K-Means", progress: 0, progressText: "0 / \(total)", logText: nil, logs: [])
+            progress = ToolProgress(statusText: "Starting K-Means", progress: 0, progressText: "0 / \(total)")
         }
+        await log("[0/\(total)] Starting K-Means...")
         var completed = 0
 
         do {
@@ -41,7 +42,8 @@ class ToolKmeans: ToolRunner {
             // Step 4: Generate difference rasters
             try await generateDifferenceRasters(outputDir: outputDir, config: config, configuration: configuration, workspace: workspace, context: context)
 
-            await update(ToolProgress(statusText: "K-Means processing complete!", progress: 1, progressText: "\(total) / \(total)"))
+            await update(ToolProgress(statusText: "K-Means complete!", progress: 1, progressText: "\(total) / \(total)"))
+            await log("[\(total)/\(total)] K-Means complete!")
 
         } catch {
             await MainActor.run {
@@ -65,15 +67,18 @@ class ToolKmeans: ToolRunner {
         completed: inout Int
     ) async throws {
         let centersPath = "\(outputDir)/centers.txt"
+        let centersFilename = URL(fileURLWithPath: centersPath).lastPathComponent
 
-        // Skip if centers resource already registered
+        await update(ToolProgress(statusText: "Fitting K-Means model", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
+        await log("[\(completed + 1)/\(total)] Fitting K-Means model")
+
         if workspace.resources.contains(where: { $0.originalPath == centersPath }) {
-            await update(ToolProgress(statusText: "Fitting K-Means model", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "✓ Using existing centers file"))
+            await log("  \(centersFilename)")
+            completed += 1
             return
         }
 
-        await update(ToolProgress(statusText: "Fitting K-Means model", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
-
+        await log("  Fitting...")
         let inputPaths = config.filesFit.map { $0.originalPath }
         var args = ["-o", centersPath]
         args += ["-t", String(config.nTimes)]
@@ -91,8 +96,8 @@ class ToolKmeans: ToolRunner {
             workspace: workspace,
             context: context
         )
+        await log("  \(centersFilename)")
         completed += 1
-        await update(ToolProgress(statusText: "Fitting K-Means model", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "✓ centers.txt"))
     }
 
     private func classifyRasters(
@@ -114,10 +119,12 @@ class ToolKmeans: ToolRunner {
             let outputPath = "\(outputDir)/\(outputFile)"
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
 
-            await update(ToolProgress(statusText: "Classifying: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: baseName))
+            await update(ToolProgress(statusText: "Classifying: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
+            await log("[\(completed + 1)/\(total)] \(baseName)")
 
             let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
             if !alreadyExists {
+                await log("  Classifying...")
                 try await runProcess(
                     executable: "kmeans_classify",
                     arguments: ["-i", inputPath, "-k", centersPath, "-o", outputPath]
@@ -140,8 +147,8 @@ class ToolKmeans: ToolRunner {
                 )
             }
 
+            await log("  \(outputFile)")
             completed += 1
-            await update(ToolProgress(statusText: "Classifying: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "✓ \(outputFile)"))
         }
     }
 
@@ -154,37 +161,37 @@ class ToolKmeans: ToolRunner {
     ) async throws {
         let outputPath = "\(outputDir)/mean.tif"
         let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
+        let outputFilename = URL(fileURLWithPath: outputPath).lastPathComponent
+
+        await update(ToolProgress(statusText: "Generating mean raster", progress: progress.progress, progressText: progress.progressText))
+        await log("Generating mean raster")
 
         let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
-        if alreadyExists {
-            await update(ToolProgress(statusText: "Generating mean raster", progress: progress.progress, logText: "✓ Using existing mean raster"))
-            return
-        }
+        if !alreadyExists {
+            await log("  Calculating mean...")
+            let inputPaths = config.filesFit.map { $0.originalPath }
+            let args = ["-o", outputPath, "-i"] + inputPaths
 
-        await update(ToolProgress(statusText: "Generating mean raster", progress: progress.progress))
-
-        let inputPaths = config.filesFit.map { $0.originalPath }
-        let args = ["-o", outputPath, "-i"] + inputPaths
-
-        try await runProcess(executable: "means", arguments: args)
-        if !FileManager.default.fileExists(atPath: pngPath) {
-            try await runProcess(
-                executable: "plot",
-                arguments: ["-i", outputPath, "-o", pngPath]
+            try await runProcess(executable: "means", arguments: args)
+            if !FileManager.default.fileExists(atPath: pngPath) {
+                try await runProcess(
+                    executable: "plot",
+                    arguments: ["-i", outputPath, "-o", pngPath]
+                )
+            }
+            makeResource(
+                path: outputPath,
+                kind: .kmeansMean,
+                date: nil,
+                parents: config.filesFit,
+                pngPath: FileManager.default.fileExists(atPath: pngPath) ? pngPath : nil,
+                producedBy: configuration,
+                workspace: workspace,
+                context: context
             )
         }
-        makeResource(
-            path: outputPath,
-            kind: .kmeansMean,
-            date: nil,
-            parents: config.filesFit,
-            pngPath: FileManager.default.fileExists(atPath: pngPath) ? pngPath : nil,
-            producedBy: configuration,
-            workspace: workspace,
-            context: context
-        )
 
-        await update(ToolProgress(statusText: "Generating mean raster", progress: progress.progress, logText: "✓ mean.tif"))
+        await log("  \(outputFilename)")
     }
 
     private func generateDifferenceRasters(
@@ -194,9 +201,10 @@ class ToolKmeans: ToolRunner {
         workspace: Workspace,
         context: ModelContext
     ) async throws {
-        await update(ToolProgress(statusText: "Generating difference rasters", progress: progress.progress))
-
         let meanPath = "\(outputDir)/mean.tif"
+
+        await update(ToolProgress(statusText: "Calculating differences", progress: progress.progress, progressText: progress.progressText))
+        await log("Calculating differences")
 
         for sourceResource in config.filesClassify {
             let inputPath = sourceResource.originalPath
@@ -206,11 +214,11 @@ class ToolKmeans: ToolRunner {
 
             let outputPath = "\(outputDir)/mean_diff_\(date).tif"
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
-
-            await update(ToolProgress(statusText: "Calculating difference: \(dateLabel)", progress: progress.progress, logText: dateLabel))
+            let outputFilename = URL(fileURLWithPath: outputPath).lastPathComponent
 
             let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
             if !alreadyExists {
+                await log("  \(dateLabel)...")
                 try await runProcess(
                     executable: "subtract",
                     arguments: ["-i", meanPath, inputPath, "-o", outputPath]
@@ -236,7 +244,7 @@ class ToolKmeans: ToolRunner {
                 )
             }
 
-            await update(ToolProgress(statusText: "Calculating difference: \(dateLabel)", progress: progress.progress, logText: "✓ mean_diff_\(date).tif"))
+            await log("  \(outputFilename)")
         }
     }
 }

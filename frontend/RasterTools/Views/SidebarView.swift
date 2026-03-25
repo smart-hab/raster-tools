@@ -170,24 +170,22 @@ struct SidebarToolRunnerRow: View {
             HStack(spacing: 8) {
                 statusIcon
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("\(job.workspaceName) / \(job.configName)")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
-                        if !progressLabel.isEmpty {
-                            Text(progressLabel)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                    }
+                    Text("\(job.workspaceName) / \(job.configName)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                     Text(job.runner.progress.statusText)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                }
+                Spacer()
+                if !progressLabel.isEmpty {
+                    Text(progressLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
                 Button {
                     if job.runner.isRunning {

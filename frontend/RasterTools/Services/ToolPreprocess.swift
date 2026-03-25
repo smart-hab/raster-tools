@@ -25,8 +25,9 @@ class ToolPreprocess: ToolRunner {
         let total = config.files.count
         await MainActor.run {
             isRunning = true
-            progress = ToolProgress(statusText: "Starting preprocessing", progress: 0, progressText: "0 / \(total)", logText: nil, logs: [])
+            progress = ToolProgress(statusText: "Starting preprocessing", progress: 0, progressText: "0 / \(total)")
         }
+        await log("[0/\(total)] Starting processing...")
         var completed = 0
 
         do {
@@ -52,6 +53,7 @@ class ToolPreprocess: ToolRunner {
             }
 
             await update(ToolProgress(statusText: "Preprocessing complete!", progress: 1, progressText: "\(total) / \(total)"))
+            await log("[\(total)/\(total)] Processing complete!")
 
         } catch {
             await MainActor.run {
@@ -94,17 +96,20 @@ class ToolPreprocess: ToolRunner {
             udmPath = URL(fileURLWithPath: inputPath).deletingPathExtension().path + "_udm2.tif"
         }
 
-        await update(ToolProgress(statusText: "Processing", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: baseName))
+        await update(ToolProgress(statusText: "Processing \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
+        await log("[\(completed + 1)/\(total)] \(baseName)")
 
         // Step 1: Clip to shape boundary
         let clippedPath = "\(outputDir)/\(baseName)_clipped.tif"
         let clippedPng = clippedPath.replacingOccurrences(of: ".tif", with: ".png")
+        let clippedFilename = URL(fileURLWithPath: clippedPath).lastPathComponent
 
         let clippedExists = workspace.resources.contains { $0.originalPath == clippedPath }
         var clippedResource: WorkspaceResource?
 
         if !clippedExists {
-            await update(ToolProgress(statusText: "Clipping: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: baseName))
+            await update(ToolProgress(statusText: "Clipping \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
+            await log("  Clipping...")
             try await runProcess(
                 executable: "clip",
                 arguments: ["-i", inputPath, "-o", clippedPath, "-s", shapeFile]
@@ -128,18 +133,19 @@ class ToolPreprocess: ToolRunner {
         } else {
             clippedResource = workspace.resources.first { $0.originalPath == clippedPath }
         }
-
-        await update(ToolProgress(statusText: "Clipping: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "  ✓ Clipped \(baseName)"))
+        await log("  \(clippedFilename)")
 
         // Step 2: Apply UDM2 mask (cloud/shadow removal)
         let maskedPath = "\(outputDir)/\(baseName)_clipped_masked.tif"
         let maskedPng = maskedPath.replacingOccurrences(of: ".tif", with: ".png")
+        let maskedFilename = URL(fileURLWithPath: maskedPath).lastPathComponent
 
         let maskedExists = workspace.resources.contains { $0.originalPath == maskedPath }
         var maskedResource: WorkspaceResource?
 
         if !maskedExists {
-            await update(ToolProgress(statusText: "Masking: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: baseName))
+            await update(ToolProgress(statusText: "Masking \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
+            await log("  Masking...")
             try await runProcess(
                 executable: "mask",
                 arguments: ["-i", clippedPath, "-u", udmPath, "-o", maskedPath]
@@ -166,8 +172,7 @@ class ToolPreprocess: ToolRunner {
         } else {
             maskedResource = workspace.resources.first { $0.originalPath == maskedPath }
         }
-
-        await update(ToolProgress(statusText: "Masking: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "  ✓ Masked \(baseName)"))
+        await log("  \(maskedFilename)")
 
         // Step 3: Calculate indices
         for process in processes {
@@ -203,12 +208,11 @@ class ToolPreprocess: ToolRunner {
                 )
 
             default:
-                await update(ToolProgress(statusText: "Processing", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "⚠️ Unimplemented preprocess kind: \(process)"))
+                await log("  ⚠️ Unimplemented preprocess kind: \(process)")
             }
         }
 
         completed += 1
-        await update(ToolProgress(statusText: "Processing", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "✓ \(baseName)"))
     }
 
     private func calculateIndex(
@@ -225,13 +229,11 @@ class ToolPreprocess: ToolRunner {
         context: ModelContext
     ) async throws {
         let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
-
-        let dateLabel = date?.displayString ?? ""
-        let statusText = dateLabel.isEmpty ? name : "\(name): \(dateLabel)"
+        let outputFilename = URL(fileURLWithPath: outputPath).lastPathComponent
 
         let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
         if !alreadyExists {
-            await update(ToolProgress(statusText: statusText, progress: progress.progress, progressText: progress.progressText))
+            await log("  \(name)...")
             try await runProcess(
                 executable: "norm_diff",
                 arguments: ["-i", inputPath, "-o", outputPath, "-b", band1, band2]
@@ -256,6 +258,6 @@ class ToolPreprocess: ToolRunner {
             )
         }
 
-        await update(ToolProgress(statusText: statusText, progress: progress.progress, progressText: progress.progressText, logText: "  ✓ \(name)"))
+        await log("  \(outputFilename)")
     }
 }

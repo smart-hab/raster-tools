@@ -13,7 +13,7 @@ struct WorkspaceDetailView: View {
     let workspace: Workspace
 
     @State private var showingNewConfigSheet = false
-    @State private var sourceSortID: String = "kind"
+    @State private var sourceSortID: String = "date"
     @State private var sourceSortAscending: Bool = false
     @State private var outputSelection: Set<UUID> = []
     @State private var outputGalleryRequest: GalleryRequest?
@@ -112,7 +112,9 @@ struct WorkspaceDetailView: View {
                         TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
                         TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
                     ],
-                    selection: $outputSelection
+                    selection: $outputSelection,
+                    initialSortOptionID: "kind",
+                    initialSortAscending: true
                 ) { resource, isSelected in
                     ResourceTableRow(
                         icon: resource.kind.iconName,

@@ -40,38 +40,51 @@ struct ToolRunnerDetailsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Status header
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(runner.progress.statusText)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                    if let error = runner.error {
+                        Text(error.localizedDescription)
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                let progressLabel = runner.isRunning
+                    ? (runner.progress.progressText ?? "\(Int(runner.progress.progress * 100))%")
+                    : ""
+                if !progressLabel.isEmpty {
+                    Text(progressLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+
+                Group {
+                    if runner.isRunning {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else if runner.error != nil {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.red)
+                    } else {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                }
+                .frame(width: 16, height: 16)
+            }
+
             if runner.isRunning {
-                HStack {
-                    ProgressView()
-                        .controlSize(.small)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(runner.progress.statusText)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        if let text = runner.progress.logText {
-                            Text(text)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
+                ProgressView(value: runner.progress.progress) {
+                    EmptyView()
                 }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    ProgressView(value: runner.progress.progress) {
-                        Text(runner.progress.progressText ?? "\(Int(runner.progress.progress * 100))%")
-                            .font(.caption)
-                    }
-                }
-            } else if let error = runner.error {
-                Label(error.localizedDescription, systemImage: "xmark.circle.fill")
-                    .foregroundStyle(.red)
-                    .font(.caption)
-            } else if !runner.progress.logs.isEmpty {
-
-                Label("Completed", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .font(.caption)
             }
 
             // Logs

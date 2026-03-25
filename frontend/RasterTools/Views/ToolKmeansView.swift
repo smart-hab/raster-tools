@@ -148,6 +148,8 @@ struct ToolKmeansView: View {
                                     get: { configuration.kmeansConfig?.filesFit ?? [] },
                                     set: { configuration.kmeansConfig?.filesFit = $0; configuration.touch() }
                                 ),
+                                initialSortOptionID: "kind",
+                                initialSortAscending: true
                             )
                         }
                     }
@@ -197,6 +199,8 @@ struct ToolKmeansView: View {
                                     get: { configuration.kmeansConfig?.filesClassify ?? [] },
                                     set: { configuration.kmeansConfig?.filesClassify = $0; configuration.touch() }
                                 ),
+                                initialSortOptionID: "kind",
+                                initialSortAscending: true
                             )
                         }
                     }
@@ -216,7 +220,9 @@ struct ToolKmeansView: View {
                         TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
                         TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
                     ],
-                    selection: $outputSelection
+                    selection: $outputSelection,
+                    initialSortOptionID: "kind",
+                    initialSortAscending: true
                 ) { resource, isSelected in
                     ResourceTableRow(
                         icon: resource.kind.iconName,

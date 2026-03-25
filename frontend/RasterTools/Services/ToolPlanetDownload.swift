@@ -76,9 +76,9 @@ final class ToolPlanetDownload: ToolRunner {
 
                             await update(ToolProgress(
                                 statusText: "Downloading \(filename)",
-                                progress: Double(completed) / Double(total),
-                                logText: "⬇ \(filename)"
+                                progress: Double(completed) / Double(total)
                             ))
+                            await log("⬇ \(filename)")
 
                             var req = URLRequest(url: downloadURL)
                             req.setValue(
@@ -92,9 +92,9 @@ final class ToolPlanetDownload: ToolRunner {
 
                             await update(ToolProgress(
                                 statusText: "Verifying \(filename)",
-                                progress: Double(completed) / Double(total),
-                                logText: "🔍 \(filename)"
+                                progress: Double(completed) / Double(total)
                             ))
+                            await log("🔍 \(filename)")
 
                             let tempData = try Data(contentsOf: tempURL)
                             let computed = SHA256.hash(data: tempData).compactMap { String(format: "%02x", $0) }.joined()
@@ -106,9 +106,9 @@ final class ToolPlanetDownload: ToolRunner {
                         } else {
                             await update(ToolProgress(
                                 statusText: "Verifying \(filename)",
-                                progress: Double(completed) / Double(total),
-                                logText: "🔍 \(filename)"
+                                progress: Double(completed) / Double(total)
                             ))
+                            await log("🔍 \(filename)")
 
                             let existingData = try Data(contentsOf: URL(fileURLWithPath: destPath))
                             let computed = SHA256.hash(data: existingData).compactMap { String(format: "%02x", $0) }.joined()
@@ -119,18 +119,18 @@ final class ToolPlanetDownload: ToolRunner {
 
                         await update(ToolProgress(
                             statusText: "Verified \(filename)",
-                            progress: Double(completed) / Double(total),
-                            logText: "✓ \(filename)"
+                            progress: Double(completed) / Double(total)
                         ))
+                        await log("✓ \(filename)")
                     }
 
                     completed += 1
                     await update(ToolProgress(
                         statusText: "Downloaded \(order.name)",
                         progress: Double(completed) / Double(total),
-                        progressText: "\(completed) / \(total)",
-                        logText: "✓ \(order.name)"
+                        progressText: "\(completed) / \(total)"
                     ))
+                    await log("✓ \(order.name)")
                 }
 
                 await update(ToolProgress(
@@ -140,10 +140,11 @@ final class ToolPlanetDownload: ToolRunner {
                 ))
 
             } catch is CancellationError {
-                await update(ToolProgress(statusText: "Cancelled", progress: progress.progress, logText: "Cancelled"))
+                await update(ToolProgress(statusText: "Cancelled", progress: progress.progress))
             } catch {
                 self.error = error
-                await update(ToolProgress(statusText: "Error", progress: progress.progress, logText: error.localizedDescription))
+                await update(ToolProgress(statusText: "Error", progress: progress.progress))
+                await log(error.localizedDescription)
             }
         }
     }

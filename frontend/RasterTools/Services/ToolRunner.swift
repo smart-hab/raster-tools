@@ -13,7 +13,6 @@ struct ToolProgress {
     var statusText: String
     var progress: Double          // 0.0–1.0
     var progressText: String?     // optional label shown next to progress bar; nil → "42%"
-    var logText: String?          // last detail line, shown as subtitle
     var logs: [String] = []
 }
 
@@ -21,7 +20,7 @@ struct ToolProgress {
 @Observable
 class ToolRunner {
     var isRunning = false
-    var progress = ToolProgress(statusText: "", progress: 0, progressText: nil, logText: nil, logs: [])
+    var progress = ToolProgress(statusText: "", progress: 0, progressText: nil)
     var error: Error?
     
     private var currentProcess: Process?
@@ -75,14 +74,21 @@ class ToolRunner {
         return output
     }
     
-    /// Update progress state and append to the log.
+    /// Update progress state (compact status header only — preserves existing logs).
     func update(_ p: ToolProgress) async {
         await MainActor.run {
-            let logEntry = p.logText ?? "Progress: \(Int(p.progress * 100))%"
             var updated = p
-            updated.logs = progress.logs + (logEntry == progress.logs.last ? [] : [logEntry])
-            print("🔧 \(logEntry)")
+            updated.logs = progress.logs
             progress = updated
+        }
+        await Task.yield()
+    }
+
+    /// Append an arbitrary line to the log without changing status or progress.
+    func log(_ text: String) async {
+        await MainActor.run {
+            progress.logs.append(text)
+            print("🔧 \(text)")
         }
     }
 }
