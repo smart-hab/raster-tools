@@ -10,9 +10,10 @@ import SwiftData
 
 struct ToolCreateSheet: View {
     let workspace: Workspace
-    let onDismiss: () -> Void
+    let onCreated: (ToolConfiguration) -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     @State private var configName = ""
     @State private var toolType: ToolType = .kmeans
@@ -28,6 +29,11 @@ struct ToolCreateSheet: View {
                             Label(type.rawValue, systemImage: type.iconName).tag(type)
                         }
                     }
+                    .onChange(of: toolType) { _, newType in
+                        if newType == .collection && configName.isEmpty {
+                            configName = workspace.name
+                        }
+                    }
                 }
 
                 Section("Workspace") {
@@ -41,7 +47,7 @@ struct ToolCreateSheet: View {
             .navigationTitle("New Configuration")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { onDismiss() }
+                    Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { createConfiguration() }
@@ -57,6 +63,6 @@ struct ToolCreateSheet: View {
         modelContext.insert(config)
         workspace.configurations.append(config)
         workspace.modifiedAt = Date()
-        onDismiss()
+        onCreated(config)
     }
 }

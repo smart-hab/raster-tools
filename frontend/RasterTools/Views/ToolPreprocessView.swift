@@ -15,22 +15,17 @@ struct ToolPreprocessView: View {
     @State private var activeRunner: ToolPreprocess?
     @State private var showingShapePicker = false
     @State private var showingRasterPicker = false
-    @State private var rasterSortKey: OutputSortKey = .date
-    @State private var rasterSortAscending: Bool = false
-    @State private var outputSortKey: OutputSortKey = .kind
-    @State private var outputSortAscending: Bool = false
     private let rasterKinds: [ResourceKind] = [.sourceRaster, .udm]
-    @State private var rasterActiveKinds: Set<ResourceKind> = [.sourceRaster, .udm]
-    @State private var outputActiveKinds: Set<ResourceKind> = []
     @State private var rasterSelection: Set<UUID> = []
     @State private var outputSelection: Set<UUID> = []
+    @State private var rasterGalleryRequest: GalleryRequest?
+    @State private var outputGalleryRequest: GalleryRequest?
 
     private var workspace: Workspace? { configuration.workspace }
 
     var body: some View {
         Form {
             configSection
-            shapeFileSection
             processesSection
             rasterFilesSection
             outputsSection
@@ -52,10 +47,9 @@ struct ToolPreprocessView: View {
                     .foregroundStyle(.secondary)
             }
             LabeledContent("Workspace") {
-                Text(workspace?.sourceDirectory ?? "")
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .lineLimit(1)
+                if let workspace {
+                    FolderPathButton(path: workspace.sourceDirectory)
+                }
             }
             if let workspace {
                 LabeledContent("Output Dir") {
@@ -66,33 +60,27 @@ struct ToolPreprocessView: View {
                     }
                     .buttonStyle(.plain)
                 }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var shapeFileSection: some View {
-        Section("Shape File") {
-            if let workspace {
-                if let selected = configuration.preprocessConfig?.shapeFile {
-                    ResourceTableRow(
-                        icon: ResourceKind.shapeFile.iconName,
-                        label: selected.filename,
-                        fileSize: selected.formattedFileSize,
-                        badges: selected.tableBadges,
-                        onDelete: {
-                            configuration.preprocessConfig?.shapeFile = nil
-                            configuration.touch()
+                LabeledContent("Shape File") {
+                    if let selected = configuration.preprocessConfig?.shapeFile {
+                        Button {
+                            showingShapePicker = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: ResourceKind.shapeFile.iconName)
+                                Text(selected.filename)
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(.secondary)
                         }
-                    )
-                } else {
-                    Text("No shape file selected")
-                        .foregroundStyle(.secondary)
-                }
-                Button("Select Shape File...") { showingShapePicker = true }
-                    .sheet(isPresented: $showingShapePicker) {
-                        shapePickerSheet(workspace: workspace)
+                        .buttonStyle(.plain)
+                    } else {
+                        Button("Select Shape File…") { showingShapePicker = true }
+                            .buttonStyle(.plain)
                     }
+                }
+                .sheet(isPresented: $showingShapePicker) {
+                    shapePickerSheet(workspace: workspace)
+                }
             }
         }
     }
@@ -112,7 +100,7 @@ struct ToolPreprocessView: View {
                     configuration.touch()
                 }
             ),
-            allowsMultiple: false
+            selectionMode: .single
         )
     }
 
@@ -150,27 +138,39 @@ struct ToolPreprocessView: View {
     private var rasterFilesSection: some View {
         Section("Raster Files") {
             if let preprocessConfig = configuration.preprocessConfig {
-                if preprocessConfig.files.isEmpty {
-                    Text("No raster files selected")
-                        .foregroundStyle(.secondary)
-                }
                 if let workspace {
                     ResourceTableView(
-                        resources: preprocessConfig.files,
-                        filterKinds: rasterKinds,
-                        activeKinds: $rasterActiveKinds,
-                        sortKey: $rasterSortKey,
-                        sortAscending: $rasterSortAscending,
+                        items: preprocessConfig.files,
+                        itemID: \.id,
+                        sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                        filterOptions: TableFilterOption<WorkspaceResource>.forKinds(rasterKinds),
+                        selectionActions: [
+                            TableSelectionAction<WorkspaceResource>.gallery(request: $rasterGalleryRequest),
+                            TableSelectionAction<WorkspaceResource>.delete(
+                                from: Binding(
+                                    get: { configuration.preprocessConfig?.files ?? [] },
+                                    set: { configuration.preprocessConfig?.files = $0 }
+                                ),
+                                selectionIDs: $rasterSelection,
+                                touch: { configuration.touch() }
+                            )
+                        ],
                         selection: $rasterSelection,
                         onAdd: { showingRasterPicker = true },
-                        onDeleteSelected: { ids in
-                            for id in ids {
-                                configuration.preprocessConfig?.files.removeAll { $0.id == id }
-                            }
-                            configuration.touch()
-                            rasterSelection.removeAll()
-                        }
-                    )
+                        initialSortOptionID: "date"
+                    ) { resource, isSelected in
+                        ResourceTableRow(
+                            icon: resource.kind.iconName,
+                            label: resource.displayLabel,
+                            fileSize: resource.formattedFileSize,
+                            badges: resource.tableBadges,
+                            pngPath: resource.pngPath,
+                            isSelected: isSelected
+                        )
+                    }
+                    .sheet(item: $rasterGalleryRequest) { request in
+                        ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
+                    }
                     .sheet(isPresented: $showingRasterPicker) {
                         ResourcePickerView(
                             workspace: workspace,
@@ -180,9 +180,7 @@ struct ToolPreprocessView: View {
                                 get: { configuration.preprocessConfig?.files ?? [] },
                                 set: { configuration.preprocessConfig?.files = $0; configuration.touch() }
                             ),
-                            allowsMultiple: true,
-                            defaultSortKey: .date,
-                            defaultSortAscending: false
+                            initialSortOptionID: "date"
                         )
                     }
                 }
@@ -193,25 +191,31 @@ struct ToolPreprocessView: View {
     @ViewBuilder
     private var outputsSection: some View {
         let outputs = workspace?.resources.filter { $0.producedBy?.id == configuration.id } ?? []
-        if !outputs.isEmpty {
-            let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
-            Section("Outputs") {
-                ResourceTableView(
-                    resources: outputs,
-                    filterKinds: outputKinds,
-                    activeKinds: $outputActiveKinds,
-                    sortKey: $outputSortKey,
-                    sortAscending: $outputSortAscending,
-                    selection: $outputSelection,
-                    onDeleteSelected: { ids in
-                        for id in ids {
-                            if let resource = outputs.first(where: { $0.id == id }) {
-                                deleteOutputResource(resource, context: modelContext)
-                            }
-                        }
-                        outputSelection.removeAll()
-                    }
+        let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
+        Section("Outputs") {
+            ResourceTableView(
+                items: outputs,
+                    itemID: \.id,
+                sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                filterOptions: TableFilterOption<WorkspaceResource>.forKinds(outputKinds),
+                selectionActions: [
+                    TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
+                    TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
+                ],
+                selection: $outputSelection,
+                initialSortOptionID: "kind"
+            ) { resource, isSelected in
+                ResourceTableRow(
+                    icon: resource.kind.iconName,
+                    label: resource.displayLabel,
+                    fileSize: resource.formattedFileSize,
+                    badges: resource.tableBadges,
+                    pngPath: resource.pngPath,
+                    isSelected: isSelected
                 )
+            }
+            .sheet(item: $outputGalleryRequest) { request in
+                ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
             }
         }
     }
@@ -223,7 +227,7 @@ struct ToolPreprocessView: View {
                 runner.cancel()
             }
         } else {
-            Button("Run Preprocessing") {
+            Button {
                 let runner = ToolPreprocess()
                 activeRunner = runner
                 registry.register(
@@ -238,6 +242,8 @@ struct ToolPreprocessView: View {
                         print("Error running preprocessing: \(error)")
                     }
                 }
+            } label: {
+                Image(systemName: "play.fill")
             }
             .buttonStyle(.borderedProminent)
             .disabled(

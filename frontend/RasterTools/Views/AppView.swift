@@ -12,6 +12,7 @@ import AppKit
 enum SidebarSelection: Hashable {
     case workspace(Workspace)
     case configuration(ToolConfiguration)
+    case planet
 }
 
 // MARK: - App View (Main App view)
@@ -58,6 +59,8 @@ struct AppView: View {
                 NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
             }
             modelContext.delete(config)
+        case .planet:
+            break
         }
     }
 }
@@ -81,13 +84,17 @@ struct DetailView: View {
                     ToolKmeansView(configuration: config)
                 case .preprocess:
                     ToolPreprocessView(configuration: config)
+                case .collection:
+                    ToolCollectionView(configuration: config)
                 }
+            case .planet:
+                PlanetView()
             case nil:
                 WelcomeView()
             }
         }
         .toolbar {
-            if selection != nil {
+            if selection != nil, selection != .planet {
                 ToolbarItem(placement: .destructiveAction) {
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         showingDeleteConfirmation = true
@@ -111,7 +118,7 @@ struct DetailView: View {
         switch selection {
         case .workspace(let ws): return "Delete \"\(ws.name)\"?"
         case .configuration(let c): return "Delete \"\(c.name)\"?"
-        case nil: return "Delete?"
+        case .planet, nil: return "Delete?"
         }
     }
 }

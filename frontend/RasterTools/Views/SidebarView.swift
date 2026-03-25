@@ -16,11 +16,25 @@ struct SidebarView: View {
     let onAddWorkspace: () -> Void
     @Environment(JobRegistry.self) private var registry
 
+    @State private var workspaceForNewConfig: Workspace?
+
     var body: some View {
         VStack(spacing: 0) {
             List(selection: $selection) {
+                Section("Sources") {
+                    Label("Planet.com", systemImage: "globe")
+                        .tag(SidebarSelection.planet)
+                }
                 ForEach(workspaces) { workspace in
-                    SidebarWorkspaceRow(workspace: workspace, selection: $selection)
+                    SidebarWorkspaceRow(workspace: workspace, selection: $selection) {
+                        workspaceForNewConfig = workspace
+                    }
+                }
+            }
+            .sheet(item: $workspaceForNewConfig) { workspace in
+                ToolCreateSheet(workspace: workspace) { config in
+                    workspaceForNewConfig = nil
+                    selection = .configuration(config)
                 }
             }
             .navigationTitle("RasterTools")
@@ -55,9 +69,9 @@ struct SidebarWorkspaceRow: View {
     @Environment(\.modelContext) private var modelContext
     let workspace: Workspace
     @Binding var selection: SidebarSelection?
+    let onAddConfig: () -> Void
 
     @State private var isExpanded = true
-    @State private var showingNewConfigSheet = false
     @State private var showingDeleteConfirmation = false
 
     var sortedConfigs: [ToolConfiguration] {
@@ -89,7 +103,7 @@ struct SidebarWorkspaceRow: View {
                 }
                 .contextMenu {
                     Button {
-                        showingNewConfigSheet = true
+                        onAddConfig()
                     } label: {
                         Label("Add Configuration", systemImage: "plus")
                     }
@@ -100,11 +114,6 @@ struct SidebarWorkspaceRow: View {
                 }
         }
         .tag(SidebarSelection.workspace(workspace))
-        .sheet(isPresented: $showingNewConfigSheet) {
-            ToolCreateSheet(workspace: workspace) {
-                showingNewConfigSheet = false
-            }
-        }
         .confirmationDialog(
             "Delete \"\(workspace.name)\"?",
             isPresented: $showingDeleteConfirmation,
@@ -147,16 +156,11 @@ struct SidebarToolRunnerRow: View {
         .frame(width: 16, height: 16)
     }
 
-    private var fileFraction: String {
-        let p = job.runner.progress
+    private var progressLabel: String {
         if job.runner.isRunning {
-            if p.totalFiles > 0 {
-                return "\(p.completedFiles)/\(p.totalFiles)"
-            }
-            return ""
+            return job.runner.progress.progressText ?? "\(Int(job.runner.progress.progress * 100))%"
         }
-        if job.runner.error != nil { return "Error" }
-        return "Done"
+        return ""
     }
 
     var body: some View {
@@ -173,14 +177,14 @@ struct SidebarToolRunnerRow: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer()
-                        if !fileFraction.isEmpty {
-                            Text(fileFraction)
+                        if !progressLabel.isEmpty {
+                            Text(progressLabel)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
                     }
-                    Text(job.runner.progress.currentStep)
+                    Text(job.runner.progress.statusText)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

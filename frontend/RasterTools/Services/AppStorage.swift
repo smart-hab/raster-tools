@@ -25,6 +25,18 @@ struct AppStorage {
         return dir
     }
 
+    /// Returns (and creates if needed) the Planet download directory.
+    /// ~/Library/Application Support/RasterTools/planet/
+    static func planetDownloadDirectory() -> URL {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = support
+            .appendingPathComponent("RasterTools")
+            .appendingPathComponent("planet")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     static func outputDirectory(for workspace: Workspace, configuration: ToolConfiguration) -> URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

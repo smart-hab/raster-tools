@@ -10,6 +10,7 @@ import AppKit
 
 struct SettingsView: View {
     @State private var venvPath: String = AppSettings.shared.virtualEnvPath
+    @State private var planetApiKey: String = AppSettings.shared.planetApiKey
 
     var body: some View {
         Form {
@@ -25,12 +26,22 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Planet API") {
+                SecureField("API Key", text: $planetApiKey)
+                Text("Your Planet Labs API key, used by the Collection tool.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding()
         .frame(minWidth: 480)
         .onChange(of: venvPath) { _, newValue in
             AppSettings.shared.virtualEnvPath = newValue
+        }
+        .onChange(of: planetApiKey) { _, newValue in
+            AppSettings.shared.planetApiKey = newValue
         }
     }
 

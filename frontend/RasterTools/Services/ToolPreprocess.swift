@@ -22,16 +22,12 @@ class ToolPreprocess: ToolRunner {
             throw ToolError.fileNotFound("No shape file selected")
         }
 
+        let total = config.files.count
         await MainActor.run {
             isRunning = true
-            progress = ToolProgress(
-                currentStep: "Starting preprocessing",
-                currentFile: nil,
-                completedFiles: 0,
-                totalFiles: config.files.count,
-                logs: []
-            )
+            progress = ToolProgress(statusText: "Starting preprocessing", progress: 0, progressText: "0 / \(total)", logText: nil, logs: [])
         }
+        var completed = 0
 
         do {
             let shapeFilePath = shapeFileResource.originalPath
@@ -49,12 +45,13 @@ class ToolPreprocess: ToolRunner {
                     processes: config.processTypes,
                     configuration: configuration,
                     workspace: workspace,
-                    context: context
+                    context: context,
+                    total: total,
+                    completed: &completed
                 )
-                await completeFile()
             }
 
-            await updateStep("Preprocessing complete!")
+            await update(ToolProgress(statusText: "Preprocessing complete!", progress: 1, progressText: "\(total) / \(total)"))
 
         } catch {
             await MainActor.run {
@@ -75,7 +72,9 @@ class ToolPreprocess: ToolRunner {
         processes: [ResourceKind],
         configuration: ToolConfiguration,
         workspace: Workspace,
-        context: ModelContext
+        context: ModelContext,
+        total: Int,
+        completed: inout Int
     ) async throws {
         let inputPath = rasterResource.originalPath
         // Use the resource date as a unique prefix (YYYYMMDD) so that multiple
@@ -85,6 +84,7 @@ class ToolPreprocess: ToolRunner {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         let baseName = rasterResource.date.map { formatter.string(from: $0) }
             ?? URL(fileURLWithPath: inputPath).deletingPathExtension().lastPathComponent
+        let dateLabel = rasterResource.date?.displayString ?? baseName
 
         // Derive UDM path from the resource's linked udm companion
         let udmPath: String
@@ -94,7 +94,7 @@ class ToolPreprocess: ToolRunner {
             udmPath = URL(fileURLWithPath: inputPath).deletingPathExtension().path + "_udm2.tif"
         }
 
-        await log("Processing: \(baseName)")
+        await update(ToolProgress(statusText: "Processing", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: baseName))
 
         // Step 1: Clip to shape boundary
         let clippedPath = "\(outputDir)/\(baseName)_clipped.tif"
@@ -104,7 +104,7 @@ class ToolPreprocess: ToolRunner {
         var clippedResource: WorkspaceResource?
 
         if !clippedExists {
-            await updateStep("Clipping", file: baseName)
+            await update(ToolProgress(statusText: "Clipping: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: baseName))
             try await runProcess(
                 executable: "clip",
                 arguments: ["-i", inputPath, "-o", clippedPath, "-s", shapeFile]
@@ -129,7 +129,7 @@ class ToolPreprocess: ToolRunner {
             clippedResource = workspace.resources.first { $0.originalPath == clippedPath }
         }
 
-        await log("  ✓ Clipped")
+        await update(ToolProgress(statusText: "Clipping: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "  ✓ Clipped \(baseName)"))
 
         // Step 2: Apply UDM2 mask (cloud/shadow removal)
         let maskedPath = "\(outputDir)/\(baseName)_clipped_masked.tif"
@@ -139,7 +139,7 @@ class ToolPreprocess: ToolRunner {
         var maskedResource: WorkspaceResource?
 
         if !maskedExists {
-            await updateStep("Masking", file: baseName)
+            await update(ToolProgress(statusText: "Masking: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: baseName))
             try await runProcess(
                 executable: "mask",
                 arguments: ["-i", clippedPath, "-u", udmPath, "-o", maskedPath]
@@ -167,7 +167,7 @@ class ToolPreprocess: ToolRunner {
             maskedResource = workspace.resources.first { $0.originalPath == maskedPath }
         }
 
-        await log("  ✓ Masked")
+        await update(ToolProgress(statusText: "Masking: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "  ✓ Masked \(baseName)"))
 
         // Step 3: Calculate indices
         for process in processes {
@@ -203,9 +203,12 @@ class ToolPreprocess: ToolRunner {
                 )
 
             default:
-                await log("⚠️ Unimplemented preprocess kind: \(process)")
+                await update(ToolProgress(statusText: "Processing", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "⚠️ Unimplemented preprocess kind: \(process)"))
             }
         }
+
+        completed += 1
+        await update(ToolProgress(statusText: "Processing", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)", logText: "✓ \(baseName)"))
     }
 
     private func calculateIndex(
@@ -223,9 +226,12 @@ class ToolPreprocess: ToolRunner {
     ) async throws {
         let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
 
+        let dateLabel = date?.displayString ?? ""
+        let statusText = dateLabel.isEmpty ? name : "\(name): \(dateLabel)"
+
         let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
         if !alreadyExists {
-            await updateStep("Calculating \(name)", file: URL(fileURLWithPath: inputPath).lastPathComponent)
+            await update(ToolProgress(statusText: statusText, progress: progress.progress, progressText: progress.progressText))
             try await runProcess(
                 executable: "norm_diff",
                 arguments: ["-i", inputPath, "-o", outputPath, "-b", band1, band2]
@@ -250,6 +256,6 @@ class ToolPreprocess: ToolRunner {
             )
         }
 
-        await log("  ✓ \(name)")
+        await update(ToolProgress(statusText: statusText, progress: progress.progress, progressText: progress.progressText, logText: "  ✓ \(name)"))
     }
 }

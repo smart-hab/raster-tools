@@ -13,14 +13,11 @@ struct ResourcePickerView: View {
     let defaultKinds: Set<ResourceKind>
     let selectableKinds: Set<ResourceKind>
     @Binding var selection: [WorkspaceResource]
-    var allowsMultiple: Bool = true
-    var defaultSortKey: OutputSortKey = .kind
-    var defaultSortAscending: Bool = false
+    var selectionMode: TableSelectionMode = .multi
+    var initialSortOptionID: String? = nil
+    var initialSortAscending: Bool = false
 
     @Environment(\.dismiss) private var dismiss
-    @State private var activeKinds: Set<ResourceKind> = []
-    @State private var sortKey: OutputSortKey = .kind
-    @State private var sortAscending: Bool = false
     @State private var selectionIDs: Set<UUID> = []
 
     private var sortedKinds: [ResourceKind] {
@@ -34,39 +31,46 @@ struct ResourcePickerView: View {
     var body: some View {
         VStack(spacing: 0) {
             ResourceTableView(
-                resources: selectableResources,
-                filterKinds: sortedKinds,
-                activeKinds: $activeKinds,
-                sortKey: $sortKey,
-                sortAscending: $sortAscending,
-                selection: $selectionIDs
-            )
-
-            if allowsMultiple {
-                Divider()
-                HStack {
-                    Spacer()
-                    Button("Done") { dismiss() }
-                        .keyboardShortcut(.defaultAction)
-                        .buttonStyle(.borderedProminent)
-                }
-                .padding(.top)
+                items: selectableResources,
+                itemID: \.id,
+                sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                filterOptions: TableFilterOption<WorkspaceResource>.forKinds(sortedKinds),
+                selection: $selectionIDs,
+                initialSortOptionID: initialSortOptionID,
+                initialSortAscending: initialSortAscending
+            ) { resource, isSelected in
+                ResourceTableRow(
+                    icon: resource.kind.iconName,
+                    label: resource.displayLabel,
+                    fileSize: resource.formattedFileSize,
+                    badges: resource.tableBadges,
+                    pngPath: resource.pngPath,
+                    isSelected: isSelected
+                )
             }
+
+            Divider()
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(.top)
         }
         .padding()
         .frame(minWidth: 800, minHeight: 600)
         .frame(idealWidth: 1000, idealHeight: 750)
         .onAppear {
-            activeKinds = defaultKinds
             selectionIDs = Set(selection.map(\.id))
-            sortKey = defaultSortKey
-            sortAscending = defaultSortAscending
         }
-        .onChange(of: selectionIDs) { _, newIDs in
-            selection = workspace.resources.filter { newIDs.contains($0.id) }
-            if !allowsMultiple && !newIDs.isEmpty {
-                dismiss()
+        .onChange(of: selectionIDs) { oldIDs, newIDs in
+            if selectionMode == .single && newIDs.count > 1 {
+                let added = newIDs.subtracting(oldIDs)
+                selectionIDs = added.isEmpty ? newIDs : added
+                return
             }
+            selection = workspace.resources.filter { newIDs.contains($0.id) }
         }
     }
 }

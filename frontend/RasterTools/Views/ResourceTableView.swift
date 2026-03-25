@@ -8,6 +8,44 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Generic Table Option Types
+
+struct TableSortOption<T>: Identifiable {
+    let id: String
+    let label: String
+    /// Returns true if `a` should come before `b` (ascending order).
+    let comparator: (T, T) -> Bool
+    /// Optional grouping — returns the group label for a given item.
+    let groupLabel: ((T) -> String?)?
+
+    init(
+        id: String,
+        label: String,
+        comparator: @escaping (T, T) -> Bool,
+        groupLabel: ((T) -> String?)? = nil
+    ) {
+        self.id = id
+        self.label = label
+        self.comparator = comparator
+        self.groupLabel = groupLabel
+    }
+}
+
+struct TableFilterOption<T>: Identifiable {
+    let id: String
+    let label: String
+    let color: Color
+    let test: (T) -> Bool
+}
+
+struct TableSelectionAction<T>: Identifiable {
+    let id: String
+    let icon: String
+    /// Receives the currently selected items; return false to disable the button.
+    let isEnabled: ([T]) -> Bool
+    let action: ([T]) -> Void
+}
+
 // MARK: - Resource Table Row
 
 struct ResourceTableRow: View {
@@ -63,32 +101,32 @@ struct ResourceTableRow: View {
     }
 }
 
-// MARK: - Resource Table Filter View
+// MARK: - Generic Filter View
 
-struct ResourceTableFilterView: View {
-    let kinds: [ResourceKind]
-    @Binding var activeKinds: Set<ResourceKind>
+struct TableFilterView<T>: View {
+    let options: [TableFilterOption<T>]
+    @Binding var activeIDs: Set<String>
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(kinds, id: \.self) { kind in
-                BadgeCapsule(kind: kind)
-                    .opacity(activeKinds.contains(kind) ? 1.0 : 0.4)
+            ForEach(options) { option in
+                BadgeCapsule(label: option.label, color: option.color)
+                    .opacity(activeIDs.contains(option.id) ? 1.0 : 0.4)
                     .overlay(
                         MouseClickView(
                             onLeftClick: {
-                                if activeKinds.contains(kind) {
-                                    activeKinds.remove(kind)
+                                if activeIDs.contains(option.id) {
+                                    activeIDs.remove(option.id)
                                 } else {
-                                    activeKinds.insert(kind)
+                                    activeIDs.insert(option.id)
                                 }
                             },
                             onRightClick: {
-                                let others = Set(kinds).subtracting([kind])
-                                if others.isSubset(of: activeKinds) {
-                                    activeKinds.subtract(others)
+                                let others = Set(options.map(\.id)).subtracting([option.id])
+                                if others.isSubset(of: activeIDs) {
+                                    activeIDs.subtract(others)
                                 } else {
-                                    activeKinds.formUnion(others)
+                                    activeIDs.formUnion(others)
                                 }
                             }
                         )
@@ -98,26 +136,27 @@ struct ResourceTableFilterView: View {
     }
 }
 
-// MARK: - Resource Table Soter View
+// MARK: - Generic Sorter View
 
-struct ResourceTableSorterView: View {
-    @Binding var sortKey: OutputSortKey
+struct TableSorterView<T>: View {
+    let options: [TableSortOption<T>]
+    @Binding var activeSortID: String
     @Binding var ascending: Bool
 
     var body: some View {
         HStack(spacing: 4) {
             Spacer()
-            ForEach(OutputSortKey.allCases, id: \.self) { key in
+            ForEach(options) { option in
                 Button {
-                    if sortKey == key {
+                    if activeSortID == option.id {
                         ascending.toggle()
                     } else {
-                        sortKey = key
+                        activeSortID = option.id
                     }
                 } label: {
                     HStack(spacing: 2) {
-                        Text(key.rawValue)
-                        if sortKey == key {
+                        Text(option.label)
+                        if activeSortID == option.id {
                             Image(systemName: ascending ? "chevron.up" : "chevron.down")
                         }
                     }
@@ -125,149 +164,224 @@ struct ResourceTableSorterView: View {
                 }
                 .buttonStyle(.plain)
                 .focusEffectDisabled()
-                .foregroundStyle(sortKey == key ? .primary : .secondary)
+                .foregroundStyle(activeSortID == option.id ? .primary : .secondary)
             }
         }
         .padding(.vertical, 2)
     }
 }
 
-// MARK: - Resource Table View
+// MARK: - Selection Mode
 
-/// Encapsulates the repeated filter bar + grouped rows + action bar pattern used across
-/// raster input sections and output sections in config and workspace views.
-struct ResourceTableView: View {
-    let resources: [WorkspaceResource]
-    /// Pass the full kind list to show a filter bar; nil hides it.
-    let filterKinds: [ResourceKind]?
-    @Binding var activeKinds: Set<ResourceKind>
-    @Binding var sortKey: OutputSortKey
-    @Binding var sortAscending: Bool
-    @Binding var selection: Set<UUID>
-    var rowLabel: (WorkspaceResource) -> String = { $0.displayLabel }
+enum TableSelectionMode {
+    case none, single, multi
+}
+
+// MARK: - Generic ResourceTableView
+
+struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
+    let items: [T]
+    let itemID: KeyPath<T, ID>
+    let sortOptions: [TableSortOption<T>]
+    var filterOptions: [TableFilterOption<T>]? = nil
+    var selectionActions: [TableSelectionAction<T>] = []
+    @Binding var selection: Set<ID>
     var onAdd: (() -> Void)? = nil
-    var onDeleteSelected: ((Set<UUID>) -> Void)? = nil
+    let rowContent: (T, Bool) -> RowContent
+    let selectionMode: TableSelectionMode
 
-    @State private var galleryRequest: GalleryRequest? = nil
-    @State private var lastClickedID: UUID? = nil
+    @State private var activeSortID: String
+    @State private var sortAscending: Bool
+    @State private var activeFilterIDs: Set<String>
+    @State private var lastClickedID: ID?
 
-    private var visibleResources: [WorkspaceResource] {
-        guard let filterKinds, filterKinds.count > 1 else { return resources }
-        return resources.filter { activeKinds.contains($0.kind) }
+    /// Standard init with selection support (single or multi).
+    init(
+        items: [T],
+        itemID: KeyPath<T, ID>,
+        sortOptions: [TableSortOption<T>],
+        filterOptions: [TableFilterOption<T>]? = nil,
+        selectionActions: [TableSelectionAction<T>] = [],
+        selection: Binding<Set<ID>>,
+        onAdd: (() -> Void)? = nil,
+        initialSortOptionID: String? = nil,
+        initialSortAscending: Bool = false,
+        @ViewBuilder rowContent: @escaping (T, Bool) -> RowContent
+    ) {
+        self.items = items
+        self.itemID = itemID
+        self.sortOptions = sortOptions
+        self.filterOptions = filterOptions
+        self.selectionActions = selectionActions
+        self._selection = selection
+        self.onAdd = onAdd
+        self.rowContent = rowContent
+        self.selectionMode = .multi
+        self._activeSortID = State(initialValue: initialSortOptionID ?? sortOptions.first?.id ?? "")
+        self._sortAscending = State(initialValue: initialSortAscending)
+        self._activeFilterIDs = State(initialValue: Set(filterOptions?.map(\.id) ?? []))
+    }
+
+    /// No-selection init — sorting and filtering still work; row taps are no-ops.
+    init(
+        items: [T],
+        itemID: KeyPath<T, ID>,
+        sortOptions: [TableSortOption<T>],
+        filterOptions: [TableFilterOption<T>]? = nil,
+        initialSortOptionID: String? = nil,
+        initialSortAscending: Bool = false,
+        @ViewBuilder rowContent: @escaping (T, Bool) -> RowContent
+    ) {
+        self.items = items
+        self.itemID = itemID
+        self.sortOptions = sortOptions
+        self.filterOptions = filterOptions
+        self.selectionActions = []
+        self._selection = .constant(.init())
+        self.onAdd = nil
+        self.rowContent = rowContent
+        self.selectionMode = .none
+        self._activeSortID = State(initialValue: initialSortOptionID ?? sortOptions.first?.id ?? "")
+        self._sortAscending = State(initialValue: initialSortAscending)
+        self._activeFilterIDs = State(initialValue: Set(filterOptions?.map(\.id) ?? []))
+    }
+
+    private var activeSort: TableSortOption<T>? {
+        sortOptions.first { $0.id == activeSortID }
+    }
+
+    private var visibleItems: [T] {
+        guard let filterOptions, !filterOptions.isEmpty else { return items }
+        let active = filterOptions.filter { activeFilterIDs.contains($0.id) }
+        return items.filter { item in active.contains { $0.test(item) } }
+    }
+
+    private func groupedItems(_ visible: [T]) -> [(label: String?, items: [T])] {
+        guard let sort = activeSort else { return [(nil, visible)] }
+        let sorted = visible.sorted { a, b in
+            sortAscending ? sort.comparator(a, b) : sort.comparator(b, a)
+        }
+        guard let grouper = sort.groupLabel else { return [(nil, sorted)] }
+
+        var groups: [(label: String?, items: [T])] = []
+        var labelToIndex: [String?: Int] = [:]
+        for item in sorted {
+            let label = grouper(item)
+            if let idx = labelToIndex[label] {
+                groups[idx].items.append(item)
+            } else {
+                labelToIndex[label] = groups.count
+                groups.append((label: label, items: [item]))
+            }
+        }
+        return groups
     }
 
     var body: some View {
-        let visibleIDs = Set(visibleResources.map(\.id))
-        let selectionBytes = resources.filter { selection.contains($0.id) }.reduce(0) { $0 + $1.fileSize }
-        let groups = groupedOutputs(visibleResources, sortKey: sortKey, ascending: sortAscending)
-        let orderedResources = groups.flatMap(\.resources)
+        let visible = visibleItems
+        let groups = groupedItems(visible)
+        let orderedItems = groups.flatMap(\.items)
+        let visibleIDs = Set(orderedItems.map { $0[keyPath: itemID] })
+        let selectedItems = orderedItems.filter { selection.contains($0[keyPath: itemID]) }
 
         VStack(spacing: 0) {
-            if !resources.isEmpty {
-                HStack {
-                    if let filterKinds, filterKinds.count > 1 {
-                        ResourceTableFilterView(kinds: filterKinds, activeKinds: $activeKinds)
-                            .onAppear {
-                                if activeKinds.isEmpty { activeKinds = Set(filterKinds) }
+            HStack {
+                if let filterOptions, filterOptions.count > 1 {
+                    TableFilterView(options: filterOptions, activeIDs: $activeFilterIDs)
+                        .onAppear {
+                            if activeFilterIDs.isEmpty {
+                                activeFilterIDs = Set(filterOptions.map(\.id))
                             }
-                            .onChange(of: filterKinds) { _, newKinds in
-                                activeKinds.formUnion(Set(newKinds).subtracting(activeKinds))
-                            }
-                    }
-                    Spacer()
-                    ResourceTableSorterView(sortKey: $sortKey, ascending: $sortAscending)
+                        }
+                        .onChange(of: filterOptions.map(\.id)) { _, newIDs in
+                            activeFilterIDs.formUnion(Set(newIDs).subtracting(activeFilterIDs))
+                        }
                 }
-                .padding(.bottom, 4)
+                Spacer()
+                TableSorterView(options: sortOptions, activeSortID: $activeSortID, ascending: $sortAscending)
+            }
+            .padding(.bottom, 4)
 
+            if items.isEmpty {
+                ContentUnavailableView("No Items", systemImage: "tray")
+            } else {
                 ScrollView {
                     VStack(alignment: .leading) {
-                        ForEach(groups, id: \.groupLabel) { group in
-                            if let label = group.groupLabel {
+                        ForEach(groups.indices, id: \.self) { i in
+                            let group = groups[i]
+                            if let label = group.label {
                                 Text(label).font(.caption).foregroundStyle(.secondary)
                                     .padding(.top, 8)
                             }
-                            ForEach(group.resources, id: \.id) { resource in
-                                ResourceTableRow(
-                                    icon: resource.kind.iconName,
-                                    label: rowLabel(resource),
-                                    fileSize: resource.formattedFileSize,
-                                    badges: resource.tableBadges,
-                                    pngPath: resource.pngPath,
-                                    originalPath: resource.originalPath,
-                                    isSelected: selection.contains(resource.id),
-                                    onPreview: {
-                                        galleryRequest = GalleryRequest(items: [GalleryItem(resource)], initialIndex: 0)
-                                    }
-                                )
-                                .onTapGesture {
-                                    let isShift = NSEvent.modifierFlags.contains(.shift)
-                                    if isShift, let lastID = lastClickedID,
-                                       let lastIdx = orderedResources.firstIndex(where: { $0.id == lastID }),
-                                       let currentIdx = orderedResources.firstIndex(where: { $0.id == resource.id }) {
-                                        let range = min(lastIdx, currentIdx)...max(lastIdx, currentIdx)
-                                        let rangeIDs = orderedResources[range].map(\.id)
-                                        rangeIDs.forEach { selection.insert($0) }
-                                    } else {
-                                        if selection.contains(resource.id) {
-                                            selection.remove(resource.id)
-                                        } else {
-                                            selection.insert(resource.id)
+                            ForEach(group.items, id: itemID) { item in
+                                rowContent(item, selectionMode != .none && selection.contains(item[keyPath: itemID]))
+                                    .onTapGesture {
+                                        if selectionMode != .none {
+                                            handleTap(item: item, orderedItems: orderedItems)
                                         }
                                     }
-                                    lastClickedID = resource.id
-                                }
                             }
                         }
                     }
                 }
             }
 
-            HStack {
-                if let onAdd {
-                    Button { onAdd() } label: {
-                        Image(systemName: "plus")
+            if selectionMode != .none {
+                HStack {
+                    if let onAdd {
+                        Button { onAdd() } label: {
+                            Image(systemName: "plus")
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-                Text(selectionLabel(selection.count, bytes: selectionBytes))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                let selectedWithPNG = orderedResources.filter { selection.contains($0.id) && $0.pngPath != nil }
-                Button {
-                    let items = orderedResources.filter { selection.contains($0.id) }.map { GalleryItem($0) }
-                    galleryRequest = GalleryRequest(items: items, initialIndex: 0)
-                } label: {
-                    Image(systemName: "photo.on.rectangle.angled")
-                }
-                .buttonStyle(.plain)
-                .disabled(selectedWithPNG.isEmpty)
-                if let onDeleteSelected {
+                    Spacer()
+                    Text("\(selection.count) selected")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .opacity(items.isEmpty ? 0 : 1)
+                    Spacer()
+                    ForEach(selectionActions) { action in
+                        Button {
+                            action.action(selectedItems)
+                        } label: {
+                            Image(systemName: action.icon)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!action.isEnabled(selectedItems))
+                    }
                     Button {
-                        onDeleteSelected(selection)
+                        if visibleIDs.isSubset(of: selection) {
+                            selection.subtract(visibleIDs)
+                        } else {
+                            selection.formUnion(visibleIDs)
+                        }
                     } label: {
-                        Image(systemName: "trash")
+                        Image(systemName: visibleIDs.isSubset(of: selection) ? "circle.slash" : "checkmark.circle")
                     }
                     .buttonStyle(.plain)
-                    .disabled(selection.isEmpty)
                 }
-                Button {
-                    if visibleIDs.isSubset(of: selection) {
-                        selection.subtract(visibleIDs)
-                    } else {
-                        selection.formUnion(visibleIDs)
-                    }
-                } label: {
-                    Image(systemName: visibleIDs.isSubset(of: selection) ? "circle.slash" : "checkmark.circle")
-                }
-                .buttonStyle(.plain)
+                .padding(.vertical, 6)
             }
-            .padding(.vertical, 6)
         }
-        .sheet(item: $galleryRequest) { request in
-            ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
+    }
+
+    private func handleTap(item: T, orderedItems: [T]) {
+        let itemIdentity = item[keyPath: itemID]
+        let isShift = NSEvent.modifierFlags.contains(.shift)
+        if isShift,
+           let lastID = lastClickedID,
+           let lastIdx = orderedItems.firstIndex(where: { $0[keyPath: itemID] == lastID }),
+           let currentIdx = orderedItems.firstIndex(where: { $0[keyPath: itemID] == itemIdentity }) {
+            let range = min(lastIdx, currentIdx)...max(lastIdx, currentIdx)
+            orderedItems[range].map { $0[keyPath: itemID] }.forEach { selection.insert($0) }
+        } else {
+            if selection.contains(itemIdentity) {
+                selection.remove(itemIdentity)
+            } else {
+                selection.insert(itemIdentity)
+            }
         }
+        lastClickedID = itemIdentity
     }
 }
 
@@ -282,96 +396,119 @@ extension WorkspaceResource {
     }
 }
 
-// MARK: - Selection label
+// MARK: - WorkspaceResource Sort Options
 
-func selectionLabel(_ count: Int, bytes: Int) -> String {
-    guard count > 0, bytes > 0 else { return "\(count) selected" }
-    let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
-    return "\(count) selected (\(size))"
-}
-
-// MARK: - Grouping and Sorting
-
-enum OutputSortKey: String, CaseIterable {
-    case date, kind, size
-}
-
-private func compareDate(_ a: WorkspaceResource, _ b: WorkspaceResource, ascending: Bool) -> ComparisonResult {
-    switch (a.date, b.date) {
-    case (nil, nil): return .orderedSame
-    case (nil, _):   return ascending ? .orderedAscending : .orderedDescending
-    case (_, nil):   return ascending ? .orderedDescending : .orderedAscending
-    case let (d1?, d2?):
-        if d1 < d2 { return ascending ? .orderedAscending : .orderedDescending }
-        if d1 > d2 { return ascending ? .orderedDescending : .orderedAscending }
-        return .orderedSame
-    }
-}
-
-private func compareKind(_ a: WorkspaceResource, _ b: WorkspaceResource, ascending: Bool) -> ComparisonResult {
-    let cmp = a.kind.displayName.localizedCompare(b.kind.displayName)
-    if cmp == .orderedSame { return .orderedSame }
-    return (ascending ? cmp == .orderedAscending : cmp == .orderedDescending) ? .orderedAscending : .orderedDescending
-}
-
-func sortedOutputs(
-    _ outputs: [WorkspaceResource],
-    sortKey: OutputSortKey,
-    ascending: Bool
-) -> [WorkspaceResource] {
-    return outputs.sorted { a, b in
-        switch sortKey {
-        case .date:
-            let d = compareDate(a, b, ascending: ascending)
-            return (d == .orderedSame ? compareKind(a, b, ascending: ascending) : d) == .orderedAscending
-        case .kind:
-            let k = compareKind(a, b, ascending: ascending)
-            return (k == .orderedSame ? compareDate(a, b, ascending: ascending) : k) == .orderedAscending
-        case .size:
-            return ascending ? a.fileSize < b.fileSize : a.fileSize > b.fileSize
-        }
-    }
-}
-
-func groupedOutputs(
-    _ outputs: [WorkspaceResource],
-    sortKey: OutputSortKey,
-    ascending: Bool
-) -> [(groupLabel: String?, resources: [WorkspaceResource])] {
-    let sorted = sortedOutputs(outputs, sortKey: sortKey, ascending: ascending)
-
-    switch sortKey {
-    case .date:
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy"
-        var groups: [(groupLabel: String?, resources: [WorkspaceResource])] = []
-        var labelToIndex: [String: Int] = [:]
-        for resource in sorted {
-            let label = resource.date.map { formatter.string(from: $0) } ?? "Unknown Date"
-            if let idx = labelToIndex[label] {
-                groups[idx].resources.append(resource)
-            } else {
-                labelToIndex[label] = groups.count
-                groups.append((groupLabel: label, resources: [resource]))
+extension TableSortOption where T == WorkspaceResource {
+    static var date: Self {
+        TableSortOption(
+            id: "date",
+            label: "Date",
+            comparator: { a, b in
+                switch (a.date, b.date) {
+                case (nil, nil): return false
+                case (nil, _):   return true
+                case (_, nil):   return false
+                case let (d1?, d2?): return d1 < d2
+                }
+            },
+            groupLabel: { resource in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy"
+                return resource.date.map { formatter.string(from: $0) } ?? "Unknown Date"
             }
+        )
+    }
+
+    static var kind: Self {
+        TableSortOption(
+            id: "kind",
+            label: "Kind",
+            comparator: { a, b in
+                a.kind.displayName.localizedCompare(b.kind.displayName) == .orderedAscending
+            },
+            groupLabel: { $0.kind.displayName }
+        )
+    }
+
+    static var size: Self {
+        TableSortOption(
+            id: "size",
+            label: "Size",
+            comparator: { $0.fileSize < $1.fileSize },
+            groupLabel: nil
+        )
+    }
+
+    static var allCases: [Self] { [.date, .kind, .size] }
+}
+
+// MARK: - WorkspaceResource Filter Options
+
+extension TableFilterOption where T == WorkspaceResource {
+    static func forKinds(_ kinds: [ResourceKind]) -> [Self] {
+        kinds.map { kind in
+            TableFilterOption(
+                id: kind.rawValue,
+                label: kind.displayName,
+                color: kind.color,
+                test: { $0.kind == kind }
+            )
         }
-        return groups
-    case .kind:
-        var groups: [(groupLabel: String?, resources: [WorkspaceResource])] = []
-        var kindToIndex: [ResourceKind: Int] = [:]
-        for resource in sorted {
-            if let idx = kindToIndex[resource.kind] {
-                groups[idx].resources.append(resource)
-            } else {
-                kindToIndex[resource.kind] = groups.count
-                groups.append((groupLabel: resource.kind.displayName, resources: [resource]))
-            }
-        }
-        return groups
-    case .size:
-        return [(groupLabel: nil, resources: sorted)]
     }
 }
+
+// MARK: - WorkspaceResource Selection Actions
+
+extension TableSelectionAction where T == WorkspaceResource {
+    static func gallery(request: Binding<GalleryRequest?>) -> Self {
+        TableSelectionAction(
+            id: "gallery",
+            icon: "photo.on.rectangle.angled",
+            isEnabled: { items in items.contains { $0.pngPath != nil } },
+            action: { items in
+                let galleryItems = items.compactMap { $0.pngPath != nil ? GalleryItem($0) : nil }
+                request.wrappedValue = GalleryRequest(items: galleryItems, initialIndex: 0)
+            }
+        )
+    }
+
+    static func delete(
+        from collection: Binding<[WorkspaceResource]>,
+        selectionIDs: Binding<Set<UUID>>,
+        touch: (() -> Void)? = nil
+    ) -> Self {
+        TableSelectionAction(
+            id: "delete",
+            icon: "trash",
+            isEnabled: { !$0.isEmpty },
+            action: { items in
+                for item in items {
+                    collection.wrappedValue.removeAll { $0.id == item.id }
+                }
+                touch?()
+                selectionIDs.wrappedValue.removeAll()
+            }
+        )
+    }
+
+    static func deleteOutput(
+        context: ModelContext,
+        selectionIDs: Binding<Set<UUID>>
+    ) -> Self {
+        TableSelectionAction(
+            id: "delete",
+            icon: "trash",
+            isEnabled: { !$0.isEmpty },
+            action: { items in
+                for item in items {
+                    deleteOutputResource(item, context: context)
+                }
+                selectionIDs.wrappedValue.removeAll()
+            }
+        )
+    }
+}
+
 // MARK: - Delete helper
 
 func deleteOutputResource(_ resource: WorkspaceResource, context: ModelContext) {

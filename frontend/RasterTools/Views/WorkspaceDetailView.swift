@@ -13,12 +13,10 @@ struct WorkspaceDetailView: View {
     let workspace: Workspace
 
     @State private var showingNewConfigSheet = false
-    @State private var sourceSortKey: OutputSortKey = .kind
+    @State private var sourceSortID: String = "kind"
     @State private var sourceSortAscending: Bool = false
     @State private var outputSelection: Set<UUID> = []
-    @State private var outputSortKey: OutputSortKey = .kind
-    @State private var outputSortAscending: Bool = false
-    @State private var outputActiveKinds: Set<ResourceKind> = []
+    @State private var outputGalleryRequest: GalleryRequest?
 
     private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansCenters, .kmeansClassed, .kmeansMean, .kmeansDiff, .unknown]
 
@@ -39,10 +37,7 @@ struct WorkspaceDetailView: View {
         Form {
             Section("Workspace") {
                 LabeledContent("Source Dir") {
-                    Text(workspace.sourceDirectory)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .lineLimit(1)
+                    FolderPathButton(path: workspace.sourceDirectory)
                 }
                 LabeledContent("Output Dir") {
                     Button {
@@ -81,23 +76,25 @@ struct WorkspaceDetailView: View {
                 } else {
                     HStack {
                         Spacer()
-                        ResourceTableSorterView(sortKey: $sourceSortKey, ascending: $sourceSortAscending)
+                        TableSorterView(
+                            options: TableSortOption<WorkspaceResource>.allCases,
+                            activeSortID: $sourceSortID,
+                            ascending: $sourceSortAscending
+                        )
                     }
-                    let sourceGroups = groupedOutputs(allSources, sortKey: sourceSortKey, ascending: sourceSortAscending)
-                    ForEach(sourceGroups, id: \.groupLabel) { group in
-                        if let label = group.groupLabel, group.resources.count > 1 {
-                            Text(label)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        ForEach(group.resources, id: \.id) { resource in
-                            ResourceTableRow(
-                                icon: resource.kind.iconName,
-                                label: resource.date.map { $0.displayString } ?? resource.filename,
-                                fileSize: resource.formattedFileSize,
-                                badges: badges(for: resource)
-                            )
-                        }
+                    let activeSort = TableSortOption<WorkspaceResource>.allCases.first { $0.id == sourceSortID }
+                    let sorted = allSources.sorted { a, b in
+                        sourceSortAscending
+                            ? (activeSort?.comparator(a, b) ?? false)
+                            : (activeSort?.comparator(b, a) ?? false)
+                    }
+                    ForEach(sorted, id: \.id) { resource in
+                        ResourceTableRow(
+                            icon: resource.kind.iconName,
+                            label: resource.date.map { $0.displayString } ?? resource.filename,
+                            fileSize: resource.formattedFileSize,
+                            badges: badges(for: resource)
+                        )
                     }
                 }
             }
@@ -106,27 +103,28 @@ struct WorkspaceDetailView: View {
             let allOutputs = resources(for: WorkspaceDetailView.outputKinds, producedOnly: true)
             let outputKinds = Array(Set(allOutputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
             Section("Outputs") {
-                if allOutputs.isEmpty {
-                    Text("No outputs yet. Run a configuration to generate outputs.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ResourceTableView(
-                        resources: allOutputs,
-                        filterKinds: outputKinds,
-                        activeKinds: $outputActiveKinds,
-                        sortKey: $outputSortKey,
-                        sortAscending: $outputSortAscending,
-                        selection: $outputSelection,
-                        rowLabel: { $0.date.map { $0.displayString } ?? $0.filename },
-                        onDeleteSelected: { ids in
-                            for id in ids {
-                                if let resource = allOutputs.first(where: { $0.id == id }) {
-                                    deleteOutputResource(resource, context: modelContext)
-                                }
-                            }
-                            outputSelection.removeAll()
-                        }
+                ResourceTableView(
+                    items: allOutputs,
+                    itemID: \.id,
+                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(outputKinds),
+                    selectionActions: [
+                        TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
+                        TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
+                    ],
+                    selection: $outputSelection
+                ) { resource, isSelected in
+                    ResourceTableRow(
+                        icon: resource.kind.iconName,
+                        label: resource.date.map { $0.displayString } ?? resource.filename,
+                        fileSize: resource.formattedFileSize,
+                        badges: resource.tableBadges,
+                        pngPath: resource.pngPath,
+                        isSelected: isSelected
                     )
+                }
+                .sheet(item: $outputGalleryRequest) { request in
+                    ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
                 }
             }
         }
@@ -149,7 +147,7 @@ struct WorkspaceDetailView: View {
             }
         }
         .sheet(isPresented: $showingNewConfigSheet) {
-            ToolCreateSheet(workspace: workspace) {
+            ToolCreateSheet(workspace: workspace) { _ in
                 showingNewConfigSheet = false
             }
         }

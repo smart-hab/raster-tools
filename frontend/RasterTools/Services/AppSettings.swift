@@ -19,4 +19,9 @@ class AppSettings {
         get { defaults.string(forKey: "virtualEnvPath") ?? "" }
         set { defaults.set(newValue, forKey: "virtualEnvPath") }
     }
+
+    var planetApiKey: String {
+        get { defaults.string(forKey: "planetApiKey") ?? "" }
+        set { defaults.set(newValue, forKey: "planetApiKey") }
+    }
 }

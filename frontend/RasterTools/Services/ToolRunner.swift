@@ -10,23 +10,18 @@ import SwiftData
 
 /// Progress information for tool execution
 struct ToolProgress {
-    var currentStep: String
-    var currentFile: String?
-    var completedFiles: Int
-    var totalFiles: Int
-    var logs: [String]
-    
-    var progress: Double {
-        guard totalFiles > 0 else { return 0 }
-        return Double(completedFiles) / Double(totalFiles)
-    }
+    var statusText: String
+    var progress: Double          // 0.0–1.0
+    var progressText: String?     // optional label shown next to progress bar; nil → "42%"
+    var logText: String?          // last detail line, shown as subtitle
+    var logs: [String] = []
 }
 
 /// Observable class for running geospatial tools
 @Observable
 class ToolRunner {
     var isRunning = false
-    var progress = ToolProgress(currentStep: "", currentFile: nil, completedFiles: 0, totalFiles: 0, logs: [])
+    var progress = ToolProgress(statusText: "", progress: 0, progressText: nil, logText: nil, logs: [])
     var error: Error?
     
     private var currentProcess: Process?
@@ -80,27 +75,14 @@ class ToolRunner {
         return output
     }
     
-    /// Log a message
-    func log(_ message: String) async {
+    /// Update progress state and append to the log.
+    func update(_ p: ToolProgress) async {
         await MainActor.run {
-            progress.logs.append(message)
-            print("🔧 \(message)")
-        }
-    }
-
-    /// Update current step
-    func updateStep(_ step: String, file: String? = nil) async {
-        await MainActor.run {
-            progress.currentStep = step
-            progress.currentFile = file
-        }
-        await log(file != nil ? "\(step): \(file!)" : step)
-    }
-
-    /// Mark file as completed
-    func completeFile() async {
-        await MainActor.run {
-            progress.completedFiles += 1
+            let logEntry = p.logText ?? "Progress: \(Int(p.progress * 100))%"
+            var updated = p
+            updated.logs = progress.logs + (logEntry == progress.logs.last ? [] : [logEntry])
+            print("🔧 \(logEntry)")
+            progress = updated
         }
     }
 }

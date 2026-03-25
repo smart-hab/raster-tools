@@ -15,20 +15,14 @@ struct ToolKmeansView: View {
     @State private var activeRunner: ToolKmeans?
     @State private var showingFitPicker = false
     @State private var showingClassifyPicker = false
-    @State private var fitSortKey: OutputSortKey = .kind
-    @State private var fitSortAscending: Bool = false
-    @State private var classifySortKey: OutputSortKey = .kind
-    @State private var classifySortAscending: Bool = false
-    @State private var outputSortKey: OutputSortKey = .kind
-    @State private var outputSortAscending: Bool = false
-
-    private let inputKinds: [ResourceKind] = [.clipped, .masked, .ndvi, .ndci]
-    @State private var fitActiveKinds: Set<ResourceKind> = [.clipped, .masked, .ndvi, .ndci]
-    @State private var classifyActiveKinds: Set<ResourceKind> = [.clipped, .masked, .ndvi, .ndci]
-    @State private var outputActiveKinds: Set<ResourceKind> = []
     @State private var fitSelection: Set<UUID> = []
     @State private var classifySelection: Set<UUID> = []
     @State private var outputSelection: Set<UUID> = []
+    @State private var fitGalleryRequest: GalleryRequest?
+    @State private var classifyGalleryRequest: GalleryRequest?
+    @State private var outputGalleryRequest: GalleryRequest?
+
+    private let inputKinds: [ResourceKind] = [.clipped, .masked, .ndvi, .ndci]
 
     private var workspace: Workspace? { configuration.workspace }
 
@@ -45,10 +39,9 @@ struct ToolKmeansView: View {
                 }
 
                 LabeledContent("Workspace") {
-                    Text(workspace?.sourceDirectory ?? "")
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .lineLimit(1)
+                    if let workspace {
+                        FolderPathButton(path: workspace.sourceDirectory)
+                    }
                 }
                 if let workspace {
                     LabeledContent("Output Dir") {
@@ -114,27 +107,38 @@ struct ToolKmeansView: View {
 
             Section("Fit Rasters") {
                 if let kmeansConfig = configuration.kmeansConfig {
-                    if kmeansConfig.filesFit.isEmpty {
-                        Text("No raster files selected")
-                            .foregroundStyle(.secondary)
-                    }
                     if let workspace {
                         ResourceTableView(
-                            resources: kmeansConfig.filesFit,
-                            filterKinds: inputKinds,
-                            activeKinds: $fitActiveKinds,
-                            sortKey: $fitSortKey,
-                            sortAscending: $fitSortAscending,
+                            items: kmeansConfig.filesFit,
+                            itemID: \.id,
+                            sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                            filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
+                            selectionActions: [
+                                TableSelectionAction<WorkspaceResource>.gallery(request: $fitGalleryRequest),
+                                TableSelectionAction<WorkspaceResource>.delete(
+                                    from: Binding(
+                                        get: { configuration.kmeansConfig?.filesFit ?? [] },
+                                        set: { configuration.kmeansConfig?.filesFit = $0 }
+                                    ),
+                                    selectionIDs: $fitSelection,
+                                    touch: { configuration.touch() }
+                                )
+                            ],
                             selection: $fitSelection,
-                            onAdd: { showingFitPicker = true },
-                            onDeleteSelected: { ids in
-                                for id in ids {
-                                    configuration.kmeansConfig?.filesFit.removeAll { $0.id == id }
-                                }
-                                configuration.touch()
-                                fitSelection.removeAll()
-                            }
-                        )
+                            onAdd: { showingFitPicker = true }
+                        ) { resource, isSelected in
+                            ResourceTableRow(
+                                icon: resource.kind.iconName,
+                                label: resource.displayLabel,
+                                fileSize: resource.formattedFileSize,
+                                badges: resource.tableBadges,
+                                pngPath: resource.pngPath,
+                                isSelected: isSelected
+                            )
+                        }
+                        .sheet(item: $fitGalleryRequest) { request in
+                            ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
+                        }
                         .sheet(isPresented: $showingFitPicker) {
                             ResourcePickerView(
                                 workspace: workspace,
@@ -144,7 +148,6 @@ struct ToolKmeansView: View {
                                     get: { configuration.kmeansConfig?.filesFit ?? [] },
                                     set: { configuration.kmeansConfig?.filesFit = $0; configuration.touch() }
                                 ),
-                                allowsMultiple: true
                             )
                         }
                     }
@@ -153,27 +156,38 @@ struct ToolKmeansView: View {
 
             Section("Classify Rasters") {
                 if let kmeansConfig = configuration.kmeansConfig {
-                    if kmeansConfig.filesClassify.isEmpty {
-                        Text("No raster files selected")
-                            .foregroundStyle(.secondary)
-                    }
                     if let workspace {
                         ResourceTableView(
-                            resources: kmeansConfig.filesClassify,
-                            filterKinds: inputKinds,
-                            activeKinds: $classifyActiveKinds,
-                            sortKey: $classifySortKey,
-                            sortAscending: $classifySortAscending,
+                            items: kmeansConfig.filesClassify,
+                            itemID: \.id,
+                            sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                            filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
+                            selectionActions: [
+                                TableSelectionAction<WorkspaceResource>.gallery(request: $classifyGalleryRequest),
+                                TableSelectionAction<WorkspaceResource>.delete(
+                                    from: Binding(
+                                        get: { configuration.kmeansConfig?.filesClassify ?? [] },
+                                        set: { configuration.kmeansConfig?.filesClassify = $0 }
+                                    ),
+                                    selectionIDs: $classifySelection,
+                                    touch: { configuration.touch() }
+                                )
+                            ],
                             selection: $classifySelection,
-                            onAdd: { showingClassifyPicker = true },
-                            onDeleteSelected: { ids in
-                                for id in ids {
-                                    configuration.kmeansConfig?.filesClassify.removeAll { $0.id == id }
-                                }
-                                configuration.touch()
-                                classifySelection.removeAll()
-                            }
-                        )
+                            onAdd: { showingClassifyPicker = true }
+                        ) { resource, isSelected in
+                            ResourceTableRow(
+                                icon: resource.kind.iconName,
+                                label: resource.displayLabel,
+                                fileSize: resource.formattedFileSize,
+                                badges: resource.tableBadges,
+                                pngPath: resource.pngPath,
+                                isSelected: isSelected
+                            )
+                        }
+                        .sheet(item: $classifyGalleryRequest) { request in
+                            ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
+                        }
                         .sheet(isPresented: $showingClassifyPicker) {
                             ResourcePickerView(
                                 workspace: workspace,
@@ -183,7 +197,6 @@ struct ToolKmeansView: View {
                                     get: { configuration.kmeansConfig?.filesClassify ?? [] },
                                     set: { configuration.kmeansConfig?.filesClassify = $0; configuration.touch() }
                                 ),
-                                allowsMultiple: true
                             )
                         }
                     }
@@ -192,25 +205,30 @@ struct ToolKmeansView: View {
 
             // Outputs produced by this configuration
             let outputs = workspace?.resources.filter { $0.producedBy?.id == configuration.id } ?? []
-            if !outputs.isEmpty {
-                let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
-                Section("Outputs") {
-                    ResourceTableView(
-                        resources: outputs,
-                        filterKinds: outputKinds,
-                        activeKinds: $outputActiveKinds,
-                        sortKey: $outputSortKey,
-                        sortAscending: $outputSortAscending,
-                        selection: $outputSelection,
-                        onDeleteSelected: { ids in
-                            for id in ids {
-                                if let resource = outputs.first(where: { $0.id == id }) {
-                                    deleteOutputResource(resource, context: modelContext)
-                                }
-                            }
-                            outputSelection.removeAll()
-                        }
+            let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
+            Section("Outputs") {
+                ResourceTableView(
+                    items: outputs,
+                        itemID: \.id,
+                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(outputKinds),
+                    selectionActions: [
+                        TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
+                        TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
+                    ],
+                    selection: $outputSelection
+                ) { resource, isSelected in
+                    ResourceTableRow(
+                        icon: resource.kind.iconName,
+                        label: resource.displayLabel,
+                        fileSize: resource.formattedFileSize,
+                        badges: resource.tableBadges,
+                        pngPath: resource.pngPath,
+                        isSelected: isSelected
                     )
+                }
+                .sheet(item: $outputGalleryRequest) { request in
+                    ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
                 }
             }
 
@@ -224,7 +242,7 @@ struct ToolKmeansView: View {
                         runner.cancel()
                     }
                 } else {
-                    Button("Run K-Means") {
+                    Button {
                         let runner = ToolKmeans()
                         activeRunner = runner
                         registry.register(
@@ -239,6 +257,8 @@ struct ToolKmeansView: View {
                                 print("Error running K-Means: \(error)")
                             }
                         }
+                    } label: {
+                        Image(systemName: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(configuration.kmeansConfig?.filesFit.isEmpty != false)

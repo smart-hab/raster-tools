@@ -45,11 +45,11 @@ struct ToolRunnerDetailsView: View {
                     ProgressView()
                         .controlSize(.small)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(runner.progress.currentStep)
+                        Text(runner.progress.statusText)
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        if let file = runner.progress.currentFile {
-                            Text(file)
+                        if let text = runner.progress.logText {
+                            Text(text)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -57,13 +57,10 @@ struct ToolRunnerDetailsView: View {
                     Spacer()
                 }
 
-                // Progress bar
-                if runner.progress.totalFiles > 0 {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: runner.progress.progress) {
-                            Text("\(runner.progress.completedFiles) of \(runner.progress.totalFiles) files")
-                                .font(.caption)
-                        }
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: runner.progress.progress) {
+                        Text(runner.progress.progressText ?? "\(Int(runner.progress.progress * 100))%")
+                            .font(.caption)
                     }
                 }
             } else if let error = runner.error {
@@ -71,6 +68,7 @@ struct ToolRunnerDetailsView: View {
                     .foregroundStyle(.red)
                     .font(.caption)
             } else if !runner.progress.logs.isEmpty {
+
                 Label("Completed", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.caption)
