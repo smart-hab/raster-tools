@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct ToolPreprocessView: View {
-    @Bindable var configuration: ToolConfiguration
+    @Bindable var configuration: ToolPreprocessConfiguration
     @Environment(\.modelContext) private var modelContext
     @Environment(JobRegistry.self) private var registry
     @State private var activeRunner: ToolPreprocess?
@@ -61,7 +61,7 @@ struct ToolPreprocessView: View {
                     .buttonStyle(.plain)
                 }
                 LabeledContent("Shape File") {
-                    if let selected = configuration.preprocessConfig?.shapeFile {
+                    if let selected = configuration.shapeFile {
                         Button {
                             showingShapePicker = true
                         } label: {
@@ -92,11 +92,11 @@ struct ToolPreprocessView: View {
             selectableKinds: [.shapeFile],
             selection: Binding(
                 get: {
-                    if let sf = configuration.preprocessConfig?.shapeFile { return [sf] }
+                    if let sf = configuration.shapeFile { return [sf] }
                     return []
                 },
                 set: { resources in
-                    configuration.preprocessConfig?.shapeFile = resources.first
+                    configuration.shapeFile = resources.first
                     configuration.touch()
                 }
             ),
@@ -107,82 +107,72 @@ struct ToolPreprocessView: View {
     @ViewBuilder
     private var processesSection: some View {
         Section("Processes") {
-            if let preprocessConfig = configuration.preprocessConfig {
-                Text("Select which indices to calculate")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Text("Select which indices to calculate")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-                HStack(spacing: 12) {
-                    ForEach([ResourceKind.ndci, .ndvi], id: \.self) { processType in
-                        ProcessTile(
-                            processType: processType,
-                            isSelected: preprocessConfig.processTypes.contains(processType)
-                        ) {
-                            guard var types = configuration.preprocessConfig?.processTypes else { return }
-                            if types.contains(processType) {
-                                types.removeAll { $0 == processType }
-                            } else {
-                                types.append(processType)
-                            }
-                            configuration.preprocessConfig?.processTypes = types
-                            configuration.touch()
+            HStack(spacing: 12) {
+                ForEach([ResourceKind.ndci, .ndvi], id: \.self) { processType in
+                    ProcessTile(
+                        processType: processType,
+                        isSelected: configuration.processTypes.contains(processType)
+                    ) {
+                        var types = configuration.processTypes
+                        if types.contains(processType) {
+                            types.removeAll { $0 == processType }
+                        } else {
+                            types.append(processType)
                         }
+                        configuration.processTypes = types
+                        configuration.touch()
                     }
                 }
-                .padding(.vertical, 4)
             }
+            .padding(.vertical, 4)
         }
     }
 
     @ViewBuilder
     private var rasterFilesSection: some View {
         Section("Raster Files") {
-            if let preprocessConfig = configuration.preprocessConfig {
-                if let workspace {
-                    ResourceTableView(
-                        items: preprocessConfig.files,
-                        itemID: \.id,
-                        sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                        filterOptions: TableFilterOption<WorkspaceResource>.forKinds(rasterKinds),
-                        selectionActions: [
-                            TableSelectionAction<WorkspaceResource>.gallery(request: $rasterGalleryRequest),
-                            TableSelectionAction<WorkspaceResource>.delete(
-                                from: Binding(
-                                    get: { configuration.preprocessConfig?.files ?? [] },
-                                    set: { configuration.preprocessConfig?.files = $0 }
-                                ),
-                                selectionIDs: $rasterSelection,
-                                touch: { configuration.touch() }
-                            )
-                        ],
-                        selection: $rasterSelection,
-                        onAdd: { showingRasterPicker = true },
+            if let workspace {
+                ResourceTableView(
+                    items: configuration.files,
+                    itemID: \.id,
+                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(rasterKinds),
+                    selectionActions: [
+                        TableSelectionAction<WorkspaceResource>.gallery(request: $rasterGalleryRequest),
+                        TableSelectionAction<WorkspaceResource>.delete(
+                            from: $configuration.files,
+                            selectionIDs: $rasterSelection,
+                            touch: { configuration.touch() }
+                        )
+                    ],
+                    selection: $rasterSelection,
+                    onAdd: { showingRasterPicker = true },
+                    initialSortOptionID: "date"
+                ) { resource, isSelected in
+                    ResourceTableRow(
+                        icon: resource.kind.iconName,
+                        label: resource.displayLabel,
+                        fileSize: resource.formattedFileSize,
+                        badges: resource.tableBadges,
+                        pngPath: resource.pngPath,
+                        isSelected: isSelected
+                    )
+                }
+                .sheet(item: $rasterGalleryRequest) { request in
+                    ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
+                }
+                .sheet(isPresented: $showingRasterPicker) {
+                    ResourcePickerView(
+                        workspace: workspace,
+                        defaultKinds: [.sourceRaster],
+                        selectableKinds: [.sourceRaster],
+                        selection: $configuration.files,
                         initialSortOptionID: "date"
-                    ) { resource, isSelected in
-                        ResourceTableRow(
-                            icon: resource.kind.iconName,
-                            label: resource.displayLabel,
-                            fileSize: resource.formattedFileSize,
-                            badges: resource.tableBadges,
-                            pngPath: resource.pngPath,
-                            isSelected: isSelected
-                        )
-                    }
-                    .sheet(item: $rasterGalleryRequest) { request in
-                        ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
-                    }
-                    .sheet(isPresented: $showingRasterPicker) {
-                        ResourcePickerView(
-                            workspace: workspace,
-                            defaultKinds: [.sourceRaster],
-                            selectableKinds: [.sourceRaster],
-                            selection: Binding(
-                                get: { configuration.preprocessConfig?.files ?? [] },
-                                set: { configuration.preprocessConfig?.files = $0; configuration.touch() }
-                            ),
-                            initialSortOptionID: "date"
-                        )
-                    }
+                    )
                 }
             }
         }
@@ -190,7 +180,7 @@ struct ToolPreprocessView: View {
 
     @ViewBuilder
     private var outputsSection: some View {
-        let outputs = workspace?.resources.filter { $0.producedBy?.id == configuration.id } ?? []
+        let outputs = workspace?.resources.filter { $0.producedByConfigId == configuration.id } ?? []
         let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
         Section("Outputs") {
             ResourceTableView(
@@ -247,8 +237,8 @@ struct ToolPreprocessView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(
-                configuration.preprocessConfig?.files.isEmpty != false ||
-                configuration.preprocessConfig?.shapeFile == nil
+                configuration.files.isEmpty ||
+                configuration.shapeFile == nil
             )
         }
     }

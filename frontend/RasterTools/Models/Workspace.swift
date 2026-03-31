@@ -16,7 +16,9 @@ final class Workspace {
     var name: String
     var sourceDirectory: String
     @Relationship(deleteRule: .cascade) var resources: [WorkspaceResource]
-    @Relationship(deleteRule: .cascade) var configurations: [ToolConfiguration]
+    @Relationship(deleteRule: .cascade) var kmeansConfigurations: [ToolKmeansConfiguration]
+    @Relationship(deleteRule: .cascade) var preprocessConfigurations: [ToolPreprocessConfiguration]
+    @Relationship(deleteRule: .cascade) var collectionConfigurations: [ToolCollectionConfiguration]
     var createdAt: Date
     var modifiedAt: Date
 
@@ -25,9 +27,18 @@ final class Workspace {
         self.name = name
         self.sourceDirectory = sourceDirectory
         self.resources = []
-        self.configurations = []
+        self.kmeansConfigurations = []
+        self.preprocessConfigurations = []
+        self.collectionConfigurations = []
         self.createdAt = Date()
         self.modifiedAt = Date()
+    }
+
+    var allConfigurations: [(config: any ToolConfiguration, selection: SidebarSelection)] {
+        let k = kmeansConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.kmeansConfiguration($0)) }
+        let p = preprocessConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.preprocessConfiguration($0)) }
+        let c = collectionConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.collectionConfiguration($0)) }
+        return (k + p + c).sorted { $0.config.modifiedAt > $1.config.modifiedAt }
     }
 }
 
@@ -51,7 +62,7 @@ final class WorkspaceResource {
     @Relationship(inverse: \WorkspaceResource.children) var parents: [WorkspaceResource]
 
     // Which config produced this resource (nil for source resources)
-    var producedBy: ToolConfiguration?
+    var producedByConfigId: UUID?
 
     // File metadata
     var fileSize: Int = 0

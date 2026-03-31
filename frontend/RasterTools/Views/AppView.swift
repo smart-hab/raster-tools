@@ -11,7 +11,9 @@ import AppKit
 
 enum SidebarSelection: Hashable {
     case workspace(Workspace)
-    case configuration(ToolConfiguration)
+    case kmeansConfiguration(ToolKmeansConfiguration)
+    case preprocessConfiguration(ToolPreprocessConfiguration)
+    case collectionConfiguration(ToolCollectionConfiguration)
     case planet
 }
 
@@ -54,7 +56,17 @@ struct AppView: View {
         case .workspace(let ws):
             NSWorkspace.shared.open(AppStorage.outputDirectory(for: ws))
             modelContext.delete(ws)
-        case .configuration(let config):
+        case .kmeansConfiguration(let config):
+            if let workspace = config.workspace {
+                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
+            }
+            modelContext.delete(config)
+        case .preprocessConfiguration(let config):
+            if let workspace = config.workspace {
+                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
+            }
+            modelContext.delete(config)
+        case .collectionConfiguration(let config):
             if let workspace = config.workspace {
                 NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
             }
@@ -78,15 +90,12 @@ struct DetailView: View {
             switch selection {
             case .workspace(let ws):
                 WorkspaceDetailView(workspace: ws)
-            case .configuration(let config):
-                switch config.toolType {
-                case .kmeans:
-                    ToolKmeansView(configuration: config)
-                case .preprocess:
-                    ToolPreprocessView(configuration: config)
-                case .collection:
-                    ToolCollectionView(configuration: config)
-                }
+            case .kmeansConfiguration(let config):
+                ToolKmeansView(configuration: config)
+            case .preprocessConfiguration(let config):
+                ToolPreprocessView(configuration: config)
+            case .collectionConfiguration(let config):
+                ToolCollectionView(configuration: config)
             case .planet:
                 PlanetView()
             case nil:
@@ -94,7 +103,7 @@ struct DetailView: View {
             }
         }
         .toolbar {
-            if selection != nil, selection != .planet {
+            if let selection = selection, selection != .planet {
                 ToolbarItem(placement: .destructiveAction) {
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         showingDeleteConfirmation = true
@@ -117,7 +126,9 @@ struct DetailView: View {
     private var deleteTitle: String {
         switch selection {
         case .workspace(let ws): return "Delete \"\(ws.name)\"?"
-        case .configuration(let c): return "Delete \"\(c.name)\"?"
+        case .kmeansConfiguration(let c): return "Delete \"\(c.name)\"?"
+        case .preprocessConfiguration(let c): return "Delete \"\(c.name)\"?"
+        case .collectionConfiguration(let c): return "Delete \"\(c.name)\"?"
         case .planet, nil: return "Delete?"
         }
     }

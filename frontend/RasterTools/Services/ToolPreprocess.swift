@@ -11,18 +11,15 @@ import SwiftData
 /// Runs preprocessing workflow on satellite imagery
 class ToolPreprocess: ToolRunner {
 
-    func run(configuration: ToolConfiguration, context: ModelContext) async throws {
-        guard let config = configuration.preprocessConfig else {
-            throw ToolError.missingConfiguration
-        }
+    func run(configuration: ToolPreprocessConfiguration, context: ModelContext) async throws {
         guard let workspace = configuration.workspace else {
             throw ToolError.missingConfiguration
         }
-        guard let shapeFileResource = config.shapeFile else {
+        guard let shapeFileResource = configuration.shapeFile else {
             throw ToolError.fileNotFound("No shape file selected")
         }
 
-        let total = config.files.count
+        let total = configuration.files.count
         await MainActor.run {
             isRunning = true
             progress = ToolProgress(statusText: "Starting preprocessing", progress: 0, progressText: "0 / \(total)")
@@ -38,12 +35,12 @@ class ToolPreprocess: ToolRunner {
                 throw ToolError.fileNotFound(shapeFilePath)
             }
 
-            for rasterResource in config.files {
+            for rasterResource in configuration.files {
                 try await preprocessRaster(
                     rasterResource: rasterResource,
                     outputDir: outputDir,
                     shapeFile: shapeFilePath,
-                    processes: config.processTypes,
+                    processes: configuration.processTypes,
                     configuration: configuration,
                     workspace: workspace,
                     context: context,
@@ -72,15 +69,13 @@ class ToolPreprocess: ToolRunner {
         outputDir: String,
         shapeFile: String,
         processes: [ResourceKind],
-        configuration: ToolConfiguration,
+        configuration: ToolPreprocessConfiguration,
         workspace: Workspace,
         context: ModelContext,
         total: Int,
         completed: inout Int
     ) async throws {
         let inputPath = rasterResource.originalPath
-        // Use the resource date as a unique prefix (YYYYMMDD) so that multiple
-        // composite.tif files from different dates produce distinct output filenames.
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -88,7 +83,6 @@ class ToolPreprocess: ToolRunner {
             ?? URL(fileURLWithPath: inputPath).deletingPathExtension().lastPathComponent
         let dateLabel = rasterResource.date?.displayString ?? baseName
 
-        // Derive UDM path from the resource's linked udm companion
         let udmPath: String
         if let udmResource = rasterResource.udm {
             udmPath = udmResource.originalPath
@@ -126,7 +120,7 @@ class ToolPreprocess: ToolRunner {
                 date: rasterResource.date,
                 parents: [rasterResource],
                 pngPath: FileManager.default.fileExists(atPath: clippedPng) ? clippedPng : nil,
-                producedBy: configuration,
+                producedBy: configuration.id,
                 workspace: workspace,
                 context: context
             )
@@ -165,7 +159,7 @@ class ToolPreprocess: ToolRunner {
                 date: rasterResource.date,
                 parents: maskParents,
                 pngPath: FileManager.default.fileExists(atPath: maskedPng) ? maskedPng : nil,
-                producedBy: configuration,
+                producedBy: configuration.id,
                 workspace: workspace,
                 context: context
             )
@@ -224,7 +218,7 @@ class ToolPreprocess: ToolRunner {
         band2: String,
         date: Date?,
         maskedResource: WorkspaceResource?,
-        configuration: ToolConfiguration,
+        configuration: ToolPreprocessConfiguration,
         workspace: Workspace,
         context: ModelContext
     ) async throws {
@@ -252,7 +246,7 @@ class ToolPreprocess: ToolRunner {
                 date: date,
                 parents: parents,
                 pngPath: FileManager.default.fileExists(atPath: pngPath) ? pngPath : nil,
-                producedBy: configuration,
+                producedBy: configuration.id,
                 workspace: workspace,
                 context: context
             )

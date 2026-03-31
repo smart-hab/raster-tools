@@ -37,10 +37,9 @@ struct RasterToolsApp: App {
         let schema = Schema([
             Workspace.self,
             WorkspaceResource.self,
-            ToolConfiguration.self,
-            KmeansConfiguration.self,
-            PreprocessConfiguration.self,
-            CollectionConfiguration.self,
+            ToolKmeansConfiguration.self,
+            ToolPreprocessConfiguration.self,
+            ToolCollectionConfiguration.self,
         ])
 
         let storeURL = URL.applicationSupportDirectory

@@ -10,13 +10,13 @@ import SwiftData
 
 struct ToolCreateSheet: View {
     let workspace: Workspace
-    let onCreated: (ToolConfiguration) -> Void
+    let onCreated: (any ToolConfiguration) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var configName = ""
-    @State private var toolType: ToolType = .kmeans
+    @State private var toolKind: ToolKind = .kmeans
 
     var body: some View {
         NavigationStack {
@@ -24,13 +24,13 @@ struct ToolCreateSheet: View {
                 Section("Configuration") {
                     TextField("Name", text: $configName)
 
-                    Picker("Tool", selection: $toolType) {
-                        ForEach(ToolType.allCases, id: \.self) { type in
-                            Label(type.rawValue, systemImage: type.iconName).tag(type)
+                    Picker("Tool", selection: $toolKind) {
+                        ForEach(ToolKind.allCases, id: \.self) { kind in
+                            Label(kind.rawValue, systemImage: kind.iconName).tag(kind)
                         }
                     }
-                    .onChange(of: toolType) { _, newType in
-                        if newType == .collection && configName.isEmpty {
+                    .onChange(of: toolKind) { _, newKind in
+                        if newKind == .collection && configName.isEmpty {
                             configName = workspace.name
                         }
                     }
@@ -59,10 +59,25 @@ struct ToolCreateSheet: View {
     }
 
     private func createConfiguration() {
-        let config = ToolConfiguration(name: configName, toolType: toolType, workspace: workspace)
-        modelContext.insert(config)
-        workspace.configurations.append(config)
-        workspace.modifiedAt = Date()
-        onCreated(config)
+        switch toolKind {
+        case .kmeans:
+            let config = ToolKmeansConfiguration(name: configName, workspace: workspace)
+            modelContext.insert(config)
+            workspace.kmeansConfigurations.append(config)
+            workspace.modifiedAt = Date()
+            onCreated(config)
+        case .preprocess:
+            let config = ToolPreprocessConfiguration(name: configName, workspace: workspace)
+            modelContext.insert(config)
+            workspace.preprocessConfigurations.append(config)
+            workspace.modifiedAt = Date()
+            onCreated(config)
+        case .collection:
+            let config = ToolCollectionConfiguration(name: configName, workspace: workspace)
+            modelContext.insert(config)
+            workspace.collectionConfigurations.append(config)
+            workspace.modifiedAt = Date()
+            onCreated(config)
+        }
     }
 }

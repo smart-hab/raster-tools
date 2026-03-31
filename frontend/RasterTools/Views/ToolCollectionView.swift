@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ToolCollectionView: View {
-    @Bindable var configuration: ToolConfiguration
+    @Bindable var configuration: ToolCollectionConfiguration
     @Environment(JobRegistry.self) private var registry
 
     @State private var showingShapePicker = false
@@ -18,7 +18,6 @@ struct ToolCollectionView: View {
     @State private var sceneGroups: [PlanetSceneGroup] = []
 
     private var workspace: Workspace? { configuration.workspace }
-    private var config: CollectionConfiguration? { configuration.collectionConfig }
 
     var body: some View {
         Form {
@@ -53,7 +52,7 @@ struct ToolCollectionView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isSearching || config?.shapeFile == nil)
+                .disabled(isSearching || configuration.shapeFile == nil)
             }
         }
     }
@@ -90,17 +89,14 @@ struct ToolCollectionView: View {
     @ViewBuilder
     private var searchParamsSection: some View {
         Section("Search Parameters") {
-            if let workspace, let config {
+            if let workspace {
                 HStack(alignment: .top, spacing: 16) {
                     // Calendars
                     HStack(alignment: .top, spacing: 12) {
                         VStack(spacing: 2) {
                             DatePicker(
                                 "",
-                                selection: Binding(
-                                    get: { config.searchStartDate },
-                                    set: { configuration.collectionConfig?.searchStartDate = $0; configuration.touch() }
-                                ),
+                                selection: $configuration.searchStartDate,
                                 displayedComponents: .date
                             )
                             .labelsHidden()
@@ -110,10 +106,7 @@ struct ToolCollectionView: View {
                         VStack(spacing: 2) {
                             DatePicker(
                                 "",
-                                selection: Binding(
-                                    get: { config.searchEndDate },
-                                    set: { configuration.collectionConfig?.searchEndDate = $0; configuration.touch() }
-                                ),
+                                selection: $configuration.searchEndDate,
                                 displayedComponents: .date
                             )
                             .labelsHidden()
@@ -125,7 +118,7 @@ struct ToolCollectionView: View {
                     // Controls
                     VStack(alignment: .leading, spacing: 12) {
                         LabeledContent("Shape File") {
-                            if let selected = config.shapeFile {
+                            if let selected = configuration.shapeFile {
                                 Button { showingShapePicker = true } label: {
                                     HStack(spacing: 4) {
                                         Image(systemName: ResourceKind.shapeFile.iconName)
@@ -144,15 +137,12 @@ struct ToolCollectionView: View {
                         LabeledContent("Cloud Cover") {
                             HStack {
                                 Slider(
-                                    value: Binding(
-                                        get: { config.cloudCover },
-                                        set: { configuration.collectionConfig?.cloudCover = $0; configuration.touch() }
-                                    ),
+                                    value: $configuration.cloudCover,
                                     in: 0...1,
                                     step: 0.05
                                 )
                                 .frame(width: 120)
-                                Text("\(Int(config.cloudCover * 100))%")
+                                Text("\(Int(configuration.cloudCover * 100))%")
                                     .monospacedDigit()
                                     .frame(width: 36, alignment: .trailing)
                             }
@@ -166,11 +156,11 @@ struct ToolCollectionView: View {
                             selectableKinds: [.shapeFile],
                             selection: Binding(
                                 get: {
-                                    if let sf = configuration.collectionConfig?.shapeFile { return [sf] }
+                                    if let sf = configuration.shapeFile { return [sf] }
                                     return []
                                 },
                                 set: { resources in
-                                    configuration.collectionConfig?.shapeFile = resources.first
+                                    configuration.shapeFile = resources.first
                                     configuration.touch()
                                 }
                             ),
@@ -187,69 +177,57 @@ struct ToolCollectionView: View {
     @ViewBuilder
     private var orderParamsSection: some View {
         Section("Order Parameters") {
-            if let config {
-                TextField(
-                    "Naming Pattern",
-                    text: Binding(
-                        get: { config.namingPattern },
-                        set: { configuration.collectionConfig?.namingPattern = $0; configuration.touch() }
-                    )
-                )
+            TextField(
+                "Naming Pattern",
+                text: $configuration.namingPattern
+            )
 
-                Picker(
-                    "Item Type",
-                    selection: Binding(
-                        get: { config.itemType },
-                        set: { configuration.collectionConfig?.itemType = $0; configuration.touch() }
-                    )
-                ) {
-                    ForEach(PlanetItemType.allCases, id: \.rawValue) { t in
-                        Text(t.rawValue).tag(t.rawValue)
-                    }
+            Picker(
+                "Item Type",
+                selection: $configuration.itemType
+            ) {
+                ForEach(PlanetItemType.allCases, id: \.rawValue) { t in
+                    Text(t.rawValue).tag(t.rawValue)
                 }
-
-                Picker(
-                    "Product Bundle",
-                    selection: Binding(
-                        get: { config.productBundle },
-                        set: { configuration.collectionConfig?.productBundle = $0; configuration.touch() }
-                    )
-                ) {
-                    ForEach(PlanetProductBundle.allCases, id: \.rawValue) { b in
-                        Text(b.rawValue).tag(b.rawValue)
-                    }
-                }
-
-                LabeledContent("Harmonized") {
-                    Toggle("", isOn: .constant(true))
-                        .disabled(true)
-                        .labelsHidden()
-                }
-
-                LabeledContent("Composite") {
-                    Toggle("", isOn: .constant(true))
-                        .disabled(true)
-                        .labelsHidden()
-                }
-
-                Text("Tokens: {Workspace} {ConfigName} {Year} {Month} {Day} {Parameters}")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+
+            Picker(
+                "Product Bundle",
+                selection: $configuration.productBundle
+            ) {
+                ForEach(PlanetProductBundle.allCases, id: \.rawValue) { b in
+                    Text(b.rawValue).tag(b.rawValue)
+                }
+            }
+
+            LabeledContent("Harmonized") {
+                Toggle("", isOn: .constant(true))
+                    .disabled(true)
+                    .labelsHidden()
+            }
+
+            LabeledContent("Composite") {
+                Toggle("", isOn: .constant(true))
+                    .disabled(true)
+                    .labelsHidden()
+            }
+
+            Text("Tokens: {Workspace} {ConfigName} {Year} {Month} {Day} {Parameters}")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
     // MARK: - Search Results
 
     private var sceneGroupFilterOptions: [TableFilterOption<PlanetSceneGroup>] {
-        guard let config else { return [] }
         return [
             TableFilterOption(id: "available", label: "Available", color: .secondary,
-                test: { config.orderStatus(for: $0.date) == nil }),
+                test: { self.configuration.orderStatus(for: $0.date) == nil }),
             TableFilterOption(id: "queued",    label: "Queued",    color: .orange,
-                test: { config.orderStatus(for: $0.date) == .queued }),
+                test: { self.configuration.orderStatus(for: $0.date) == .queued }),
             TableFilterOption(id: "ordered",   label: "Ordered",   color: .green,
-                test: { config.orderStatus(for: $0.date) == .ordered }),
+                test: { self.configuration.orderStatus(for: $0.date) == .ordered }),
         ]
     }
 
@@ -264,7 +242,7 @@ struct ToolCollectionView: View {
                 initialSortOptionID: "date",
                 initialSortAscending: false
             ) { group, _ in
-                SceneGroupRow(group: group, status: config?.orderStatus(for: group.date)) {
+                SceneGroupRow(group: group, status: configuration.orderStatus(for: group.date)) {
                     queueOrder(for: group)
                 }
             }
@@ -273,15 +251,14 @@ struct ToolCollectionView: View {
                 Text("Search Results (\(sceneGroups.count) days)")
                 Spacer()
                 Button("Reset Memory") {
-                    guard let config = configuration.collectionConfig else { return }
                     var rebuilt: [String: String] = [:]
                     for job in registry.jobs {
                         if let runner = job.runner as? ToolCollection, runner.isRunning {
-                            let key = config.orderMemoryKey(for: runner.date)
+                            let key = configuration.orderMemoryKey(for: runner.date)
                             rebuilt[key] = OrderMemoryStatus.queued.rawValue
                         }
                     }
-                    config.orderMemory = rebuilt
+                    configuration.orderMemory = rebuilt
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -293,14 +270,14 @@ struct ToolCollectionView: View {
     // MARK: - Actions
 
     private func runSearch() {
-        guard let config, let shapePath = config.shapeFile?.originalPath else { return }
+        guard let shapePath = configuration.shapeFile?.originalPath else { return }
         isSearching = true
         searchError = nil
         sceneGroups = []
 
-        let startDate = config.searchStartDate
-        let endDate = config.searchEndDate
-        let cloudCover = config.cloudCover
+        let startDate = configuration.searchStartDate
+        let endDate = configuration.searchEndDate
+        let cloudCover = configuration.cloudCover
         let apiKey = AppSettings.shared.planetApiKey
 
         Task {
@@ -330,10 +307,9 @@ struct ToolCollectionView: View {
     }
 
     private func queueOrder(for group: PlanetSceneGroup) {
-        guard let config else { return }
         let wsName = workspace?.name ?? ""
         let configName = configuration.name
-        let runner = ToolCollection(date: group.date, configuration: config, workspaceName: wsName)
+        let runner = ToolCollection(date: group.date, configuration: configuration, workspaceName: wsName)
         let dateLabel = group.date.displayString
         registry.register(runner: runner, configName: "\(configName) / \(dateLabel)", workspaceName: wsName)
         runner.startCollection(configName: configName, sceneGroup: group)

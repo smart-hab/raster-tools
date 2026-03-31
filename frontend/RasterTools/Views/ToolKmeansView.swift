@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct ToolKmeansView: View {
-    @Bindable var configuration: ToolConfiguration
+    @Bindable var configuration: ToolKmeansConfiguration
     @Environment(\.modelContext) private var modelContext
     @Environment(JobRegistry.self) private var registry
     @State private var activeRunner: ToolKmeans?
@@ -27,7 +27,7 @@ struct ToolKmeansView: View {
     private var workspace: Workspace? { configuration.workspace }
 
     private var centersResource: WorkspaceResource? {
-        workspace?.resources.first { $0.kind == .kmeansCenters && $0.producedBy?.id == configuration.id }
+        workspace?.resources.first { $0.kind == .kmeansCenters && $0.producedByConfigId == configuration.id }
     }
 
     var body: some View {
@@ -56,159 +56,123 @@ struct ToolKmeansView: View {
             }
 
             Section("K-Means Parameters") {
-                if let kmeansConfig = configuration.kmeansConfig {
-                    LabeledContent("Centers") {
-                        Button("Reset") {
-                            if let resource = centersResource {
-                                deleteOutputResource(resource, context: modelContext)
-                            }
-                        }
-                        .disabled(centersResource == nil)
-                    }
-
-                    LabeledContent("Centroids") {
-                        Stepper(value: Binding(
-                            get: { kmeansConfig.centroids },
-                            set: { newValue in
-                                configuration.kmeansConfig?.centroids = newValue
-                                configuration.touch()
-                            }
-                        ), in: 2...20) {
-                            Text("\(kmeansConfig.centroids)")
-                                .monospacedDigit()
+                LabeledContent("Centers") {
+                    Button("Reset") {
+                        if let resource = centersResource {
+                            deleteOutputResource(resource, context: modelContext)
                         }
                     }
+                    .disabled(centersResource == nil)
+                }
 
-                    LabeledContent("Iterations") {
-                        Stepper(value: Binding(
-                            get: { kmeansConfig.nTimes },
-                            set: { newValue in
-                                configuration.kmeansConfig?.nTimes = newValue
-                                configuration.touch()
-                            }
-                        ), in: 1...100) {
-                            Text("\(kmeansConfig.nTimes)")
-                                .monospacedDigit()
-                        }
+                LabeledContent("Centroids") {
+                    Stepper(value: $configuration.centroids, in: 2...20) {
+                        Text("\(configuration.centroids)")
+                            .monospacedDigit()
                     }
+                }
 
-                    LabeledContent("Random Seed") {
-                        TextField("", value: Binding(
-                            get: { kmeansConfig.seed },
-                            set: { newValue in
-                                configuration.kmeansConfig?.seed = newValue
-                                configuration.touch()
-                            }
-                        ), format: .number)
+                LabeledContent("Iterations") {
+                    Stepper(value: $configuration.nTimes, in: 1...100) {
+                        Text("\(configuration.nTimes)")
+                            .monospacedDigit()
+                    }
+                }
+
+                LabeledContent("Random Seed") {
+                    TextField("", value: $configuration.seed, format: .number)
                         .textFieldStyle(.roundedBorder)
-                    }
                 }
             }
 
             Section("Fit Rasters") {
-                if let kmeansConfig = configuration.kmeansConfig {
-                    if let workspace {
-                        ResourceTableView(
-                            items: kmeansConfig.filesFit,
-                            itemID: \.id,
-                            sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                            filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
-                            selectionActions: [
-                                TableSelectionAction<WorkspaceResource>.gallery(request: $fitGalleryRequest),
-                                TableSelectionAction<WorkspaceResource>.delete(
-                                    from: Binding(
-                                        get: { configuration.kmeansConfig?.filesFit ?? [] },
-                                        set: { configuration.kmeansConfig?.filesFit = $0 }
-                                    ),
-                                    selectionIDs: $fitSelection,
-                                    touch: { configuration.touch() }
-                                )
-                            ],
-                            selection: $fitSelection,
-                            onAdd: { showingFitPicker = true }
-                        ) { resource, isSelected in
-                            ResourceTableRow(
-                                icon: resource.kind.iconName,
-                                label: resource.displayLabel,
-                                fileSize: resource.formattedFileSize,
-                                badges: resource.tableBadges,
-                                pngPath: resource.pngPath,
-                                isSelected: isSelected
+                if let workspace {
+                    ResourceTableView(
+                        items: configuration.filesFit,
+                        itemID: \.id,
+                        sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                        filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
+                        selectionActions: [
+                            TableSelectionAction<WorkspaceResource>.gallery(request: $fitGalleryRequest),
+                            TableSelectionAction<WorkspaceResource>.delete(
+                                from: $configuration.filesFit,
+                                selectionIDs: $fitSelection,
+                                touch: { configuration.touch() }
                             )
-                        }
-                        .sheet(item: $fitGalleryRequest) { request in
-                            ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
-                        }
-                        .sheet(isPresented: $showingFitPicker) {
-                            ResourcePickerView(
-                                workspace: workspace,
-                                defaultKinds: [.clipped, .masked, .ndvi, .ndci],
-                                selectableKinds: [.clipped, .masked, .ndvi, .ndci],
-                                selection: Binding(
-                                    get: { configuration.kmeansConfig?.filesFit ?? [] },
-                                    set: { configuration.kmeansConfig?.filesFit = $0; configuration.touch() }
-                                ),
-                                initialSortOptionID: "kind",
-                                initialSortAscending: true
-                            )
-                        }
+                        ],
+                        selection: $fitSelection,
+                        onAdd: { showingFitPicker = true }
+                    ) { resource, isSelected in
+                        ResourceTableRow(
+                            icon: resource.kind.iconName,
+                            label: resource.displayLabel,
+                            fileSize: resource.formattedFileSize,
+                            badges: resource.tableBadges,
+                            pngPath: resource.pngPath,
+                            isSelected: isSelected
+                        )
+                    }
+                    .sheet(item: $fitGalleryRequest) { request in
+                        ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
+                    }
+                    .sheet(isPresented: $showingFitPicker) {
+                        ResourcePickerView(
+                            workspace: workspace,
+                            defaultKinds: [.clipped, .masked, .ndvi, .ndci],
+                            selectableKinds: [.clipped, .masked, .ndvi, .ndci],
+                            selection: $configuration.filesFit,
+                            initialSortOptionID: "kind",
+                            initialSortAscending: true
+                        )
                     }
                 }
             }
 
             Section("Classify Rasters") {
-                if let kmeansConfig = configuration.kmeansConfig {
-                    if let workspace {
-                        ResourceTableView(
-                            items: kmeansConfig.filesClassify,
-                            itemID: \.id,
-                            sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                            filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
-                            selectionActions: [
-                                TableSelectionAction<WorkspaceResource>.gallery(request: $classifyGalleryRequest),
-                                TableSelectionAction<WorkspaceResource>.delete(
-                                    from: Binding(
-                                        get: { configuration.kmeansConfig?.filesClassify ?? [] },
-                                        set: { configuration.kmeansConfig?.filesClassify = $0 }
-                                    ),
-                                    selectionIDs: $classifySelection,
-                                    touch: { configuration.touch() }
-                                )
-                            ],
-                            selection: $classifySelection,
-                            onAdd: { showingClassifyPicker = true }
-                        ) { resource, isSelected in
-                            ResourceTableRow(
-                                icon: resource.kind.iconName,
-                                label: resource.displayLabel,
-                                fileSize: resource.formattedFileSize,
-                                badges: resource.tableBadges,
-                                pngPath: resource.pngPath,
-                                isSelected: isSelected
+                if let workspace {
+                    ResourceTableView(
+                        items: configuration.filesClassify,
+                        itemID: \.id,
+                        sortOptions: TableSortOption<WorkspaceResource>.allCases,
+                        filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
+                        selectionActions: [
+                            TableSelectionAction<WorkspaceResource>.gallery(request: $classifyGalleryRequest),
+                            TableSelectionAction<WorkspaceResource>.delete(
+                                from: $configuration.filesClassify,
+                                selectionIDs: $classifySelection,
+                                touch: { configuration.touch() }
                             )
-                        }
-                        .sheet(item: $classifyGalleryRequest) { request in
-                            ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
-                        }
-                        .sheet(isPresented: $showingClassifyPicker) {
-                            ResourcePickerView(
-                                workspace: workspace,
-                                defaultKinds: [.clipped, .masked, .ndvi, .ndci],
-                                selectableKinds: [.clipped, .masked, .ndvi, .ndci],
-                                selection: Binding(
-                                    get: { configuration.kmeansConfig?.filesClassify ?? [] },
-                                    set: { configuration.kmeansConfig?.filesClassify = $0; configuration.touch() }
-                                ),
-                                initialSortOptionID: "kind",
-                                initialSortAscending: true
-                            )
-                        }
+                        ],
+                        selection: $classifySelection,
+                        onAdd: { showingClassifyPicker = true }
+                    ) { resource, isSelected in
+                        ResourceTableRow(
+                            icon: resource.kind.iconName,
+                            label: resource.displayLabel,
+                            fileSize: resource.formattedFileSize,
+                            badges: resource.tableBadges,
+                            pngPath: resource.pngPath,
+                            isSelected: isSelected
+                        )
+                    }
+                    .sheet(item: $classifyGalleryRequest) { request in
+                        ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
+                    }
+                    .sheet(isPresented: $showingClassifyPicker) {
+                        ResourcePickerView(
+                            workspace: workspace,
+                            defaultKinds: [.clipped, .masked, .ndvi, .ndci],
+                            selectableKinds: [.clipped, .masked, .ndvi, .ndci],
+                            selection: $configuration.filesClassify,
+                            initialSortOptionID: "kind",
+                            initialSortAscending: true
+                        )
                     }
                 }
             }
 
             // Outputs produced by this configuration
-            let outputs = workspace?.resources.filter { $0.producedBy?.id == configuration.id } ?? []
+            let outputs = workspace?.resources.filter { $0.producedByConfigId == configuration.id } ?? []
             let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
             Section("Outputs") {
                 ResourceTableView(
@@ -267,7 +231,7 @@ struct ToolKmeansView: View {
                         Image(systemName: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(configuration.kmeansConfig?.filesFit.isEmpty != false)
+                    .disabled(configuration.filesFit.isEmpty)
                 }
             }
         }

@@ -22,7 +22,7 @@ struct WorkspaceDetailView: View {
 
     private func resources(for kinds: Set<ResourceKind>, producedOnly: Bool = false) -> [WorkspaceResource] {
         workspace.resources
-            .filter { kinds.contains($0.kind) && (!producedOnly || $0.producedBy != nil) }
+            .filter { kinds.contains($0.kind) && (!producedOnly || $0.producedByConfigId != nil) }
             .sorted {
                 switch ($0.date, $1.date) {
                 case (nil, nil): return false

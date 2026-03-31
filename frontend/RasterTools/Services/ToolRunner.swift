@@ -104,7 +104,7 @@ extension ToolRunner {
         date: Date?,
         parents: [WorkspaceResource],
         pngPath: String? = nil,
-        producedBy: ToolConfiguration,
+        producedBy: UUID,
         workspace: Workspace,
         context: ModelContext
     ) -> WorkspaceResource {
@@ -120,7 +120,7 @@ extension ToolRunner {
             pngPath: pngPath
         )
         r.parents = parents
-        r.producedBy = producedBy
+        r.producedByConfigId = producedBy
         r.workspace = workspace
         context.insert(r)
         workspace.resources.append(r)

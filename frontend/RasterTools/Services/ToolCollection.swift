@@ -11,13 +11,13 @@ import SwiftData
 /// Runs a Planet order for a single day. One instance per selected day.
 final class ToolCollection: ToolRunner {
     let date: Date
-    private let configuration: CollectionConfiguration
+    private let configuration: ToolCollectionConfiguration
     private let workspaceName: String
     private var collectionTask: Task<Void, Never>? {
         didSet { isRunning = collectionTask != nil }
     }
 
-    init(date: Date, configuration: CollectionConfiguration, workspaceName: String) {
+    init(date: Date, configuration: ToolCollectionConfiguration, workspaceName: String) {
         self.date = date
         self.configuration = configuration
         self.workspaceName = workspaceName

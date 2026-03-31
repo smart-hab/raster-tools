@@ -34,7 +34,13 @@ struct SidebarView: View {
             .sheet(item: $workspaceForNewConfig) { workspace in
                 ToolCreateSheet(workspace: workspace) { config in
                     workspaceForNewConfig = nil
-                    selection = .configuration(config)
+                    if let c = config as? ToolKmeansConfiguration {
+                        selection = .kmeansConfiguration(c)
+                    } else if let c = config as? ToolPreprocessConfiguration {
+                        selection = .preprocessConfiguration(c)
+                    } else if let c = config as? ToolCollectionConfiguration {
+                        selection = .collectionConfiguration(c)
+                    }
                 }
             }
             .navigationTitle("RasterTools")
@@ -74,20 +80,21 @@ struct SidebarWorkspaceRow: View {
     @State private var isExpanded = true
     @State private var showingDeleteConfirmation = false
 
-    var sortedConfigs: [ToolConfiguration] {
-        workspace.configurations.sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            ForEach(sortedConfigs) { config in
-                Label(config.name, systemImage: config.toolType.iconName)
-                    .tag(SidebarSelection.configuration(config))
+            ForEach(workspace.allConfigurations, id: \.selection) { config, sel in
+                Label(config.name, systemImage: config.kind.iconName)
+                    .tag(sel)
                     .contextMenu {
                         Button("Delete", role: .destructive) {
                             NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
                             selection = nil
-                            modelContext.delete(config)
+                            switch sel {
+                            case .kmeansConfiguration(let c): modelContext.delete(c)
+                            case .preprocessConfiguration(let c): modelContext.delete(c)
+                            case .collectionConfiguration(let c): modelContext.delete(c)
+                            default: break
+                            }
                         }
                     }
             }
@@ -95,7 +102,7 @@ struct SidebarWorkspaceRow: View {
             // Use a custom label so tapping the text selects the workspace
             // while the DisclosureGroup chevron still handles expand/collapse
             Label(workspace.name, systemImage: "folder.fill")
-                .badge(workspace.configurations.count)
+                .badge(workspace.allConfigurations.count)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture {
