@@ -14,10 +14,13 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Python Virtual Environment") {
+            Section("Python") {
                 HStack {
-                    TextField("Path to virtualenv", text: $venvPath)
+                    Text("Virtual Environment Path")
+                    Spacer()
+                    Text(venvPath.isEmpty ? "No path selected" : venvPath)
                         .truncationMode(.middle)
+                        .lineLimit(1)
                     Button("Choose…") {
                         selectVenvDirectory()
                     }
@@ -27,8 +30,15 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Planet API") {
+            Section("Planet.com") {
                 SecureField("API Key", text: $planetApiKey)
+                    .overlay(alignment: .trailing) {
+                        if planetApiKey.isEmpty {
+                            Text("No API key set")
+                                .foregroundStyle(.secondary)
+                                .allowsHitTesting(false)
+                        }
+                    }
                 Text("Your Planet Labs API key, used by the Collection tool.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
