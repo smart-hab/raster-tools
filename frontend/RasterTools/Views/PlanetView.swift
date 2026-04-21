@@ -130,7 +130,7 @@ struct PlanetView: View {
                             action: { selected in
                                 let tool = ToolPlanetDownload()
                                 activeDownload = tool
-                                registry.register(runner: tool, configName: "Planet Download", workspaceName: "")
+                                registry.register(runner: tool, configName: "Planet Order", workspaceName: "")
                                 tool.start(orders: selected)
                             }
                         )
