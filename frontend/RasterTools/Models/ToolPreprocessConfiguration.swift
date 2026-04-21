@@ -13,7 +13,7 @@ final class ToolPreprocessConfiguration: ToolConfiguration {
     var id: UUID
     var name: String
     var kind: ToolKind { .preprocess }
-    var workspace: Workspace?
+    var workspace: Workspace
     var createdAt: Date
     var modifiedAt: Date
 

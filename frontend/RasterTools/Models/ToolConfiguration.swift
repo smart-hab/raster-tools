@@ -29,7 +29,7 @@ protocol ToolConfiguration: AnyObject {
     var id: UUID { get }
     var name: String { get set }
     var kind: ToolKind { get }
-    var workspace: Workspace? { get }
+    var workspace: Workspace { get }
     var createdAt: Date { get }
     var modifiedAt: Date { get }
     func touch()

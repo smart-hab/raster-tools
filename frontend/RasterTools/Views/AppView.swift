@@ -57,19 +57,13 @@ struct AppView: View {
             NSWorkspace.shared.open(AppStorage.outputDirectory(for: ws))
             modelContext.delete(ws)
         case .kmeansConfiguration(let config):
-            if let workspace = config.workspace {
-                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
-            }
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.workspace, configuration: config))
             modelContext.delete(config)
         case .preprocessConfiguration(let config):
-            if let workspace = config.workspace {
-                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
-            }
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.workspace, configuration: config))
             modelContext.delete(config)
         case .collectionConfiguration(let config):
-            if let workspace = config.workspace {
-                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
-            }
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.workspace, configuration: config))
             modelContext.delete(config)
         case .planet:
             break

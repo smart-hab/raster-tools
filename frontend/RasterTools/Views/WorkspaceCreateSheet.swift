@@ -17,25 +17,27 @@ struct WorkspaceCreateSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Workspace") {
-                    TextField("Name", text: $name)
+                Section("Project") {
+                    TextField("Name", text: $name, prompt: Text("My Project"))
 
-                    if let url = directoryURL {
-                        Button(action: selectDirectory) {
-                            LabeledContent("Source Directory") {
+                    HStack {
+                        Text("Source Dir")
+                        Spacer()
+                        if let url = directoryURL {
+                            Button(action: selectDirectory) {
                                 Label(url.lastPathComponent, systemImage: "folder")
                                     .foregroundStyle(.primary)
                             }
+                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                        } else {
+                            Button("Choose Directory…") { selectDirectory() }
                         }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                    } else {
-                        Button("Choose Source Directory…") { selectDirectory() }
                     }
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("New Workspace")
+            .navigationTitle("New Project")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onCancel() }

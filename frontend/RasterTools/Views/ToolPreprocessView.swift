@@ -21,7 +21,7 @@ struct ToolPreprocessView: View {
     @State private var rasterGalleryRequest: GalleryRequest?
     @State private var outputGalleryRequest: GalleryRequest?
 
-    private var workspace: Workspace? { configuration.workspace }
+    private var workspace: Workspace { configuration.workspace }
 
     var body: some View {
         Form {
@@ -41,46 +41,46 @@ struct ToolPreprocessView: View {
 
     @ViewBuilder
     private var configSection: some View {
-        Section("Configuration") {
+        Section("Pre-processing Configuration") {
             LabeledContent("Name") {
                 Text(configuration.name)
                     .foregroundStyle(.secondary)
             }
-            LabeledContent("Workspace") {
-                if let workspace {
-                    FolderPathButton(path: workspace.sourceDirectory)
-                }
+            LabeledContent("Project") {
+                Text(workspace.name)
+                    .foregroundStyle(.secondary)
             }
-            if let workspace {
-                LabeledContent("Output Dir") {
+            LabeledContent("Output Dir") {
+                Button {
+                    NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        
+        Section("Pre-processing Shape") {
+            LabeledContent("Shape File") {
+                if let selected = configuration.shapeFile {
                     Button {
-                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
+                        showingShapePicker = true
                     } label: {
-                        Image(systemName: "folder")
+                        HStack(spacing: 4) {
+                            Image(systemName: ResourceKind.shapeFile.iconName)
+                            Text(selected.filename)
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                }
-                LabeledContent("Shape File") {
-                    if let selected = configuration.shapeFile {
-                        Button {
-                            showingShapePicker = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: ResourceKind.shapeFile.iconName)
-                                Text(selected.filename)
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(.secondary)
-                        }
+                } else {
+                    Button("Select File…") { showingShapePicker = true }
                         .buttonStyle(.plain)
-                    } else {
-                        Button("Select Shape File…") { showingShapePicker = true }
-                            .buttonStyle(.plain)
-                    }
                 }
-                .sheet(isPresented: $showingShapePicker) {
-                    shapePickerSheet(workspace: workspace)
-                }
+            }
+            .sheet(isPresented: $showingShapePicker) {
+                shapePickerSheet(workspace: workspace)
             }
         }
     }
@@ -135,8 +135,7 @@ struct ToolPreprocessView: View {
     @ViewBuilder
     private var rasterFilesSection: some View {
         Section("Raster Files") {
-            if let workspace {
-                ResourceTableView(
+            ResourceTableView(
                     items: configuration.files,
                     itemID: \.id,
                     sortOptions: TableSortOption<WorkspaceResource>.allCases,
@@ -174,13 +173,12 @@ struct ToolPreprocessView: View {
                         initialSortOptionID: "date"
                     )
                 }
-            }
         }
     }
 
     @ViewBuilder
     private var outputsSection: some View {
-        let outputs = workspace?.resources.filter { $0.producedByConfigId == configuration.id } ?? []
+        let outputs = workspace.resources.filter { $0.producedByConfigId == configuration.id }
         let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
         Section("Outputs") {
             ResourceTableView(
@@ -223,7 +221,7 @@ struct ToolPreprocessView: View {
                 registry.register(
                     runner: runner,
                     configName: configuration.name,
-                    workspaceName: workspace?.name ?? ""
+                    workspaceName: workspace.name
                 )
                 Task {
                     do {

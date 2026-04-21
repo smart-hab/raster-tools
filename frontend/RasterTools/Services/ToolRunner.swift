@@ -117,11 +117,11 @@ extension ToolRunner {
             fileExtension: URL(fileURLWithPath: path).pathExtension.lowercased(),
             kind: kind,
             fileSize: size,
-            pngPath: pngPath
+            pngPath: pngPath,
+            parents: parents,
+            producedByConfigId: producedBy,
+            workspace: workspace
         )
-        r.parents = parents
-        r.producedByConfigId = producedBy
-        r.workspace = workspace
         context.insert(r)
         workspace.resources.append(r)
         return r

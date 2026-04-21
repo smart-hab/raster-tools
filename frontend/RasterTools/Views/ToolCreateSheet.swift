@@ -9,20 +9,36 @@ import SwiftUI
 import SwiftData
 
 struct ToolCreateSheet: View {
-    let workspace: Workspace
+    let defaultWorkspace: Workspace
     let onCreated: (any ToolConfiguration) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Workspace.modifiedAt, order: .reverse) private var workspaces: [Workspace]
 
     @State private var configName = ""
     @State private var toolKind: ToolKind = .kmeans
+    @State private var selectedWorkspace: Workspace?
+
+    private var workspace: Workspace {
+        selectedWorkspace ?? defaultWorkspace
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Configuration") {
-                    TextField("Name", text: $configName)
+
+                    Picker("Project", selection: $selectedWorkspace) {
+                        Text(defaultWorkspace.name)
+                            .tag(Optional<Workspace>.none)
+                        if workspaces.count > 1 {
+                            Divider()
+                            ForEach(workspaces) { ws in
+                                Text(ws.name).tag(Optional(ws))
+                            }
+                        }
+                    }
 
                     Picker("Tool", selection: $toolKind) {
                         ForEach(ToolKind.allCases, id: \.self) { kind in
@@ -34,13 +50,8 @@ struct ToolCreateSheet: View {
                             configName = workspace.name
                         }
                     }
-                }
-
-                Section("Workspace") {
-                    LabeledContent("Source") {
-                        Text(workspace.name)
-                            .foregroundStyle(.secondary)
-                    }
+                    
+                    TextField("Name", text: $configName, prompt: Text("My Config"))
                 }
             }
             .formStyle(.grouped)

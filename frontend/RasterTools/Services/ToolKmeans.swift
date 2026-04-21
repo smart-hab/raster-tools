@@ -12,10 +12,7 @@ import SwiftData
 class ToolKmeans: ToolRunner {
 
     func run(configuration: ToolKmeansConfiguration, context: ModelContext) async throws {
-        guard let workspace = configuration.workspace else {
-            throw ToolError.missingConfiguration
-        }
-
+        let workspace = configuration.workspace
         let total = 1 + configuration.filesClassify.count
         await MainActor.run {
             isRunning = true

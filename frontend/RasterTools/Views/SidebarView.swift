@@ -25,14 +25,14 @@ struct SidebarView: View {
                     Label("Planet.com", systemImage: "globe")
                         .tag(SidebarSelection.planet)
                 }
-                ForEach(workspaces) { workspace in
+                ForEach(workspaces.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }) { workspace in
                     SidebarWorkspaceRow(workspace: workspace, selection: $selection) {
                         workspaceForNewConfig = workspace
                     }
                 }
             }
             .sheet(item: $workspaceForNewConfig) { workspace in
-                ToolCreateSheet(workspace: workspace) { config in
+                ToolCreateSheet(defaultWorkspace: workspace) { config in
                     workspaceForNewConfig = nil
                     if let c = config as? ToolKmeansConfiguration {
                         selection = .kmeansConfiguration(c)
@@ -47,7 +47,7 @@ struct SidebarView: View {
             .toolbar {
                 ToolbarItem {
                     Button(action: onAddWorkspace) {
-                        Label("Add Workspace", systemImage: "plus")
+                        Label("Add Project", systemImage: "plus")
                     }
                 }
             }

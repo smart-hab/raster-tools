@@ -13,7 +13,7 @@ final class ToolKmeansConfiguration: ToolConfiguration {
     var id: UUID
     var name: String
     var kind: ToolKind { .kmeans }
-    var workspace: Workspace?
+    var workspace: Workspace
     var createdAt: Date
     var modifiedAt: Date
 

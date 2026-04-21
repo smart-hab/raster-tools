@@ -35,7 +35,10 @@ struct WorkspaceDetailView: View {
 
     var body: some View {
         Form {
-            Section("Workspace") {
+            Section("Project") {
+                LabeledContent("Name") {
+                    Text(workspace.name)
+                }
                 LabeledContent("Source Dir") {
                     FolderPathButton(path: workspace.sourceDirectory)
                 }
@@ -69,7 +72,7 @@ struct WorkspaceDetailView: View {
 
             // Sources section
             let allSources = resources(for: [.sourceRaster])
-            Section("Sources") {
+            Section("Rasters") {
                 if allSources.isEmpty {
                     Text("No sources found. Click Refresh to scan the source directory.")
                         .foregroundStyle(.secondary)
@@ -149,7 +152,7 @@ struct WorkspaceDetailView: View {
             }
         }
         .sheet(isPresented: $showingNewConfigSheet) {
-            ToolCreateSheet(workspace: workspace) { _ in
+            ToolCreateSheet(defaultWorkspace: workspace) { _ in
                 showingNewConfigSheet = false
             }
         }

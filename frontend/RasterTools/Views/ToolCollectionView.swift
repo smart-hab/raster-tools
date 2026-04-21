@@ -17,7 +17,7 @@ struct ToolCollectionView: View {
     @State private var searchError: String?
     @State private var sceneGroups: [PlanetSceneGroup] = []
 
-    private var workspace: Workspace? { configuration.workspace }
+    private var workspace: Workspace { configuration.workspace }
 
     var body: some View {
         Form {
@@ -61,25 +61,22 @@ struct ToolCollectionView: View {
 
     @ViewBuilder
     private var configSection: some View {
-        Section("Configuration") {
+        Section("Collection Configuration") {
             LabeledContent("Name") {
                 Text(configuration.name)
                     .foregroundStyle(.secondary)
             }
-            LabeledContent("Workspace") {
-                if let path = workspace?.sourceDirectory {
-                    Button {
-                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "folder")
-                            Text(path)
-                                .lineLimit(1)
-                        }
-                        .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
+            LabeledContent("Project") {
+                Text(workspace.name)
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent("Output Dir") {
+                Button {
+                    NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
+                } label: {
+                    Image(systemName: "folder")
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -89,8 +86,7 @@ struct ToolCollectionView: View {
     @ViewBuilder
     private var searchParamsSection: some View {
         Section("Search Parameters") {
-            if let workspace {
-                HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
                     // Calendars
                     HStack(alignment: .top, spacing: 12) {
                         VStack(spacing: 2) {
@@ -168,7 +164,6 @@ struct ToolCollectionView: View {
                         )
                     }
                 }
-            }
         }
     }
 
@@ -307,7 +302,7 @@ struct ToolCollectionView: View {
     }
 
     private func queueOrder(for group: PlanetSceneGroup) {
-        let wsName = workspace?.name ?? ""
+        let wsName = workspace.name
         let configName = configuration.name
         let runner = ToolCollection(date: group.date, configuration: configuration, workspaceName: wsName)
         let dateLabel = group.date.displayString

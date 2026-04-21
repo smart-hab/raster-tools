@@ -12,9 +12,7 @@ import SwiftData
 class ToolPreprocess: ToolRunner {
 
     func run(configuration: ToolPreprocessConfiguration, context: ModelContext) async throws {
-        guard let workspace = configuration.workspace else {
-            throw ToolError.missingConfiguration
-        }
+        let workspace = configuration.workspace
         guard let shapeFileResource = configuration.shapeFile else {
             throw ToolError.fileNotFound("No shape file selected")
         }
