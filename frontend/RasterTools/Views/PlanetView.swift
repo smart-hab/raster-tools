@@ -196,18 +196,23 @@ private struct SubscriptionRow: View {
             }
 
             Spacer()
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.secondary.opacity(0.2))
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(barColor)
-                        .frame(width: geo.size.width * subscription.fraction)
+            
+            VStack {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.secondary.opacity(0.2))
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(barColor)
+                            .frame(width: geo.size.width * subscription.fraction)
+                    }
+                    .frame(height: 8)
                 }
-                .frame(height: 8)
+                .frame(width: 120, height: 8)
+                Text("\(subscription.quotaUsed.formatted()) of \(subscription.quotaSqkm.formatted()) sqkm")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .frame(width: 120, height: 8)
         }
         .padding(.vertical, 4)
     }
