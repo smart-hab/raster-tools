@@ -19,6 +19,27 @@ struct ToolCollectionView: View {
 
     private var workspace: Workspace { configuration.workspace }
 
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private var startDateTextBinding: Binding<String> {
+        Binding(
+            get: { Self.dateFormatter.string(from: configuration.searchStartDate) },
+            set: { if let d = Self.dateFormatter.date(from: $0) { configuration.searchStartDate = d } }
+        )
+    }
+
+    private var endDateTextBinding: Binding<String> {
+        Binding(
+            get: { Self.dateFormatter.string(from: configuration.searchEndDate) },
+            set: { if let d = Self.dateFormatter.date(from: $0) { configuration.searchEndDate = d } }
+        )
+    }
+
     var body: some View {
         Form {
             configSection
@@ -89,7 +110,7 @@ struct ToolCollectionView: View {
             HStack(alignment: .top, spacing: 16) {
                     // Calendars
                     HStack(alignment: .top, spacing: 12) {
-                        VStack(spacing: 2) {
+                        VStack {
                             DatePicker(
                                 "",
                                 selection: $configuration.searchStartDate,
@@ -99,7 +120,7 @@ struct ToolCollectionView: View {
                             .datePickerStyle(.graphical)
                             Text("Start")
                         }
-                        VStack(spacing: 2) {
+                        VStack {
                             DatePicker(
                                 "",
                                 selection: $configuration.searchEndDate,
@@ -113,6 +134,18 @@ struct ToolCollectionView: View {
 
                     // Controls
                     VStack(alignment: .leading, spacing: 12) {
+                        LabeledContent("Start") {
+                            TextField("", text: startDateTextBinding)
+                                .textFieldStyle(.roundedBorder)
+                                // .frame(width: 110)
+                        }
+
+                        LabeledContent("End") {
+                            TextField("", text: endDateTextBinding)
+                                .textFieldStyle(.roundedBorder)
+                                // .frame(width: 110)
+                        }
+
                         LabeledContent("Shape File") {
                             if let selected = configuration.shapeFile {
                                 Button { showingShapePicker = true } label: {
