@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct WorkspaceDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -56,7 +57,7 @@ struct WorkspaceDetailView: View {
             let shapes = resources(for: [.shapeFile])
             Section("Shapes") {
                 if shapes.isEmpty {
-                    Text("No shape files found.")
+                    Text("No shape files found. Drag/drop files here to add them to the source directory.")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(shapes, id: \.id) { resource in
@@ -68,6 +69,9 @@ struct WorkspaceDetailView: View {
                         )
                     }
                 }
+            }
+            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                handleShapeFileDrop(providers: providers)
             }
 
             // Sources section
@@ -160,6 +164,39 @@ struct WorkspaceDetailView: View {
 
     private func badges(for resource: WorkspaceResource) -> [ResourceKind] {
         resource.tableBadges
+    }
+
+    private func handleShapeFileDrop(providers: [NSItemProvider]) -> Bool {
+        var didDrop = false
+        
+        for provider in providers {
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+                guard let data = item as? Data,
+                      let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+                
+                let fileExtension = url.pathExtension.lowercased()
+                guard fileExtension == "geojson" || fileExtension == "shp" else { return }
+                
+                let filename = url.lastPathComponent
+                let destinationPath = (workspace.sourceDirectory as NSString).appendingPathComponent(filename)
+                let destinationURL = URL(fileURLWithPath: destinationPath)
+                
+                do {
+                    // Copy the file to the source directory
+                    try FileManager.default.copyItem(at: url, to: destinationURL)
+                    didDrop = true
+                    
+                    // Refresh resources on the main thread
+                    DispatchQueue.main.async {
+                        refreshResources()
+                    }
+                } catch {
+                    print("Error copying file: \(error)")
+                }
+            }
+        }
+        
+        return didDrop
     }
 
     private func refreshResources() {
