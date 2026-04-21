@@ -19,24 +19,29 @@ struct ToolCollectionView: View {
 
     private var workspace: Workspace { configuration.workspace }
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
+    // Source of truth: dates are always midnight UTC.
+    // The DatePicker renders in local time, so we translate to/from local midnight.
 
-    private var startDateTextBinding: Binding<String> {
+    private static let localCalendar = Calendar(identifier: .gregorian) // device timezone
+
+    // Translate UTC midnight ↔ local midnight so the calendar highlights the right day.
+    private func pickerBinding(for keyPath: ReferenceWritableKeyPath<ToolCollectionConfiguration, Date>) -> Binding<Date> {
         Binding(
-            get: { Self.dateFormatter.string(from: configuration.searchStartDate) },
-            set: { if let d = Self.dateFormatter.date(from: $0) { configuration.searchStartDate = d } }
+            get: {
+                let ymd = Date.utcCalendar.dateComponents([.year, .month, .day], from: self.configuration[keyPath: keyPath])
+                return Self.localCalendar.date(from: ymd)!
+            },
+            set: { localDate in
+                let ymd = Self.localCalendar.dateComponents([.year, .month, .day], from: localDate)
+                self.configuration[keyPath: keyPath] = Date.utcCalendar.date(from: ymd)!
+            }
         )
     }
 
-    private var endDateTextBinding: Binding<String> {
+    private func textBinding(for keyPath: ReferenceWritableKeyPath<ToolCollectionConfiguration, Date>) -> Binding<String> {
         Binding(
-            get: { Self.dateFormatter.string(from: configuration.searchEndDate) },
-            set: { if let d = Self.dateFormatter.date(from: $0) { configuration.searchEndDate = d } }
+            get: { Date.utcFormatter.string(from: self.configuration[keyPath: keyPath]) },
+            set: { if let d = Date.utcFormatter.date(from: $0) { self.configuration[keyPath: keyPath] = d } }
         )
     }
 
@@ -113,7 +118,7 @@ struct ToolCollectionView: View {
                         VStack {
                             DatePicker(
                                 "",
-                                selection: $configuration.searchStartDate,
+                                selection: pickerBinding(for: \.searchStartDate),
                                 displayedComponents: .date
                             )
                             .labelsHidden()
@@ -123,7 +128,7 @@ struct ToolCollectionView: View {
                         VStack {
                             DatePicker(
                                 "",
-                                selection: $configuration.searchEndDate,
+                                selection: pickerBinding(for: \.searchEndDate),
                                 displayedComponents: .date
                             )
                             .labelsHidden()
@@ -135,13 +140,13 @@ struct ToolCollectionView: View {
                     // Controls
                     VStack(alignment: .leading, spacing: 12) {
                         LabeledContent("Start") {
-                            TextField("", text: startDateTextBinding)
+                            TextField("", text: textBinding(for: \.searchStartDate))
                                 .textFieldStyle(.roundedBorder)
                                 // .frame(width: 110)
                         }
 
                         LabeledContent("End") {
-                            TextField("", text: endDateTextBinding)
+                            TextField("", text: textBinding(for: \.searchEndDate))
                                 .textFieldStyle(.roundedBorder)
                                 // .frame(width: 110)
                         }

@@ -38,10 +38,9 @@ final class ToolCollectionConfiguration: ToolConfiguration {
         self.createdAt = Date()
         self.modifiedAt = Date()
 
-        let calendar = Calendar.current
         let now = Date()
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
-        let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart)!
+        let monthStart = Date.utcCalendar.date(from: Date.utcCalendar.dateComponents([.year, .month], from: now))!
+        let monthEnd = Date.utcCalendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart)!
 
         self.shapeFile = nil
         self.searchStartDate = monthStart
@@ -60,9 +59,7 @@ final class ToolCollectionConfiguration: ToolConfiguration {
     }
 
     func orderMemoryKey(for date: Date) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let dateStr = df.string(from: date)
+        let dateStr = Date.utcFormatter.string(from: date)
         let sf = shapeFile?.filename ?? ""
         return "\(sf)|\(itemType)|\(productBundle)|\(harmonized)|\(composite)|\(dateStr)"
     }

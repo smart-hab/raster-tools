@@ -22,9 +22,6 @@ struct PlanetAPI {
     ) async throws -> [PlanetSceneGroup] {
         guard !apiKey.isEmpty else { throw PlanetAPIError.missingApiKey }
 
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-
         let body: [String: Any] = [
             "item_types": ["PSScene"],
             "filter": [
@@ -39,8 +36,8 @@ struct PlanetAPI {
                         "type": "DateRangeFilter",
                         "field_name": "acquired",
                         "config": [
-                            "gte": iso.string(from: startDate),
-                            "lte": iso.string(from: endDate),
+                            "gte": startDate.isoString,                         // 00:00:00
+                            "lte": endDate.addingTimeInterval(86399).isoString, // 23:59:59
                         ],
                     ],
                     [

@@ -177,6 +177,28 @@ extension Date {
     var displayString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy MMMM d"
+        formatter.timeZone = TimeZone(identifier: "UTC")
         return formatter.string(from: self)
     }
+
+    var isoString: String {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        iso.timeZone = TimeZone(identifier: "UTC")
+        return iso.string(from: self)
+    }
+
+    static let utcFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    static let utcCalendar: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "UTC")!
+        return c
+    }()
 }
