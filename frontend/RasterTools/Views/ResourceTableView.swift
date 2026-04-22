@@ -424,7 +424,14 @@ extension TableSortOption where T == WorkspaceResource {
             id: "kind",
             label: "Kind",
             comparator: { a, b in
-                a.kind.displayName.localizedCompare(b.kind.displayName) == .orderedAscending
+                let kindOrder = a.kind.displayName.localizedCompare(b.kind.displayName)
+                if kindOrder != .orderedSame { return kindOrder == .orderedAscending }
+                switch (a.date, b.date) {
+                case (nil, nil): return false
+                case (nil, _):   return true
+                case (_, nil):   return false
+                case let (d1?, d2?): return d1 < d2
+                }
             },
             groupLabel: { $0.kind.displayName }
         )
