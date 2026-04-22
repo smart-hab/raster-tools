@@ -7,44 +7,26 @@
 
 import SwiftUI
 
-struct GalleryItem {
-    var pngPath: String?
-    var filename: String
-    var date: String?
-    var fileSize: String
-    var badges: [ResourceKind]
-    var originalPath: String?
-
-    init(_ resource: WorkspaceResource) {
-        self.pngPath = resource.pngPath
-        self.filename = resource.filename
-        self.date = resource.date?.displayString
-        self.fileSize = resource.formattedFileSize
-        self.badges = resource.tableBadges
-        self.originalPath = resource.originalPath
-    }
-}
-
 struct GalleryRequest: Identifiable {
     let id = UUID()
-    let items: [GalleryItem]
+    let items: [WorkspaceResource]
     let initialIndex: Int
 }
 
 struct ResourceGallerySheet: View {
     @Environment(\.dismiss) private var dismiss
-    let items: [GalleryItem]
+    let items: [WorkspaceResource]
     let initialIndex: Int
 
     @State private var currentIndex: Int
 
-    init(items: [GalleryItem], initialIndex: Int = 0) {
+    init(items: [WorkspaceResource], initialIndex: Int = 0) {
         self.items = items
         self.initialIndex = initialIndex
         self._currentIndex = State(initialValue: initialIndex)
     }
 
-    private var current: GalleryItem? {
+    private var current: WorkspaceResource? {
         guard items.indices.contains(currentIndex) else { return nil }
         return items[currentIndex]
     }
@@ -100,6 +82,14 @@ struct ResourceGallerySheet: View {
             Image(nsImage: image)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
+        } else if let text = current?.textContent {
+            ScrollView([.vertical, .horizontal]) {
+                Text(text)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+            }
         } else {
             VStack(spacing: 12) {
                 Image(systemName: "photo")
@@ -114,13 +104,13 @@ struct ResourceGallerySheet: View {
     private var metadataFooter: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
-                Text(current?.date ?? "Unknown")
+                Text(current?.date?.displayString ?? "Unknown")
                     .font(.headline)
                 Spacer()
-                ForEach(current?.badges ?? [], id: \.self) { kind in
+                ForEach(current?.tableBadges ?? [], id: \.self) { kind in
                     BadgeCapsule(kind: kind)
                 }
-                let fileSize = current?.fileSize ?? ""
+                let fileSize = current?.formattedFileSize ?? ""
                 if !fileSize.isEmpty {
                     Text(fileSize)
                         .font(.caption)
@@ -155,7 +145,7 @@ struct ResourceGallerySheet: View {
     }
 
     @ViewBuilder
-    private func thumbnailView(for item: GalleryItem, index: Int) -> some View {
+    private func thumbnailView(for item: WorkspaceResource, index: Int) -> some View {
         let isActive = index == currentIndex
         Group {
             if let path = item.pngPath, let image = NSImage(contentsOfFile: path) {
@@ -164,6 +154,11 @@ struct ResourceGallerySheet: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 64, height: 64)
                     .clipped()
+            } else if item.isTextPreviewable {
+                Image(systemName: "doc.text")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 64, height: 64)
+                    .background(Color.secondary.opacity(0.1))
             } else {
                 Image(systemName: "photo")
                     .foregroundStyle(.secondary)

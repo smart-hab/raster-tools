@@ -61,12 +61,7 @@ struct WorkspaceDetailView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(shapes, id: \.id) { resource in
-                        ResourceTableRow(
-                            icon: resource.kind.iconName,
-                            label: resource.filename,
-                            fileSize: resource.formattedFileSize,
-                            badges: badges(for: resource)
-                        )
+                        ResourceTableRow(resource: resource)
                     }
                 }
             }
@@ -96,12 +91,7 @@ struct WorkspaceDetailView: View {
                             : (activeSort?.comparator(b, a) ?? false)
                     }
                     ForEach(sorted, id: \.id) { resource in
-                        ResourceTableRow(
-                            icon: resource.kind.iconName,
-                            label: resource.date.map { $0.displayString } ?? resource.filename,
-                            fileSize: resource.formattedFileSize,
-                            badges: badges(for: resource)
-                        )
+                        ResourceTableRow(resource: resource)
                     }
                 }
             }
@@ -123,14 +113,7 @@ struct WorkspaceDetailView: View {
                     initialSortOptionID: "kind",
                     initialSortAscending: true
                 ) { resource, isSelected in
-                    ResourceTableRow(
-                        icon: resource.kind.iconName,
-                        label: resource.date.map { $0.displayString } ?? resource.filename,
-                        fileSize: resource.formattedFileSize,
-                        badges: resource.tableBadges,
-                        pngPath: resource.pngPath,
-                        isSelected: isSelected
-                    )
+                    ResourceTableRow(resource: resource, isSelected: isSelected)
                 }
                 .sheet(item: $outputGalleryRequest) { request in
                     ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
@@ -162,9 +145,6 @@ struct WorkspaceDetailView: View {
         }
     }
 
-    private func badges(for resource: WorkspaceResource) -> [ResourceKind] {
-        resource.tableBadges
-    }
 
     private func handleShapeFileDrop(providers: [NSItemProvider]) -> Bool {
         var didDrop = false

@@ -96,14 +96,7 @@ struct ToolKmeansView: View {
                     selection: $fitSelection,
                     onAdd: { showingFitPicker = true }
                 ) { resource, isSelected in
-                    ResourceTableRow(
-                        icon: resource.kind.iconName,
-                        label: resource.displayLabel,
-                        fileSize: resource.formattedFileSize,
-                        badges: resource.tableBadges,
-                        pngPath: resource.pngPath,
-                        isSelected: isSelected
-                    )
+                    ResourceTableRow(resource: resource, isSelected: isSelected)
                 }
                 .sheet(item: $fitGalleryRequest) { request in
                     ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
@@ -137,14 +130,7 @@ struct ToolKmeansView: View {
                     selection: $classifySelection,
                     onAdd: { showingClassifyPicker = true }
                 ) { resource, isSelected in
-                    ResourceTableRow(
-                        icon: resource.kind.iconName,
-                        label: resource.displayLabel,
-                        fileSize: resource.formattedFileSize,
-                        badges: resource.tableBadges,
-                        pngPath: resource.pngPath,
-                        isSelected: isSelected
-                    )
+                    ResourceTableRow(resource: resource, isSelected: isSelected)
                 }
                 .sheet(item: $classifyGalleryRequest) { request in
                     ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
@@ -178,14 +164,7 @@ struct ToolKmeansView: View {
                     initialSortOptionID: "kind",
                     initialSortAscending: true
                 ) { resource, isSelected in
-                    ResourceTableRow(
-                        icon: resource.kind.iconName,
-                        label: resource.displayLabel,
-                        fileSize: resource.formattedFileSize,
-                        badges: resource.tableBadges,
-                        pngPath: resource.pngPath,
-                        isSelected: isSelected
-                    )
+                    ResourceTableRow(resource: resource, isSelected: isSelected)
                 }
                 .sheet(item: $outputGalleryRequest) { request in
                     ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)

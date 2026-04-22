@@ -151,14 +151,7 @@ struct ToolPreprocessView: View {
                     onAdd: { showingRasterPicker = true },
                     initialSortOptionID: "date"
                 ) { resource, isSelected in
-                    ResourceTableRow(
-                        icon: resource.kind.iconName,
-                        label: resource.displayLabel,
-                        fileSize: resource.formattedFileSize,
-                        badges: resource.tableBadges,
-                        pngPath: resource.pngPath,
-                        isSelected: isSelected
-                    )
+                    ResourceTableRow(resource: resource, isSelected: isSelected)
                 }
                 .sheet(item: $rasterGalleryRequest) { request in
                     ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
@@ -192,14 +185,7 @@ struct ToolPreprocessView: View {
                 selection: $outputSelection,
                 initialSortOptionID: "kind"
             ) { resource, isSelected in
-                ResourceTableRow(
-                    icon: resource.kind.iconName,
-                    label: resource.displayLabel,
-                    fileSize: resource.formattedFileSize,
-                    badges: resource.tableBadges,
-                    pngPath: resource.pngPath,
-                    isSelected: isSelected
-                )
+                ResourceTableRow(resource: resource, isSelected: isSelected)
             }
             .sheet(item: $outputGalleryRequest) { request in
                 ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)

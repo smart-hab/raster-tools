@@ -39,14 +39,7 @@ struct ResourcePickerView: View {
                 initialSortOptionID: initialSortOptionID,
                 initialSortAscending: initialSortAscending
             ) { resource, isSelected in
-                ResourceTableRow(
-                    icon: resource.kind.iconName,
-                    label: resource.displayLabel,
-                    fileSize: resource.formattedFileSize,
-                    badges: resource.tableBadges,
-                    pngPath: resource.pngPath,
-                    isSelected: isSelected
-                )
+                ResourceTableRow(resource: resource, isSelected: isSelected)
             }
 
             Divider()

@@ -49,37 +49,28 @@ struct TableSelectionAction<T>: Identifiable {
 // MARK: - Resource Table Row
 
 struct ResourceTableRow: View {
-    let icon: String
-    let label: String
-    let fileSize: String
-    let badges: [ResourceKind]
-    var pngPath: String? = nil
-    var originalPath: String? = nil
+    let resource: WorkspaceResource
     var onDelete: (() -> Void)? = nil
     var isSelected: Bool? = nil
-    var onPreview: (() -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            Image(systemName: icon)
+            Image(systemName: resource.kind.iconName)
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
-                .onTapGesture {
-                    if pngPath != nil { onPreview?() }
-                }
 
-            Text(label)
+            Text(resource.displayLabel)
                 .lineLimit(1)
 
             Spacer()
 
             HStack(spacing: 4) {
-                ForEach(badges, id: \.self) { kind in
+                ForEach(resource.tableBadges, id: \.self) { kind in
                     BadgeCapsule(kind: kind)
                 }
             }
 
-            Text(fileSize)
+            Text(resource.formattedFileSize)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .frame(width: 64, alignment: .trailing)
@@ -394,6 +385,19 @@ extension WorkspaceResource {
         default:            return [kind]
         }
     }
+
+    var isImagePreviewable: Bool { pngPath != nil }
+
+    var isTextPreviewable: Bool {
+        ["txt", "json", "geojson"].contains(fileExtension.lowercased())
+    }
+
+    var isPreviewable: Bool { isImagePreviewable || isTextPreviewable }
+
+    var textContent: String? {
+        guard isTextPreviewable else { return nil }
+        return try? String(contentsOfFile: originalPath, encoding: .utf8)
+    }
 }
 
 // MARK: - WorkspaceResource Sort Options
@@ -471,9 +475,9 @@ extension TableSelectionAction where T == WorkspaceResource {
         TableSelectionAction(
             id: "gallery",
             icon: "photo.on.rectangle.angled",
-            isEnabled: { items in items.contains { $0.pngPath != nil } },
+            isEnabled: { items in items.contains { $0.isPreviewable } },
             action: { items in
-                let galleryItems = items.compactMap { $0.pngPath != nil ? GalleryItem($0) : nil }
+                let galleryItems = items.filter { $0.isPreviewable }
                 request.wrappedValue = GalleryRequest(items: galleryItems, initialIndex: 0)
             }
         )
