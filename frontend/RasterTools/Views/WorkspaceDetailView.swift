@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 
 struct WorkspaceDetailView: View {
     @Environment(\.modelContext) private var modelContext
-    let workspace: Workspace
+    @Bindable var workspace: Workspace
 
     @State private var showingNewConfigSheet = false
     @State private var sourceSortID: String = "date"
@@ -37,9 +37,9 @@ struct WorkspaceDetailView: View {
     var body: some View {
         Form {
             Section("Project") {
-                LabeledContent("Name") {
-                    Text(workspace.name)
-                }
+                TextField("Name", text: $workspace.name)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
                 LabeledContent("Source Dir") {
                     FolderPathButton(path: workspace.sourceDirectory)
                 }

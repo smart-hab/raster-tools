@@ -42,10 +42,9 @@ struct ToolPreprocessView: View {
     @ViewBuilder
     private var configSection: some View {
         Section("Pre-processing Configuration") {
-            LabeledContent("Name") {
-                Text(configuration.name)
-                    .foregroundStyle(.secondary)
-            }
+            TextField("Name", text: $configuration.name)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
             LabeledContent("Project") {
                 Text(workspace.name)
                     .foregroundStyle(.secondary)

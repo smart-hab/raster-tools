@@ -88,10 +88,9 @@ struct ToolCollectionView: View {
     @ViewBuilder
     private var configSection: some View {
         Section("Collection Configuration") {
-            LabeledContent("Name") {
-                Text(configuration.name)
-                    .foregroundStyle(.secondary)
-            }
+            TextField("Name", text: $configuration.name)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
             LabeledContent("Project") {
                 Text(workspace.name)
                     .foregroundStyle(.secondary)
@@ -139,17 +138,13 @@ struct ToolCollectionView: View {
 
                     // Controls
                     VStack(alignment: .leading, spacing: 12) {
-                        LabeledContent("Start") {
-                            TextField("", text: textBinding(for: \.searchStartDate))
-                                .textFieldStyle(.roundedBorder)
-                                // .frame(width: 110)
-                        }
+                        TextField("Start", text: textBinding(for: \.searchStartDate))
+                            .textFieldStyle(.roundedBorder)
+                            // .frame(width: 110)
 
-                        LabeledContent("End") {
-                            TextField("", text: textBinding(for: \.searchEndDate))
-                                .textFieldStyle(.roundedBorder)
-                                // .frame(width: 110)
-                        }
+                        TextField("End", text: textBinding(for: \.searchEndDate))
+                            .textFieldStyle(.roundedBorder)
+                            // .frame(width: 110)
 
                         LabeledContent("Shape File") {
                             if let selected = configuration.shapeFile {
@@ -214,6 +209,7 @@ struct ToolCollectionView: View {
                 "Naming Pattern",
                 text: $configuration.namingPattern
             )
+            .textFieldStyle(.roundedBorder)
 
             Picker(
                 "Item Type",

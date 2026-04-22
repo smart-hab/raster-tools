@@ -52,6 +52,8 @@ struct ToolCreateSheet: View {
                     }
                     
                     TextField("Name", text: $configName, prompt: Text("My Config"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
                 }
             }
             .formStyle(.grouped)

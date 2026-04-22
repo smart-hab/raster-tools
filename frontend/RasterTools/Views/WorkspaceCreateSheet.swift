@@ -19,6 +19,8 @@ struct WorkspaceCreateSheet: View {
             Form {
                 Section("Project") {
                     TextField("Name", text: $name, prompt: Text("My Project"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
 
                     HStack {
                         Text("Source Dir")

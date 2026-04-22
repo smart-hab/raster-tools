@@ -33,10 +33,9 @@ struct ToolKmeansView: View {
     var body: some View {
         Form {
             Section("K-Means Configuration") {
-                LabeledContent("Name") {
-                    Text(configuration.name)
-                        .foregroundStyle(.secondary)
-                }
+                TextField("Name", text: $configuration.name)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
                 LabeledContent("Project") {
                     Text(workspace.name)
                         .foregroundStyle(.secondary)
@@ -75,10 +74,9 @@ struct ToolKmeansView: View {
                     }
                 }
 
-                LabeledContent("Random Seed") {
-                    TextField("", value: $configuration.seed, format: .number)
-                        .textFieldStyle(.roundedBorder)
-                }
+                TextField("Random Seed", value: $configuration.seed, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
             }
 
             Section("Fit Rasters") {
