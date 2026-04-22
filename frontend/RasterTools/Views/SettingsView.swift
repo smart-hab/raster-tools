@@ -15,9 +15,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Python") {
-                HStack {
-                    Text("Virtual Environment Path")
-                    Spacer()
+                LabeledContent("Virtual Environment Path") {
                     Text(venvPath.isEmpty ? "No path selected" : venvPath)
                         .truncationMode(.middle)
                         .lineLimit(1)
