@@ -135,7 +135,7 @@ struct WelcomeView: View {
         ContentUnavailableView(
             "Welcome to RasterTools",
             systemImage: "map.fill",
-            description: Text("Select a workspace or configuration from the sidebar, or create a new workspace to get started.")
+            description: Text("Select a project or configuration from the sidebar, or create a new project to get started.")
         )
     }
 }

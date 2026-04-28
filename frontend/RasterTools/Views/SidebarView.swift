@@ -25,9 +25,17 @@ struct SidebarView: View {
                     Label("Planet.com", systemImage: "globe")
                         .tag(SidebarSelection.planet)
                 }
-                ForEach(workspaces.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }) { workspace in
-                    SidebarWorkspaceRow(workspace: workspace, selection: $selection) {
-                        workspaceForNewConfig = workspace
+                Section("Projects") {
+                    if workspaces.isEmpty {
+                        Text("No projects yet. Click + to add one.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(workspaces.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }) { workspace in
+                            SidebarWorkspaceRow(workspace: workspace, selection: $selection) {
+                                workspaceForNewConfig = workspace
+                            }
+                        }
                     }
                 }
             }
@@ -115,7 +123,7 @@ struct SidebarWorkspaceRow: View {
                         Label("Add Configuration", systemImage: "plus")
                     }
                     Divider()
-                    Button("Delete Workspace", role: .destructive) {
+                    Button("Delete Project", role: .destructive) {
                         showingDeleteConfirmation = true
                     }
                 }
@@ -135,7 +143,7 @@ struct SidebarWorkspaceRow: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will delete the workspace and all its configurations. This action cannot be undone.")
+            Text("This will delete the project and all its configurations. This action cannot be undone.")
         }
     }
 }
