@@ -34,8 +34,8 @@ struct ToolCreateSheet: View {
                             .tag(Optional<Project>.none)
                         if projects.count > 1 {
                             Divider()
-                            ForEach(projects) { ws in
-                                Text(ws.name).tag(Optional(ws))
+                            ForEach(projects) { project in
+                                Text(project.name).tag(Optional(project))
                             }
                         }
                     }

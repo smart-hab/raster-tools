@@ -28,6 +28,10 @@ private struct FocusedImportShapeFilesKey: FocusedValueKey {
     typealias Value = () -> Void
 }
 
+private struct FocusedAddConfigurationKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
 extension FocusedValues {
     var projects: [Project]? {
         get { self[FocusedProjectsKey.self] }
@@ -44,6 +48,10 @@ extension FocusedValues {
     var importShapeFiles: (() -> Void)? {
         get { self[FocusedImportShapeFilesKey.self] }
         set { self[FocusedImportShapeFilesKey.self] = newValue }
+    }
+    var addConfiguration: (() -> Void)? {
+        get { self[FocusedAddConfigurationKey.self] }
+        set { self[FocusedAddConfigurationKey.self] = newValue }
     }
 }
 
@@ -66,6 +74,7 @@ struct AppView: View {
 
     @State private var selection: SidebarSelection?
     @State private var showingNewProjectSheet = false
+    @State private var showingNewConfigSheet = false
 
     var body: some View {
         NavigationSplitView {
@@ -75,13 +84,16 @@ struct AppView: View {
                 onAddProject: { showingNewProjectSheet = true }
             )
         } detail: {
-            DetailView(selection: selection) { deleteSelection() }
+            DetailView(selection: selection, onAddConfiguration: { showingNewConfigSheet = true }) {
+                deleteSelection()
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .focusedValue(\.projects, projects)
         .focusedValue(\.sidebarSelection, $selection)
         .focusedValue(\.addProject, { showingNewProjectSheet = true })
         .focusedValue(\.importShapeFiles, importShapeFilesCallback)
+        .focusedValue(\.addConfiguration, addConfigurationCallback)
         .sheet(isPresented: $showingNewProjectSheet) {
             ProjectCreateSheet { project in
                 modelContext.insert(project)
@@ -91,6 +103,34 @@ struct AppView: View {
                 showingNewProjectSheet = false
             }
         }
+        .sheet(isPresented: $showingNewConfigSheet) {
+            if let project = selectedProject {
+                ToolCreateSheet(defaultProject: project) { config in
+                    if let c = config as? ToolKmeansConfiguration {
+                        selection = .kmeansConfiguration(c)
+                    } else if let c = config as? ToolPreprocessConfiguration {
+                        selection = .preprocessConfiguration(c)
+                    } else if let c = config as? ToolCollectionConfiguration {
+                        selection = .collectionConfiguration(c)
+                    }
+                    showingNewConfigSheet = false
+                }
+            }
+        }
+    }
+
+    private var selectedProject: Project? {
+        switch selection {
+        case .project(let p): return p
+        case .kmeansConfiguration(let c): return c.project
+        case .preprocessConfiguration(let c): return c.project
+        case .collectionConfiguration(let c): return c.project
+        case .planet, nil: return nil
+        }
+    }
+
+    private var addConfigurationCallback: (() -> Void)? {
+        selectedProject != nil ? { showingNewConfigSheet = true } : nil
     }
 
     private var importShapeFilesCallback: (() -> Void)? {
@@ -120,9 +160,9 @@ struct AppView: View {
         guard let selection else { return }
         self.selection = nil
         switch selection {
-        case .project(let ws):
-            NSWorkspace.shared.open(AppStorage.outputDirectory(for: ws))
-            modelContext.delete(ws)
+        case .project(let project):
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: project))
+            modelContext.delete(project)
         case .kmeansConfiguration(let config):
             NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.project, configuration: config))
             modelContext.delete(config)
@@ -142,6 +182,7 @@ struct AppView: View {
 
 struct DetailView: View {
     let selection: SidebarSelection?
+    let onAddConfiguration: () -> Void
     let onDelete: () -> Void
 
     @State private var showingDeleteConfirmation = false
@@ -149,8 +190,8 @@ struct DetailView: View {
     var body: some View {
         Group {
             switch selection {
-            case .project(let ws):
-                ProjectDetailView(project: ws)
+            case .project(let project):
+                ProjectDetailView(project: project, onAddConfiguration: onAddConfiguration)
             case .kmeansConfiguration(let config):
                 ToolKmeansView(configuration: config)
             case .preprocessConfiguration(let config):
@@ -186,7 +227,7 @@ struct DetailView: View {
 
     private var deleteTitle: String {
         switch selection {
-        case .project(let ws): return "Delete \"\(ws.name)\"?"
+        case .project(let project): return "Delete \"\(project.name)\"?"
         case .kmeansConfiguration(let c): return "Delete \"\(c.name)\"?"
         case .preprocessConfiguration(let c): return "Delete \"\(c.name)\"?"
         case .collectionConfiguration(let c): return "Delete \"\(c.name)\"?"

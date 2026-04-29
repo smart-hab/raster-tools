@@ -10,6 +10,7 @@ struct ProjectMenuCommands: Commands {
     @FocusedValue(\.sidebarSelection) private var selection
     @FocusedValue(\.addProject) private var addProject
     @FocusedValue(\.importShapeFiles) private var importShapeFiles
+    @FocusedValue(\.addConfiguration) private var addConfiguration
 
     var body: some Commands {
         CommandMenu("Project") {
@@ -23,6 +24,11 @@ struct ProjectMenuCommands: Commands {
                 importShapeFiles?()
             }
             .disabled(importShapeFiles == nil)
+
+            Button("Add Configuration…") {
+                addConfiguration?()
+            }
+            .disabled(addConfiguration == nil)
 
             if let projects, !projects.isEmpty {
                 Divider()

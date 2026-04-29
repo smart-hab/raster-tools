@@ -12,8 +12,8 @@ import UniformTypeIdentifiers
 struct ProjectDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var project: Project
+    let onAddConfiguration: () -> Void
 
-    @State private var showingNewConfigSheet = false
     @State private var sourceSortID: String = "date"
     @State private var sourceSortAscending: Bool = false
     @State private var outputSelection: Set<UUID> = []
@@ -131,16 +131,9 @@ struct ProjectDetailView: View {
                 }
             }
             ToolbarItem {
-                Button {
-                    showingNewConfigSheet = true
-                } label: {
+                Button(action: onAddConfiguration) {
                     Label("Add Configuration", systemImage: "plus")
                 }
-            }
-        }
-        .sheet(isPresented: $showingNewConfigSheet) {
-            ToolCreateSheet(defaultProject: project) { _ in
-                showingNewConfigSheet = false
             }
         }
     }

@@ -136,7 +136,7 @@ struct SidebarProjectRow: View {
         ) {
             Button("Delete", role: .destructive) {
                 NSWorkspace.shared.open(AppStorage.outputDirectory(for: project))
-                if case .project(let ws) = selection, ws.id == project.id {
+                if case .project(let project) = selection, project.id == project.id {
                     selection = nil
                 }
                 modelContext.delete(project)
