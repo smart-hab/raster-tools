@@ -35,6 +35,16 @@ final class Project {
         self.modifiedAt = Date()
     }
 
+    static func create(name: String, sourceDirectory: String) -> Project {
+        let project = Project(name: name, sourceDirectory: sourceDirectory)
+        let scanned = ProjectScanner.scan(directory: sourceDirectory)
+        for resource in scanned {
+            resource.project = project
+            project.resources.append(resource)
+        }
+        return project
+    }
+
     var allConfigurations: [(config: any ToolConfiguration, selection: SidebarSelection)] {
         let k = kmeansConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.kmeansConfiguration($0)) }
         let p = preprocessConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.preprocessConfiguration($0)) }

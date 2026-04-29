@@ -9,6 +9,37 @@ import SwiftUI
 import SwiftData
 import AppKit
 
+// MARK: - Focused Values (for menu)
+
+private struct FocusedProjectsKey: FocusedValueKey {
+    typealias Value = [Project]
+}
+
+private struct FocusedSelectionKey: FocusedValueKey {
+    typealias Value = Binding<SidebarSelection?>
+}
+
+private struct FocusedAddProjectKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
+extension FocusedValues {
+    var projects: [Project]? {
+        get { self[FocusedProjectsKey.self] }
+        set { self[FocusedProjectsKey.self] = newValue }
+    }
+    var sidebarSelection: Binding<SidebarSelection?>? {
+        get { self[FocusedSelectionKey.self] }
+        set { self[FocusedSelectionKey.self] = newValue }
+    }
+    var addProject: (() -> Void)? {
+        get { self[FocusedAddProjectKey.self] }
+        set { self[FocusedAddProjectKey.self] = newValue }
+    }
+}
+
+// MARK: - SidebarSelection
+
 enum SidebarSelection: Hashable {
     case project(Project)
     case kmeansConfiguration(ToolKmeansConfiguration)
@@ -38,6 +69,9 @@ struct AppView: View {
             DetailView(selection: selection) { deleteSelection() }
         }
         .navigationSplitViewStyle(.balanced)
+        .focusedValue(\.projects, projects)
+        .focusedValue(\.sidebarSelection, $selection)
+        .focusedValue(\.addProject, { showingNewProjectSheet = true })
         .sheet(isPresented: $showingNewProjectSheet) {
             ProjectCreateSheet { project in
                 modelContext.insert(project)

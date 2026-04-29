@@ -71,14 +71,6 @@ struct ProjectCreateSheet: View {
 
     private func createProject() {
         guard let url = directoryURL else { return }
-        let project = Project(name: name, sourceDirectory: url.path(percentEncoded: false))
-
-        let scanned = ProjectScanner.scan(directory: project.sourceDirectory)
-        for resource in scanned {
-            resource.project = project
-            project.resources.append(resource)
-        }
-
-        onSave(project)
+        onSave(Project.create(name: name, sourceDirectory: url.path(percentEncoded: false)))
     }
 }

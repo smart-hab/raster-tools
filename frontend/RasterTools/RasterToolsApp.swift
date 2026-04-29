@@ -80,6 +80,7 @@ struct RasterToolsApp: App {
         }
         .modelContainer(sharedModelContainer)
         .defaultSize(width: 1000, height: 700)
+        .commands { ProjectMenuCommands() }
 
         Settings {
             SettingsView()
