@@ -55,7 +55,7 @@ struct SidebarView: View {
             .toolbar {
                 ToolbarItem {
                     Button(action: onAddProject) {
-                        Label("Add Project", systemImage: "plus")
+                        Label("Create Project", systemImage: "plus")
                     }
                 }
             }

@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - Focused Values (for menu)
 
@@ -23,6 +24,10 @@ private struct FocusedAddProjectKey: FocusedValueKey {
     typealias Value = () -> Void
 }
 
+private struct FocusedImportShapeFilesKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
 extension FocusedValues {
     var projects: [Project]? {
         get { self[FocusedProjectsKey.self] }
@@ -35,6 +40,10 @@ extension FocusedValues {
     var addProject: (() -> Void)? {
         get { self[FocusedAddProjectKey.self] }
         set { self[FocusedAddProjectKey.self] = newValue }
+    }
+    var importShapeFiles: (() -> Void)? {
+        get { self[FocusedImportShapeFilesKey.self] }
+        set { self[FocusedImportShapeFilesKey.self] = newValue }
     }
 }
 
@@ -72,6 +81,7 @@ struct AppView: View {
         .focusedValue(\.projects, projects)
         .focusedValue(\.sidebarSelection, $selection)
         .focusedValue(\.addProject, { showingNewProjectSheet = true })
+        .focusedValue(\.importShapeFiles, importShapeFilesCallback)
         .sheet(isPresented: $showingNewProjectSheet) {
             ProjectCreateSheet { project in
                 modelContext.insert(project)
@@ -79,6 +89,29 @@ struct AppView: View {
                 showingNewProjectSheet = false
             } onCancel: {
                 showingNewProjectSheet = false
+            }
+        }
+    }
+
+    private var importShapeFilesCallback: (() -> Void)? {
+        guard case .project(let project) = selection else { return nil }
+        return { openShapeFileImporter(for: project) }
+    }
+
+    private func openShapeFileImporter(for project: Project) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.message = "Select shape files to import"
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "shp"),
+            UTType(filenameExtension: "geojson"),
+        ].compactMap { $0 }
+        panel.begin { response in
+            guard response == .OK else { return }
+            if project.importShapeFiles(from: panel.urls) {
+                project.refresh(context: modelContext)
             }
         }
     }

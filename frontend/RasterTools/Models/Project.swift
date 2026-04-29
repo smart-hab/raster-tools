@@ -35,6 +35,61 @@ final class Project {
         self.modifiedAt = Date()
     }
 
+    func refresh(context: ModelContext) {
+        let scanned = ProjectScanner.scan(directory: sourceDirectory)
+
+        var existingByPath: [String: ProjectResource] = [:]
+        for resource in resources where resource.originalPath.hasPrefix(sourceDirectory) {
+            existingByPath[resource.originalPath] = resource
+        }
+
+        let scannedPaths = Set(scanned.map { $0.originalPath })
+
+        for (path, resource) in existingByPath where !scannedPaths.contains(path) {
+            resources.removeAll { $0.id == resource.id }
+            context.delete(resource)
+        }
+
+        for scannedResource in scanned {
+            if existingByPath[scannedResource.originalPath] == nil {
+                scannedResource.project = self
+                context.insert(scannedResource)
+                resources.append(scannedResource)
+            } else if let existing = existingByPath[scannedResource.originalPath],
+                      scannedResource.kind == .sourceRaster,
+                      existing.udm == nil,
+                      let scannedUDM = scannedResource.udm {
+                if let existingUDM = existingByPath[scannedUDM.originalPath] {
+                    existing.udm = existingUDM
+                } else if resources.first(where: { $0.originalPath == scannedUDM.originalPath }) == nil {
+                    scannedUDM.project = self
+                    context.insert(scannedUDM)
+                    resources.append(scannedUDM)
+                    existing.udm = scannedUDM
+                }
+            }
+        }
+
+        modifiedAt = Date()
+    }
+
+    @discardableResult
+    func importShapeFiles(from urls: [URL]) -> Bool {
+        var didCopy = false
+        for url in urls {
+            let ext = url.pathExtension.lowercased()
+            guard ext == "shp" || ext == "geojson" else { continue }
+            let destination = URL(fileURLWithPath: sourceDirectory).appending(path: url.lastPathComponent)
+            do {
+                try FileManager.default.copyItem(at: url, to: destination)
+                didCopy = true
+            } catch {
+                print("Error copying shape file: \(error)")
+            }
+        }
+        return didCopy
+    }
+
     static func create(name: String, sourceDirectory: String) -> Project {
         let project = Project(name: name, sourceDirectory: sourceDirectory)
         let scanned = ProjectScanner.scan(directory: sourceDirectory)

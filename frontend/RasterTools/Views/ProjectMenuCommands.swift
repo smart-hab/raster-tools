@@ -9,14 +9,20 @@ struct ProjectMenuCommands: Commands {
     @FocusedValue(\.projects) private var projects
     @FocusedValue(\.sidebarSelection) private var selection
     @FocusedValue(\.addProject) private var addProject
+    @FocusedValue(\.importShapeFiles) private var importShapeFiles
 
     var body: some Commands {
         CommandMenu("Project") {
-            Button("Add New Project") {
+            Button("Create New Project…") {
                 addProject?()
             }
             .keyboardShortcut("p", modifiers: .command)
             .disabled(addProject == nil)
+
+            Button("Import Shape Files…") {
+                importShapeFiles?()
+            }
+            .disabled(importShapeFiles == nil)
 
             if let projects, !projects.isEmpty {
                 Divider()
