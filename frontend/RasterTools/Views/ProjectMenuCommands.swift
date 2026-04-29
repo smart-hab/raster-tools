@@ -15,6 +15,7 @@ struct ProjectMenuCommands: Commands {
             Button("Add New Project") {
                 addProject?()
             }
+            .keyboardShortcut("p", modifiers: .command)
             .disabled(addProject == nil)
 
             if let projects, !projects.isEmpty {
