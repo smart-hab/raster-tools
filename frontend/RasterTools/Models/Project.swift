@@ -1,5 +1,5 @@
 //
-//  Workspace.swift
+//  Project.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-20.
@@ -9,14 +9,14 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-// MARK: - Workspace
+// MARK: - Project
 
 @Model
-final class Workspace {
+final class Project {
     var id: UUID
     var name: String
     var sourceDirectory: String
-    @Relationship(deleteRule: .cascade) var resources: [WorkspaceResource]
+    @Relationship(deleteRule: .cascade) var resources: [ProjectResource]
     @Relationship(deleteRule: .cascade) var kmeansConfigurations: [ToolKmeansConfiguration]
     @Relationship(deleteRule: .cascade) var preprocessConfigurations: [ToolPreprocessConfiguration]
     @Relationship(deleteRule: .cascade) var collectionConfigurations: [ToolCollectionConfiguration]
@@ -43,24 +43,24 @@ final class Workspace {
     }
 }
 
-// MARK: - Workspace Resource
+// MARK: - Project   Resource
 
 @Model
-final class WorkspaceResource {
+final class ProjectResource {
     var id: UUID
     var originalPath: String
     var filename: String
     var date: Date?
     var fileExtension: String
     var kind: ResourceKind
-    var workspace: Workspace?
+    var project: Project?
 
     // UDM companion — only non-nil for kind == .sourceRaster
-    var udm: WorkspaceResource?
+    var udm: ProjectResource?
 
     // Provenance — children/parents for self-referential many-to-many
-    var children: [WorkspaceResource]
-    @Relationship(inverse: \WorkspaceResource.children) var parents: [WorkspaceResource]
+    var children: [ProjectResource]
+    @Relationship(inverse: \ProjectResource.children) var parents: [ProjectResource]
 
     // Which config produced this resource (nil for source resources)
     var producedByConfigId: UUID?
@@ -71,7 +71,7 @@ final class WorkspaceResource {
 
     init(originalPath: String, filename: String, date: Date?, fileExtension: String, kind: ResourceKind,
          fileSize: Int, pngPath: String? = nil,
-         parents: [WorkspaceResource] = [], producedByConfigId: UUID? = nil, workspace: Workspace? = nil) {
+         parents: [ProjectResource] = [], producedByConfigId: UUID? = nil, project: Project? = nil) {
         self.id = UUID()
         self.originalPath = originalPath
         self.filename = filename
@@ -83,7 +83,7 @@ final class WorkspaceResource {
         self.fileSize = fileSize
         self.pngPath = pngPath
         self.producedByConfigId = producedByConfigId
-        self.workspace = workspace
+        self.project = project
     }
 
     var formattedFileSize: String {

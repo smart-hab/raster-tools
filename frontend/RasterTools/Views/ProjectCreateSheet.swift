@@ -1,5 +1,5 @@
 //
-//  WorkspaceCreateSheet.swift
+//  ProjectCreateSheet.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-20.
@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-struct WorkspaceCreateSheet: View {
-    let onSave: (Workspace) -> Void
+struct ProjectCreateSheet: View {
+    let onSave: (Project) -> Void
     let onCancel: () -> Void
 
     @State private var name = ""
@@ -45,7 +45,7 @@ struct WorkspaceCreateSheet: View {
                     Button("Cancel") { onCancel() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") { createWorkspace() }
+                    Button("Create") { createProject() }
                         .disabled(name.isEmpty || directoryURL == nil)
                 }
             }
@@ -69,16 +69,16 @@ struct WorkspaceCreateSheet: View {
         }
     }
 
-    private func createWorkspace() {
+    private func createProject() {
         guard let url = directoryURL else { return }
-        let workspace = Workspace(name: name, sourceDirectory: url.path(percentEncoded: false))
+        let project = Project(name: name, sourceDirectory: url.path(percentEncoded: false))
 
-        let scanned = WorkspaceScanner.scan(directory: workspace.sourceDirectory)
+        let scanned = ProjectScanner.scan(directory: project.sourceDirectory)
         for resource in scanned {
-            resource.workspace = workspace
-            workspace.resources.append(resource)
+            resource.project = project
+            project.resources.append(resource)
         }
 
-        onSave(workspace)
+        onSave(project)
     }
 }

@@ -127,7 +127,7 @@ struct PlanetManifestFile {
 func resolveNamingPattern(
     _ pattern: String,
     configName: String,
-    workspaceName: String,
+    projectName: String,
     itemType: String,
     productBundle: String,
     harmonized: Bool,
@@ -146,7 +146,7 @@ func resolveNamingPattern(
     let parameters = paramParts.joined(separator: "_")
 
     return pattern
-        .replacingOccurrences(of: "{Workspace}", with: workspaceName)
+        .replacingOccurrences(of: "{Project}", with: projectName)
         .replacingOccurrences(of: "{ConfigName}", with: configName)
         .replacingOccurrences(of: "{Year}", with: year)
         .replacingOccurrences(of: "{Month}", with: month)

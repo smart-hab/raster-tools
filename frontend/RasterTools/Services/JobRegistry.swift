@@ -10,7 +10,7 @@ import Foundation
 struct Job: Identifiable {
     let id = UUID()
     let configName: String
-    let workspaceName: String
+    let projectName: String
     let startedAt: Date
     let runner: ToolRunner
 }
@@ -23,8 +23,8 @@ class JobRegistry {
     private init() {}
 
     @discardableResult
-    func register(runner: ToolRunner, configName: String, workspaceName: String) -> Job {
-        let job = Job(configName: configName, workspaceName: workspaceName, startedAt: Date(), runner: runner)
+    func register(runner: ToolRunner, configName: String, projectName: String) -> Job {
+        let job = Job(configName: configName, projectName: projectName, startedAt: Date(), runner: runner)
         jobs.append(job)
         return job
     }

@@ -11,12 +11,12 @@ import SwiftData
 // MARK: - SidebarView
 
 struct SidebarView: View {
-    let workspaces: [Workspace]
+    let projects: [Project]
     @Binding var selection: SidebarSelection?
-    let onAddWorkspace: () -> Void
+    let onAddProject: () -> Void
     @Environment(JobRegistry.self) private var registry
 
-    @State private var workspaceForNewConfig: Workspace?
+    @State private var projectForNewConfig: Project?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,22 +26,22 @@ struct SidebarView: View {
                         .tag(SidebarSelection.planet)
                 }
                 Section("Projects") {
-                    if workspaces.isEmpty {
+                    if projects.isEmpty {
                         Text("No projects yet. Click + to add one.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(workspaces.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }) { workspace in
-                            SidebarWorkspaceRow(workspace: workspace, selection: $selection) {
-                                workspaceForNewConfig = workspace
+                        ForEach(projects.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }) { project in
+                            SidebarProjectRow(project: project, selection: $selection) {
+                                projectForNewConfig = project
                             }
                         }
                     }
                 }
             }
-            .sheet(item: $workspaceForNewConfig) { workspace in
-                ToolCreateSheet(defaultWorkspace: workspace) { config in
-                    workspaceForNewConfig = nil
+            .sheet(item: $projectForNewConfig) { project in
+                ToolCreateSheet(defaultProject: project) { config in
+                    projectForNewConfig = nil
                     if let c = config as? ToolKmeansConfiguration {
                         selection = .kmeansConfiguration(c)
                     } else if let c = config as? ToolPreprocessConfiguration {
@@ -54,7 +54,7 @@ struct SidebarView: View {
             .navigationTitle("RasterTools")
             .toolbar {
                 ToolbarItem {
-                    Button(action: onAddWorkspace) {
+                    Button(action: onAddProject) {
                         Label("Add Project", systemImage: "plus")
                     }
                 }
@@ -77,11 +77,11 @@ struct SidebarView: View {
     }
 }
 
-// MARK: - SidebarWorkspaceRow
+// MARK: - SidebarProjectRow
 
-struct SidebarWorkspaceRow: View {
+struct SidebarProjectRow: View {
     @Environment(\.modelContext) private var modelContext
-    let workspace: Workspace
+    let project: Project
     @Binding var selection: SidebarSelection?
     let onAddConfig: () -> Void
 
@@ -90,12 +90,12 @@ struct SidebarWorkspaceRow: View {
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            ForEach(workspace.allConfigurations, id: \.selection) { config, sel in
+            ForEach(project.allConfigurations, id: \.selection) { config, sel in
                 Label(config.name, systemImage: config.kind.iconName)
                     .tag(sel)
                     .contextMenu {
                         Button("Delete", role: .destructive) {
-                            NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: config))
+                            NSWorkspace.shared.open(AppStorage.outputDirectory(for: project, configuration: config))
                             selection = nil
                             switch sel {
                             case .kmeansConfiguration(let c): modelContext.delete(c)
@@ -107,14 +107,14 @@ struct SidebarWorkspaceRow: View {
                     }
             }
         } label: {
-            // Use a custom label so tapping the text selects the workspace
+            // Use a custom label so tapping the text selects the project
             // while the DisclosureGroup chevron still handles expand/collapse
-            Label(workspace.name, systemImage: "folder.fill")
-                .badge(workspace.allConfigurations.count)
+            Label(project.name, systemImage: "folder.fill")
+                .badge(project.allConfigurations.count)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    selection = .workspace(workspace)
+                    selection = .project(project)
                 }
                 .contextMenu {
                     Button {
@@ -128,18 +128,18 @@ struct SidebarWorkspaceRow: View {
                     }
                 }
         }
-        .tag(SidebarSelection.workspace(workspace))
+        .tag(SidebarSelection.project(project))
         .confirmationDialog(
-            "Delete \"\(workspace.name)\"?",
+            "Delete \"\(project.name)\"?",
             isPresented: $showingDeleteConfirmation,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace))
-                if case .workspace(let ws) = selection, ws.id == workspace.id {
+                NSWorkspace.shared.open(AppStorage.outputDirectory(for: project))
+                if case .project(let ws) = selection, ws.id == project.id {
                     selection = nil
                 }
-                modelContext.delete(workspace)
+                modelContext.delete(project)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -185,7 +185,7 @@ struct SidebarToolRunnerRow: View {
             HStack(spacing: 8) {
                 statusIcon
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(job.workspaceName.isEmpty ? job.configName : "\(job.workspaceName) / \(job.configName)")
+                    Text(job.projectName.isEmpty ? job.configName : "\(job.projectName) / \(job.configName)")
                         .font(.caption)
                         .fontWeight(.medium)
                         .lineLimit(1)

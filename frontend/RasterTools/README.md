@@ -71,7 +71,7 @@ RasterToolsApp.swift
 ### Models (SwiftData)
 ```swift
 @Model ToolConfiguration
-  - name, workspace, toolType
+  - name, project, toolType
   - kmeansConfig: KMeansConfiguration?
   - preprocessConfig: PreprocessConfiguration?
 
@@ -110,7 +110,7 @@ class PreprocessRunner: ToolRunner
 
 ## Usage
 
-1. Create configuration (name + workspace)
+1. Create configuration (name + project)
 2. Configure parameters & select files  
 3. Click "Run" → watch real-time progress
     - Reads config from SwiftData
@@ -118,7 +118,7 @@ class PreprocessRunner: ToolRunner
     - Calls Python CLI tools as subprocesses
     - Updates UI in real-time
     - Shows progress bar and logs
-4. View results in workspace
+4. View results in project
 
 
 ### Example: Preprocessing a Single Raster

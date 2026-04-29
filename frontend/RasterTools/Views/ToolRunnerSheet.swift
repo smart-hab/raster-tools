@@ -21,7 +21,7 @@ struct ToolRunnerSheet: View {
                 ToolRunnerDetailsView(runner: job.runner)
                     .padding()
             }
-            .navigationTitle(job.workspaceName.isEmpty ? job.configName : "\(job.workspaceName) / \(job.configName)")
+            .navigationTitle(job.projectName.isEmpty ? job.configName : "\(job.projectName) / \(job.configName)")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

@@ -12,15 +12,15 @@ import SwiftData
 final class ToolCollection: ToolRunner {
     let date: Date
     private let configuration: ToolCollectionConfiguration
-    private let workspaceName: String
+    private let projectName: String
     private var collectionTask: Task<Void, Never>? {
         didSet { isRunning = collectionTask != nil }
     }
 
-    init(date: Date, configuration: ToolCollectionConfiguration, workspaceName: String) {
+    init(date: Date, configuration: ToolCollectionConfiguration, projectName: String) {
         self.date = date
         self.configuration = configuration
-        self.workspaceName = workspaceName
+        self.projectName = projectName
     }
 
     override func cancel() {
@@ -44,7 +44,7 @@ final class ToolCollection: ToolRunner {
             let orderName = resolveNamingPattern(
                 configuration.namingPattern,
                 configName: configName,
-                workspaceName: workspaceName,
+                projectName: projectName,
                 itemType: configuration.itemType,
                 productBundle: configuration.productBundle,
                 harmonized: configuration.harmonized,

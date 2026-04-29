@@ -13,12 +13,12 @@ final class ToolCollectionConfiguration: ToolConfiguration {
     var id: UUID
     var name: String
     var kind: ToolKind { .collection }
-    var workspace: Workspace
+    var project: Project
     var createdAt: Date
     var modifiedAt: Date
 
     // Collection specific config
-    @Relationship var shapeFile: WorkspaceResource?
+    @Relationship var shapeFile: ProjectResource?
     var searchStartDate: Date
     var searchEndDate: Date
     var cloudCover: Double
@@ -31,10 +31,10 @@ final class ToolCollectionConfiguration: ToolConfiguration {
 
     var orderMemory: [String: String]
 
-    init(name: String, workspace: Workspace) {
+    init(name: String, project: Project) {
         self.id = UUID()
         self.name = name
-        self.workspace = workspace
+        self.project = project
         self.createdAt = Date()
         self.modifiedAt = Date()
 

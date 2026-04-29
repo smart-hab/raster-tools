@@ -17,7 +17,7 @@ struct ToolCollectionView: View {
     @State private var searchError: String?
     @State private var sceneGroups: [PlanetSceneGroup] = []
 
-    private var workspace: Workspace { configuration.workspace }
+    private var project: Project { configuration.project }
 
     // Source of truth: dates are always midnight UTC.
     // The DatePicker renders in local time, so we translate to/from local midnight.
@@ -92,12 +92,12 @@ struct ToolCollectionView: View {
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
             LabeledContent("Project") {
-                Text(workspace.name)
+                Text(project.name)
                     .foregroundStyle(.secondary)
             }
             LabeledContent("Output Dir") {
                 Button {
-                    NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
+                    NSWorkspace.shared.open(AppStorage.outputDirectory(for: project, configuration: configuration))
                 } label: {
                     Image(systemName: "folder")
                 }
@@ -180,7 +180,7 @@ struct ToolCollectionView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .sheet(isPresented: $showingShapePicker) {
                         ResourcePickerView(
-                            workspace: workspace,
+                            project: project,
                             defaultKinds: [.shapeFile],
                             selectableKinds: [.shapeFile],
                             selection: Binding(
@@ -241,7 +241,7 @@ struct ToolCollectionView: View {
                     .labelsHidden()
             }
 
-            Text("Tokens: {Workspace} {ConfigName} {Year} {Month} {Day} {Parameters}")
+            Text("Tokens: {Project} {ConfigName} {Year} {Month} {Day} {Parameters}")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -336,11 +336,11 @@ struct ToolCollectionView: View {
     }
 
     private func queueOrder(for group: PlanetSceneGroup) {
-        let wsName = workspace.name
+        let projectName = project.name
         let configName = configuration.name
-        let runner = ToolCollection(date: group.date, configuration: configuration, workspaceName: wsName)
+        let runner = ToolCollection(date: group.date, configuration: configuration, projectName: projectName)
         let dateLabel = group.date.displayString
-        registry.register(runner: runner, configName: "\(configName) / \(dateLabel)", workspaceName: wsName)
+        registry.register(runner: runner, configName: "\(configName) / \(dateLabel)", projectName: projectName)
         runner.startCollection(configName: configName, sceneGroup: group)
     }
 }

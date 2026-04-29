@@ -13,19 +13,19 @@ final class ToolPreprocessConfiguration: ToolConfiguration {
     var id: UUID
     var name: String
     var kind: ToolKind { .preprocess }
-    var workspace: Workspace
+    var project: Project
     var createdAt: Date
     var modifiedAt: Date
 
     // Preprocess specific config
     var processes: [String] // Store as strings for SwiftData compatibility
-    @Relationship var shapeFile: WorkspaceResource?
-    @Relationship var files: [WorkspaceResource]
+    @Relationship var shapeFile: ProjectResource?
+    @Relationship var files: [ProjectResource]
 
-    init(name: String, workspace: Workspace) {
+    init(name: String, project: Project) {
         self.id = UUID()
         self.name = name
-        self.workspace = workspace
+        self.project = project
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.processes = [ResourceKind.ndci.rawValue, ResourceKind.ndvi.rawValue]

@@ -21,7 +21,7 @@ struct ToolPreprocessView: View {
     @State private var rasterGalleryRequest: GalleryRequest?
     @State private var outputGalleryRequest: GalleryRequest?
 
-    private var workspace: Workspace { configuration.workspace }
+    private var project: Project { configuration.project }
 
     var body: some View {
         Form {
@@ -46,12 +46,12 @@ struct ToolPreprocessView: View {
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
             LabeledContent("Project") {
-                Text(workspace.name)
+                Text(project.name)
                     .foregroundStyle(.secondary)
             }
             LabeledContent("Output Dir") {
                 Button {
-                    NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
+                    NSWorkspace.shared.open(AppStorage.outputDirectory(for: project, configuration: configuration))
                 } label: {
                     Image(systemName: "folder")
                 }
@@ -79,14 +79,14 @@ struct ToolPreprocessView: View {
                 }
             }
             .sheet(isPresented: $showingShapePicker) {
-                shapePickerSheet(workspace: workspace)
+                shapePickerSheet(project: project)
             }
         }
     }
 
-    private func shapePickerSheet(workspace: Workspace) -> some View {
+    private func shapePickerSheet(project: Project) -> some View {
         ResourcePickerView(
-            workspace: workspace,
+            project: project,
             defaultKinds: [.shapeFile],
             selectableKinds: [.shapeFile],
             selection: Binding(
@@ -137,11 +137,11 @@ struct ToolPreprocessView: View {
             ResourceTableView(
                     items: configuration.files,
                     itemID: \.id,
-                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(rasterKinds),
+                    sortOptions: TableSortOption<ProjectResource>.allCases,
+                    filterOptions: TableFilterOption<ProjectResource>.forKinds(rasterKinds),
                     selectionActions: [
-                        TableSelectionAction<WorkspaceResource>.gallery(request: $rasterGalleryRequest),
-                        TableSelectionAction<WorkspaceResource>.delete(
+                        TableSelectionAction<ProjectResource>.gallery(request: $rasterGalleryRequest),
+                        TableSelectionAction<ProjectResource>.delete(
                             from: $configuration.files,
                             selectionIDs: $rasterSelection,
                             touch: { configuration.touch() }
@@ -158,7 +158,7 @@ struct ToolPreprocessView: View {
                 }
                 .sheet(isPresented: $showingRasterPicker) {
                     ResourcePickerView(
-                        workspace: workspace,
+                        project: project,
                         defaultKinds: [.sourceRaster],
                         selectableKinds: [.sourceRaster],
                         selection: $configuration.files,
@@ -170,17 +170,17 @@ struct ToolPreprocessView: View {
 
     @ViewBuilder
     private var outputsSection: some View {
-        let outputs = workspace.resources.filter { $0.producedByConfigId == configuration.id }
+        let outputs = project.resources.filter { $0.producedByConfigId == configuration.id }
         let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
         Section("Outputs") {
             ResourceTableView(
                 items: outputs,
                     itemID: \.id,
-                sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                filterOptions: TableFilterOption<WorkspaceResource>.forKinds(outputKinds),
+                sortOptions: TableSortOption<ProjectResource>.allCases,
+                filterOptions: TableFilterOption<ProjectResource>.forKinds(outputKinds),
                 selectionActions: [
-                    TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
-                    TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
+                    TableSelectionAction<ProjectResource>.gallery(request: $outputGalleryRequest),
+                    TableSelectionAction<ProjectResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
                 ],
                 selection: $outputSelection,
                 initialSortOptionID: "kind"
@@ -206,7 +206,7 @@ struct ToolPreprocessView: View {
                 registry.register(
                     runner: runner,
                     configName: configuration.name,
-                    workspaceName: workspace.name
+                    projectName: project.name
                 )
                 Task {
                     do {

@@ -9,19 +9,19 @@ import SwiftUI
 import SwiftData
 
 struct ToolCreateSheet: View {
-    let defaultWorkspace: Workspace
+    let defaultProject: Project
     let onCreated: (any ToolConfiguration) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Workspace.modifiedAt, order: .reverse) private var workspaces: [Workspace]
+    @Query(sort: \Project.modifiedAt, order: .reverse) private var projects: [Project]
 
     @State private var configName = ""
     @State private var toolKind: ToolKind = .kmeans
-    @State private var selectedWorkspace: Workspace?
+    @State private var selectedProject: Project?
 
-    private var workspace: Workspace {
-        selectedWorkspace ?? defaultWorkspace
+    private var project: Project {
+        selectedProject ?? defaultProject
     }
 
     var body: some View {
@@ -29,12 +29,12 @@ struct ToolCreateSheet: View {
             Form {
                 Section("Configuration") {
 
-                    Picker("Project", selection: $selectedWorkspace) {
-                        Text(defaultWorkspace.name)
-                            .tag(Optional<Workspace>.none)
-                        if workspaces.count > 1 {
+                    Picker("Project", selection: $selectedProject) {
+                        Text(defaultProject.name)
+                            .tag(Optional<Project>.none)
+                        if projects.count > 1 {
                             Divider()
-                            ForEach(workspaces) { ws in
+                            ForEach(projects) { ws in
                                 Text(ws.name).tag(Optional(ws))
                             }
                         }
@@ -47,7 +47,7 @@ struct ToolCreateSheet: View {
                     }
                     .onChange(of: toolKind) { _, newKind in
                         if newKind == .collection && configName.isEmpty {
-                            configName = workspace.name
+                            configName = project.name
                         }
                     }
                     
@@ -74,22 +74,22 @@ struct ToolCreateSheet: View {
     private func createConfiguration() {
         switch toolKind {
         case .kmeans:
-            let config = ToolKmeansConfiguration(name: configName, workspace: workspace)
+            let config = ToolKmeansConfiguration(name: configName, project: project)
             modelContext.insert(config)
-            workspace.kmeansConfigurations.append(config)
-            workspace.modifiedAt = Date()
+            project.kmeansConfigurations.append(config)
+            project.modifiedAt = Date()
             onCreated(config)
         case .preprocess:
-            let config = ToolPreprocessConfiguration(name: configName, workspace: workspace)
+            let config = ToolPreprocessConfiguration(name: configName, project: project)
             modelContext.insert(config)
-            workspace.preprocessConfigurations.append(config)
-            workspace.modifiedAt = Date()
+            project.preprocessConfigurations.append(config)
+            project.modifiedAt = Date()
             onCreated(config)
         case .collection:
-            let config = ToolCollectionConfiguration(name: configName, workspace: workspace)
+            let config = ToolCollectionConfiguration(name: configName, project: project)
             modelContext.insert(config)
-            workspace.collectionConfigurations.append(config)
-            workspace.modifiedAt = Date()
+            project.collectionConfigurations.append(config)
+            project.modifiedAt = Date()
             onCreated(config)
         }
     }

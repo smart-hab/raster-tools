@@ -35,8 +35,8 @@ struct RasterToolsApp: App {
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Workspace.self,
-            WorkspaceResource.self,
+            Project.self,
+            ProjectResource.self,
             ToolKmeansConfiguration.self,
             ToolPreprocessConfiguration.self,
             ToolCollectionConfiguration.self,
@@ -50,7 +50,7 @@ struct RasterToolsApp: App {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
             // Migration failed — back up the broken store and start fresh.
-            // Workspace files on disk are untouched; re-scan to recover resources.
+            // Project files on disk are untouched; re-scan to recover resources.
             print("⚠️ SwiftData failed to load store: \(error)")
             print("⚠️ Backing up store and starting fresh.")
 

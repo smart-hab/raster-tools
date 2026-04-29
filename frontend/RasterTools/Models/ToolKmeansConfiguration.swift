@@ -13,7 +13,7 @@ final class ToolKmeansConfiguration: ToolConfiguration {
     var id: UUID
     var name: String
     var kind: ToolKind { .kmeans }
-    var workspace: Workspace
+    var project: Project
     var createdAt: Date
     var modifiedAt: Date
 
@@ -21,13 +21,13 @@ final class ToolKmeansConfiguration: ToolConfiguration {
     var centroids: Int
     var nTimes: Int
     var seed: Int
-    @Relationship var filesFit: [WorkspaceResource]
-    @Relationship var filesClassify: [WorkspaceResource]
+    @Relationship var filesFit: [ProjectResource]
+    @Relationship var filesClassify: [ProjectResource]
 
-    init(name: String, workspace: Workspace) {
+    init(name: String, project: Project) {
         self.id = UUID()
         self.name = name
-        self.workspace = workspace
+        self.project = project
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.centroids = 6

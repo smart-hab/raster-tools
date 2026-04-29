@@ -24,10 +24,10 @@ struct ToolKmeansView: View {
 
     private let inputKinds: [ResourceKind] = [.clipped, .masked, .ndvi, .ndci]
 
-    private var workspace: Workspace { configuration.workspace }
+    private var project: Project { configuration.project }
 
-    private var centersResource: WorkspaceResource? {
-        workspace.resources.first { $0.kind == .kmeansCenters && $0.producedByConfigId == configuration.id }
+    private var centersResource: ProjectResource? {
+        project.resources.first { $0.kind == .kmeansCenters && $0.producedByConfigId == configuration.id }
     }
 
     var body: some View {
@@ -37,12 +37,12 @@ struct ToolKmeansView: View {
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                 LabeledContent("Project") {
-                    Text(workspace.name)
+                    Text(project.name)
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("Output Dir") {
                     Button {
-                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace, configuration: configuration))
+                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: project, configuration: configuration))
                     } label: {
                         Image(systemName: "folder")
                     }
@@ -83,11 +83,11 @@ struct ToolKmeansView: View {
                 ResourceTableView(
                     items: configuration.filesFit,
                     itemID: \.id,
-                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
+                    sortOptions: TableSortOption<ProjectResource>.allCases,
+                    filterOptions: TableFilterOption<ProjectResource>.forKinds(inputKinds),
                     selectionActions: [
-                        TableSelectionAction<WorkspaceResource>.gallery(request: $fitGalleryRequest),
-                        TableSelectionAction<WorkspaceResource>.delete(
+                        TableSelectionAction<ProjectResource>.gallery(request: $fitGalleryRequest),
+                        TableSelectionAction<ProjectResource>.delete(
                             from: $configuration.filesFit,
                             selectionIDs: $fitSelection,
                             touch: { configuration.touch() }
@@ -103,7 +103,7 @@ struct ToolKmeansView: View {
                 }
                 .sheet(isPresented: $showingFitPicker) {
                     ResourcePickerView(
-                        workspace: workspace,
+                        project: project,
                         defaultKinds: [.clipped, .masked, .ndvi, .ndci],
                         selectableKinds: [.clipped, .masked, .ndvi, .ndci],
                         selection: $configuration.filesFit,
@@ -117,11 +117,11 @@ struct ToolKmeansView: View {
                 ResourceTableView(
                     items: configuration.filesClassify,
                     itemID: \.id,
-                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(inputKinds),
+                    sortOptions: TableSortOption<ProjectResource>.allCases,
+                    filterOptions: TableFilterOption<ProjectResource>.forKinds(inputKinds),
                     selectionActions: [
-                        TableSelectionAction<WorkspaceResource>.gallery(request: $classifyGalleryRequest),
-                        TableSelectionAction<WorkspaceResource>.delete(
+                        TableSelectionAction<ProjectResource>.gallery(request: $classifyGalleryRequest),
+                        TableSelectionAction<ProjectResource>.delete(
                             from: $configuration.filesClassify,
                             selectionIDs: $classifySelection,
                             touch: { configuration.touch() }
@@ -137,7 +137,7 @@ struct ToolKmeansView: View {
                 }
                 .sheet(isPresented: $showingClassifyPicker) {
                     ResourcePickerView(
-                        workspace: workspace,
+                        project: project,
                         defaultKinds: [.clipped, .masked, .ndvi, .ndci],
                         selectableKinds: [.clipped, .masked, .ndvi, .ndci],
                         selection: $configuration.filesClassify,
@@ -148,17 +148,17 @@ struct ToolKmeansView: View {
             }
 
             // Outputs produced by this configuration
-            let outputs = workspace.resources.filter { $0.producedByConfigId == configuration.id }
+            let outputs = project.resources.filter { $0.producedByConfigId == configuration.id }
             let outputKinds = Array(Set(outputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
             Section("Outputs") {
                 ResourceTableView(
                     items: outputs,
                         itemID: \.id,
-                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(outputKinds),
+                    sortOptions: TableSortOption<ProjectResource>.allCases,
+                    filterOptions: TableFilterOption<ProjectResource>.forKinds(outputKinds),
                     selectionActions: [
-                        TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
-                        TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
+                        TableSelectionAction<ProjectResource>.gallery(request: $outputGalleryRequest),
+                        TableSelectionAction<ProjectResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
                     ],
                     selection: $outputSelection,
                     initialSortOptionID: "kind",
@@ -187,7 +187,7 @@ struct ToolKmeansView: View {
                         registry.register(
                             runner: runner,
                             configName: configuration.name,
-                            workspaceName: workspace.name
+                            projectName: project.name
                         )
                         Task {
                             do {

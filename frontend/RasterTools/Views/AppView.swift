@@ -10,7 +10,7 @@ import SwiftData
 import AppKit
 
 enum SidebarSelection: Hashable {
-    case workspace(Workspace)
+    case project(Project)
     case kmeansConfiguration(ToolKmeansConfiguration)
     case preprocessConfiguration(ToolPreprocessConfiguration)
     case collectionConfiguration(ToolCollectionConfiguration)
@@ -21,30 +21,30 @@ enum SidebarSelection: Hashable {
 
 struct AppView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Workspace.modifiedAt, order: .reverse)
-    private var workspaces: [Workspace]
+    @Query(sort: \Project.modifiedAt, order: .reverse)
+    private var projects: [Project]
 
     @State private var selection: SidebarSelection?
-    @State private var showingNewWorkspaceSheet = false
+    @State private var showingNewProjectSheet = false
 
     var body: some View {
         NavigationSplitView {
             SidebarView(
-                workspaces: workspaces,
+                projects: projects,
                 selection: $selection,
-                onAddWorkspace: { showingNewWorkspaceSheet = true }
+                onAddProject: { showingNewProjectSheet = true }
             )
         } detail: {
             DetailView(selection: selection) { deleteSelection() }
         }
         .navigationSplitViewStyle(.balanced)
-        .sheet(isPresented: $showingNewWorkspaceSheet) {
-            WorkspaceCreateSheet { workspace in
-                modelContext.insert(workspace)
-                selection = .workspace(workspace)
-                showingNewWorkspaceSheet = false
+        .sheet(isPresented: $showingNewProjectSheet) {
+            ProjectCreateSheet { project in
+                modelContext.insert(project)
+                selection = .project(project)
+                showingNewProjectSheet = false
             } onCancel: {
-                showingNewWorkspaceSheet = false
+                showingNewProjectSheet = false
             }
         }
     }
@@ -53,17 +53,17 @@ struct AppView: View {
         guard let selection else { return }
         self.selection = nil
         switch selection {
-        case .workspace(let ws):
+        case .project(let ws):
             NSWorkspace.shared.open(AppStorage.outputDirectory(for: ws))
             modelContext.delete(ws)
         case .kmeansConfiguration(let config):
-            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.workspace, configuration: config))
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.project, configuration: config))
             modelContext.delete(config)
         case .preprocessConfiguration(let config):
-            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.workspace, configuration: config))
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.project, configuration: config))
             modelContext.delete(config)
         case .collectionConfiguration(let config):
-            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.workspace, configuration: config))
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.project, configuration: config))
             modelContext.delete(config)
         case .planet:
             break
@@ -82,8 +82,8 @@ struct DetailView: View {
     var body: some View {
         Group {
             switch selection {
-            case .workspace(let ws):
-                WorkspaceDetailView(workspace: ws)
+            case .project(let ws):
+                ProjectDetailView(project: ws)
             case .kmeansConfiguration(let config):
                 ToolKmeansView(configuration: config)
             case .preprocessConfiguration(let config):
@@ -119,7 +119,7 @@ struct DetailView: View {
 
     private var deleteTitle: String {
         switch selection {
-        case .workspace(let ws): return "Delete \"\(ws.name)\"?"
+        case .project(let ws): return "Delete \"\(ws.name)\"?"
         case .kmeansConfiguration(let c): return "Delete \"\(c.name)\"?"
         case .preprocessConfiguration(let c): return "Delete \"\(c.name)\"?"
         case .collectionConfiguration(let c): return "Delete \"\(c.name)\"?"
@@ -142,5 +142,5 @@ struct WelcomeView: View {
 
 #Preview {
     AppView()
-        .modelContainer(for: Workspace.self, inMemory: true)
+        .modelContainer(for: Project.self, inMemory: true)
 }

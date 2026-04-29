@@ -12,7 +12,7 @@ import SwiftData
 class ToolPreprocess: ToolRunner {
 
     func run(configuration: ToolPreprocessConfiguration, context: ModelContext) async throws {
-        let workspace = configuration.workspace
+        let project = configuration.project
         guard let shapeFileResource = configuration.shapeFile else {
             throw ToolError.fileNotFound("No shape file selected")
         }
@@ -27,7 +27,7 @@ class ToolPreprocess: ToolRunner {
 
         do {
             let shapeFilePath = shapeFileResource.originalPath
-            let outputDir = AppStorage.outputDirectory(for: workspace, configuration: configuration).path
+            let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration).path
 
             guard FileManager.default.fileExists(atPath: shapeFilePath) else {
                 throw ToolError.fileNotFound(shapeFilePath)
@@ -40,7 +40,7 @@ class ToolPreprocess: ToolRunner {
                     shapeFile: shapeFilePath,
                     processes: configuration.processTypes,
                     configuration: configuration,
-                    workspace: workspace,
+                    project: project,
                     context: context,
                     total: total,
                     completed: &completed
@@ -63,12 +63,12 @@ class ToolPreprocess: ToolRunner {
     }
 
     private func preprocessRaster(
-        rasterResource: WorkspaceResource,
+        rasterResource: ProjectResource,
         outputDir: String,
         shapeFile: String,
         processes: [ResourceKind],
         configuration: ToolPreprocessConfiguration,
-        workspace: Workspace,
+        project: Project,
         context: ModelContext,
         total: Int,
         completed: inout Int
@@ -96,8 +96,8 @@ class ToolPreprocess: ToolRunner {
         let clippedPng = clippedPath.replacingOccurrences(of: ".tif", with: ".png")
         let clippedFilename = URL(fileURLWithPath: clippedPath).lastPathComponent
 
-        let clippedExists = workspace.resources.contains { $0.originalPath == clippedPath }
-        var clippedResource: WorkspaceResource?
+        let clippedExists = project.resources.contains { $0.originalPath == clippedPath }
+        var clippedResource: ProjectResource?
 
         if !clippedExists {
             await update(ToolProgress(statusText: "Clipping \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
@@ -119,11 +119,11 @@ class ToolPreprocess: ToolRunner {
                 parents: [rasterResource],
                 pngPath: FileManager.default.fileExists(atPath: clippedPng) ? clippedPng : nil,
                 producedBy: configuration.id,
-                workspace: workspace,
+                project: project,
                 context: context
             )
         } else {
-            clippedResource = workspace.resources.first { $0.originalPath == clippedPath }
+            clippedResource = project.resources.first { $0.originalPath == clippedPath }
         }
         await log("  \(clippedFilename)")
 
@@ -132,8 +132,8 @@ class ToolPreprocess: ToolRunner {
         let maskedPng = maskedPath.replacingOccurrences(of: ".tif", with: ".png")
         let maskedFilename = URL(fileURLWithPath: maskedPath).lastPathComponent
 
-        let maskedExists = workspace.resources.contains { $0.originalPath == maskedPath }
-        var maskedResource: WorkspaceResource?
+        let maskedExists = project.resources.contains { $0.originalPath == maskedPath }
+        var maskedResource: ProjectResource?
 
         if !maskedExists {
             await update(ToolProgress(statusText: "Masking \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
@@ -148,7 +148,7 @@ class ToolPreprocess: ToolRunner {
                     arguments: ["--rgb", "6", "4", "2", "-i", maskedPath, "-o", maskedPng]
                 )
             }
-            var maskParents: [WorkspaceResource] = []
+            var maskParents: [ProjectResource] = []
             if let cr = clippedResource { maskParents.append(cr) }
             if let udm = rasterResource.udm { maskParents.append(udm) }
             maskedResource = makeResource(
@@ -158,11 +158,11 @@ class ToolPreprocess: ToolRunner {
                 parents: maskParents,
                 pngPath: FileManager.default.fileExists(atPath: maskedPng) ? maskedPng : nil,
                 producedBy: configuration.id,
-                workspace: workspace,
+                project: project,
                 context: context
             )
         } else {
-            maskedResource = workspace.resources.first { $0.originalPath == maskedPath }
+            maskedResource = project.resources.first { $0.originalPath == maskedPath }
         }
         await log("  \(maskedFilename)")
 
@@ -180,7 +180,7 @@ class ToolPreprocess: ToolRunner {
                     date: rasterResource.date,
                     maskedResource: maskedResource,
                     configuration: configuration,
-                    workspace: workspace,
+                    project: project,
                     context: context
                 )
 
@@ -195,7 +195,7 @@ class ToolPreprocess: ToolRunner {
                     date: rasterResource.date,
                     maskedResource: maskedResource,
                     configuration: configuration,
-                    workspace: workspace,
+                    project: project,
                     context: context
                 )
 
@@ -215,15 +215,15 @@ class ToolPreprocess: ToolRunner {
         band1: String,
         band2: String,
         date: Date?,
-        maskedResource: WorkspaceResource?,
+        maskedResource: ProjectResource?,
         configuration: ToolPreprocessConfiguration,
-        workspace: Workspace,
+        project: Project,
         context: ModelContext
     ) async throws {
         let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
         let outputFilename = URL(fileURLWithPath: outputPath).lastPathComponent
 
-        let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
+        let alreadyExists = project.resources.contains { $0.originalPath == outputPath }
         if !alreadyExists {
             await log("  \(name)...")
             try await runProcess(
@@ -236,7 +236,7 @@ class ToolPreprocess: ToolRunner {
                     arguments: ["-i", outputPath, "-o", pngPath]
                 )
             }
-            var parents: [WorkspaceResource] = []
+            var parents: [ProjectResource] = []
             if let mr = maskedResource { parents.append(mr) }
             makeResource(
                 path: outputPath,
@@ -245,7 +245,7 @@ class ToolPreprocess: ToolRunner {
                 parents: parents,
                 pngPath: FileManager.default.fileExists(atPath: pngPath) ? pngPath : nil,
                 producedBy: configuration.id,
-                workspace: workspace,
+                project: project,
                 context: context
             )
         }

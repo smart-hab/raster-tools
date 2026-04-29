@@ -12,7 +12,7 @@ import SwiftData
 class ToolKmeans: ToolRunner {
 
     func run(configuration: ToolKmeansConfiguration, context: ModelContext) async throws {
-        let workspace = configuration.workspace
+        let project = configuration.project
         let total = 1 + configuration.filesClassify.count
         await MainActor.run {
             isRunning = true
@@ -22,19 +22,19 @@ class ToolKmeans: ToolRunner {
         var completed = 0
 
         do {
-            let outputDir = AppStorage.outputDirectory(for: workspace, configuration: configuration).path
+            let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration).path
 
             // Step 1: Fit K-means model
-            try await fitKmeans(outputDir: outputDir, configuration: configuration, workspace: workspace, context: context, total: total, completed: &completed)
+            try await fitKmeans(outputDir: outputDir, configuration: configuration, project: project, context: context, total: total, completed: &completed)
 
             // Step 2: Classify rasters
-            try await classifyRasters(outputDir: outputDir, configuration: configuration, workspace: workspace, context: context, total: total, completed: &completed)
+            try await classifyRasters(outputDir: outputDir, configuration: configuration, project: project, context: context, total: total, completed: &completed)
 
             // Step 3: Generate mean raster
-            try await generateMeanRaster(outputDir: outputDir, configuration: configuration, workspace: workspace, context: context)
+            try await generateMeanRaster(outputDir: outputDir, configuration: configuration, project: project, context: context)
 
             // Step 4: Generate difference rasters
-            try await generateDifferenceRasters(outputDir: outputDir, configuration: configuration, workspace: workspace, context: context)
+            try await generateDifferenceRasters(outputDir: outputDir, configuration: configuration, project: project, context: context)
 
             await update(ToolProgress(statusText: "K-Means complete!", progress: 1, progressText: "\(total) / \(total)"))
             await log("[\(total)/\(total)] K-Means complete!")
@@ -54,7 +54,7 @@ class ToolKmeans: ToolRunner {
     private func fitKmeans(
         outputDir: String,
         configuration: ToolKmeansConfiguration,
-        workspace: Workspace,
+        project: Project,
         context: ModelContext,
         total: Int,
         completed: inout Int
@@ -65,7 +65,7 @@ class ToolKmeans: ToolRunner {
         await update(ToolProgress(statusText: "Fitting K-Means model", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
         await log("[\(completed + 1)/\(total)] Fitting K-Means model")
 
-        if workspace.resources.contains(where: { $0.originalPath == centersPath }) {
+        if project.resources.contains(where: { $0.originalPath == centersPath }) {
             await log("  \(centersFilename)")
             completed += 1
             return
@@ -86,7 +86,7 @@ class ToolKmeans: ToolRunner {
             date: nil,
             parents: configuration.filesFit,
             producedBy: configuration.id,
-            workspace: workspace,
+            project: project,
             context: context
         )
         await log("  \(centersFilename)")
@@ -96,7 +96,7 @@ class ToolKmeans: ToolRunner {
     private func classifyRasters(
         outputDir: String,
         configuration: ToolKmeansConfiguration,
-        workspace: Workspace,
+        project: Project,
         context: ModelContext,
         total: Int,
         completed: inout Int
@@ -114,7 +114,7 @@ class ToolKmeans: ToolRunner {
             await update(ToolProgress(statusText: "Classifying: \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
             await log("[\(completed + 1)/\(total)] \(baseName)")
 
-            let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
+            let alreadyExists = project.resources.contains { $0.originalPath == outputPath }
             if !alreadyExists {
                 await log("  Classifying...")
                 try await runProcess(
@@ -134,7 +134,7 @@ class ToolKmeans: ToolRunner {
                     parents: [sourceResource],
                     pngPath: FileManager.default.fileExists(atPath: pngPath) ? pngPath : nil,
                     producedBy: configuration.id,
-                    workspace: workspace,
+                    project: project,
                     context: context
                 )
             }
@@ -147,7 +147,7 @@ class ToolKmeans: ToolRunner {
     private func generateMeanRaster(
         outputDir: String,
         configuration: ToolKmeansConfiguration,
-        workspace: Workspace,
+        project: Project,
         context: ModelContext
     ) async throws {
         let outputPath = "\(outputDir)/mean.tif"
@@ -157,7 +157,7 @@ class ToolKmeans: ToolRunner {
         await update(ToolProgress(statusText: "Generating mean raster", progress: progress.progress, progressText: progress.progressText))
         await log("Generating mean raster")
 
-        let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
+        let alreadyExists = project.resources.contains { $0.originalPath == outputPath }
         if !alreadyExists {
             await log("  Calculating mean...")
             let inputPaths = configuration.filesFit.map { $0.originalPath }
@@ -177,7 +177,7 @@ class ToolKmeans: ToolRunner {
                 parents: configuration.filesFit,
                 pngPath: FileManager.default.fileExists(atPath: pngPath) ? pngPath : nil,
                 producedBy: configuration.id,
-                workspace: workspace,
+                project: project,
                 context: context
             )
         }
@@ -188,7 +188,7 @@ class ToolKmeans: ToolRunner {
     private func generateDifferenceRasters(
         outputDir: String,
         configuration: ToolKmeansConfiguration,
-        workspace: Workspace,
+        project: Project,
         context: ModelContext
     ) async throws {
         let meanPath = "\(outputDir)/mean.tif"
@@ -206,7 +206,7 @@ class ToolKmeans: ToolRunner {
             let pngPath = outputPath.replacingOccurrences(of: ".tif", with: ".png")
             let outputFilename = URL(fileURLWithPath: outputPath).lastPathComponent
 
-            let alreadyExists = workspace.resources.contains { $0.originalPath == outputPath }
+            let alreadyExists = project.resources.contains { $0.originalPath == outputPath }
             if !alreadyExists {
                 await log("  \(dateLabel)...")
                 try await runProcess(
@@ -219,8 +219,8 @@ class ToolKmeans: ToolRunner {
                         arguments: ["-i", outputPath, "-o", pngPath]
                     )
                 }
-                let meanResource = workspace.resources.first { $0.originalPath == meanPath }
-                var parents: [WorkspaceResource] = [sourceResource]
+                let meanResource = project.resources.first { $0.originalPath == meanPath }
+                var parents: [ProjectResource] = [sourceResource]
                 if let mr = meanResource { parents.append(mr) }
                 makeResource(
                     path: outputPath,
@@ -229,7 +229,7 @@ class ToolKmeans: ToolRunner {
                     parents: parents,
                     pngPath: FileManager.default.fileExists(atPath: pngPath) ? pngPath : nil,
                     producedBy: configuration.id,
-                    workspace: workspace,
+                    project: project,
                     context: context
                 )
             }

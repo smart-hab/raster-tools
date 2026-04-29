@@ -9,10 +9,10 @@ import SwiftUI
 import SwiftData
 
 struct ResourcePickerView: View {
-    let workspace: Workspace
+    let project: Project
     let defaultKinds: Set<ResourceKind>
     let selectableKinds: Set<ResourceKind>
-    @Binding var selection: [WorkspaceResource]
+    @Binding var selection: [ProjectResource]
     var selectionMode: TableSelectionMode = .multi
     var initialSortOptionID: String? = nil
     var initialSortAscending: Bool = false
@@ -24,8 +24,8 @@ struct ResourcePickerView: View {
         Array(selectableKinds).sorted { $0.rawValue < $1.rawValue }
     }
 
-    private var selectableResources: [WorkspaceResource] {
-        workspace.resources.filter { selectableKinds.contains($0.kind) }
+    private var selectableResources: [ProjectResource] {
+        project.resources.filter { selectableKinds.contains($0.kind) }
     }
 
     var body: some View {
@@ -33,8 +33,8 @@ struct ResourcePickerView: View {
             ResourceTableView(
                 items: selectableResources,
                 itemID: \.id,
-                sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                filterOptions: TableFilterOption<WorkspaceResource>.forKinds(sortedKinds),
+                sortOptions: TableSortOption<ProjectResource>.allCases,
+                filterOptions: TableFilterOption<ProjectResource>.forKinds(sortedKinds),
                 selection: $selectionIDs,
                 initialSortOptionID: initialSortOptionID,
                 initialSortAscending: initialSortAscending
@@ -63,7 +63,7 @@ struct ResourcePickerView: View {
                 selectionIDs = added.isEmpty ? newIDs : added
                 return
             }
-            selection = workspace.resources.filter { newIDs.contains($0.id) }
+            selection = project.resources.filter { newIDs.contains($0.id) }
         }
     }
 }

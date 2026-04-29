@@ -1,5 +1,5 @@
 //
-//  WorkspaceDetailView.swift
+//  ProjectDetailView.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-21.
@@ -9,9 +9,9 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
-struct WorkspaceDetailView: View {
+struct ProjectDetailView: View {
     @Environment(\.modelContext) private var modelContext
-    @Bindable var workspace: Workspace
+    @Bindable var project: Project
 
     @State private var showingNewConfigSheet = false
     @State private var sourceSortID: String = "date"
@@ -21,8 +21,8 @@ struct WorkspaceDetailView: View {
 
     private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansCenters, .kmeansClassed, .kmeansMean, .kmeansDiff, .unknown]
 
-    private func resources(for kinds: Set<ResourceKind>, producedOnly: Bool = false) -> [WorkspaceResource] {
-        workspace.resources
+    private func resources(for kinds: Set<ResourceKind>, producedOnly: Bool = false) -> [ProjectResource] {
+        project.resources
             .filter { kinds.contains($0.kind) && (!producedOnly || $0.producedByConfigId != nil) }
             .sorted {
                 switch ($0.date, $1.date) {
@@ -37,15 +37,15 @@ struct WorkspaceDetailView: View {
     var body: some View {
         Form {
             Section("Project") {
-                TextField("Name", text: $workspace.name)
+                TextField("Name", text: $project.name)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                 LabeledContent("Source Dir") {
-                    FolderPathButton(path: workspace.sourceDirectory)
+                    FolderPathButton(path: project.sourceDirectory)
                 }
                 LabeledContent("Output Dir") {
                     Button {
-                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: workspace))
+                        NSWorkspace.shared.open(AppStorage.outputDirectory(for: project))
                     } label: {
                         Image(systemName: "folder")
                     }
@@ -79,12 +79,12 @@ struct WorkspaceDetailView: View {
                     HStack {
                         Spacer()
                         TableSorterView(
-                            options: TableSortOption<WorkspaceResource>.allCases,
+                            options: TableSortOption<ProjectResource>.allCases,
                             activeSortID: $sourceSortID,
                             ascending: $sourceSortAscending
                         )
                     }
-                    let activeSort = TableSortOption<WorkspaceResource>.allCases.first { $0.id == sourceSortID }
+                    let activeSort = TableSortOption<ProjectResource>.allCases.first { $0.id == sourceSortID }
                     let sorted = allSources.sorted { a, b in
                         sourceSortAscending
                             ? (activeSort?.comparator(a, b) ?? false)
@@ -97,17 +97,17 @@ struct WorkspaceDetailView: View {
             }
 
             // Outputs section
-            let allOutputs = resources(for: WorkspaceDetailView.outputKinds, producedOnly: true)
+            let allOutputs = resources(for: ProjectDetailView.outputKinds, producedOnly: true)
             let outputKinds = Array(Set(allOutputs.map(\.kind))).sorted { $0.rawValue < $1.rawValue }
             Section("Outputs") {
                 ResourceTableView(
                     items: allOutputs,
                     itemID: \.id,
-                    sortOptions: TableSortOption<WorkspaceResource>.allCases,
-                    filterOptions: TableFilterOption<WorkspaceResource>.forKinds(outputKinds),
+                    sortOptions: TableSortOption<ProjectResource>.allCases,
+                    filterOptions: TableFilterOption<ProjectResource>.forKinds(outputKinds),
                     selectionActions: [
-                        TableSelectionAction<WorkspaceResource>.gallery(request: $outputGalleryRequest),
-                        TableSelectionAction<WorkspaceResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
+                        TableSelectionAction<ProjectResource>.gallery(request: $outputGalleryRequest),
+                        TableSelectionAction<ProjectResource>.deleteOutput(context: modelContext, selectionIDs: $outputSelection)
                     ],
                     selection: $outputSelection,
                     initialSortOptionID: "kind",
@@ -121,7 +121,7 @@ struct WorkspaceDetailView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle(workspace.name)
+        .navigationTitle(project.name)
         .toolbar {
             ToolbarItem {
                 Button {
@@ -139,7 +139,7 @@ struct WorkspaceDetailView: View {
             }
         }
         .sheet(isPresented: $showingNewConfigSheet) {
-            ToolCreateSheet(defaultWorkspace: workspace) { _ in
+            ToolCreateSheet(defaultProject: project) { _ in
                 showingNewConfigSheet = false
             }
         }
@@ -158,7 +158,7 @@ struct WorkspaceDetailView: View {
                 guard fileExtension == "geojson" || fileExtension == "shp" else { return }
                 
                 let filename = url.lastPathComponent
-                let destinationPath = (workspace.sourceDirectory as NSString).appendingPathComponent(filename)
+                let destinationPath = (project.sourceDirectory as NSString).appendingPathComponent(filename)
                 let destinationURL = URL(fileURLWithPath: destinationPath)
                 
                 do {
@@ -180,40 +180,40 @@ struct WorkspaceDetailView: View {
     }
 
     private func refreshResources() {
-        let scanned = WorkspaceScanner.scan(directory: workspace.sourceDirectory)
+        let scanned = ProjectScanner.scan(directory: project.sourceDirectory)
 
-        var existingByPath: [String: WorkspaceResource] = [:]
-        for resource in workspace.resources where resource.originalPath.hasPrefix(workspace.sourceDirectory) {
+        var existingByPath: [String: ProjectResource] = [:]
+        for resource in project.resources where resource.originalPath.hasPrefix(project.sourceDirectory) {
             existingByPath[resource.originalPath] = resource
         }
 
         let scannedPaths = Set(scanned.map { $0.originalPath })
 
         for (path, resource) in existingByPath where !scannedPaths.contains(path) {
-            workspace.resources.removeAll { $0.id == resource.id }
+            project.resources.removeAll { $0.id == resource.id }
             modelContext.delete(resource)
         }
 
         for scannedResource in scanned {
             if existingByPath[scannedResource.originalPath] == nil {
-                scannedResource.workspace = workspace
+                scannedResource.project = project
                 modelContext.insert(scannedResource)
-                workspace.resources.append(scannedResource)
+                project.resources.append(scannedResource)
             } else if let existing = existingByPath[scannedResource.originalPath],
                       scannedResource.kind == .sourceRaster,
                       existing.udm == nil,
                       let scannedUDM = scannedResource.udm {
                 if let existingUDM = existingByPath[scannedUDM.originalPath] {
                     existing.udm = existingUDM
-                } else if workspace.resources.first(where: { $0.originalPath == scannedUDM.originalPath }) == nil {
-                    scannedUDM.workspace = workspace
+                } else if project.resources.first(where: { $0.originalPath == scannedUDM.originalPath }) == nil {
+                    scannedUDM.project = project
                     modelContext.insert(scannedUDM)
-                    workspace.resources.append(scannedUDM)
+                    project.resources.append(scannedUDM)
                     existing.udm = scannedUDM
                 }
             }
         }
 
-        workspace.modifiedAt = Date()
+        project.modifiedAt = Date()
     }
 }

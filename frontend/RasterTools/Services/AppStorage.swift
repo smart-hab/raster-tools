@@ -8,16 +8,16 @@
 import Foundation
 
 struct AppStorage {
-    /// Returns (and creates if needed) the output directory for a workspace.
+    /// Returns (and creates if needed) the output directory for a project.
     /// All tool-generated files are stored here, not in the source directory.
-    static func outputDirectory(for workspace: Workspace) -> URL {
+    static func outputDirectory(for project: Project) -> URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        // ~/Library/Application Support/RasterTools/outputs/{Workspace-UUID}/
+        // ~/Library/Application Support/RasterTools/outputs/{Project-UUID}/
         let dir = support
             .appendingPathComponent("RasterTools")
             .appendingPathComponent("outputs")
-            .appendingPathComponent(workspace.id.uuidString)
+            .appendingPathComponent(project.id.uuidString)
         try? FileManager.default.createDirectory(
             at: dir,
             withIntermediateDirectories: true
@@ -37,14 +37,14 @@ struct AppStorage {
         return dir
     }
 
-    static func outputDirectory(for workspace: Workspace, configuration: ToolConfiguration) -> URL {
+    static func outputDirectory(for project: Project, configuration: ToolConfiguration) -> URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        // ~/Library/Application Support/RasterTools/outputs/{Workspace-UUID}/{ToolConfiguration-UUID}/
+        // ~/Library/Application Support/RasterTools/outputs/{Project-UUID}/{ToolConfiguration-UUID}/
         let dir = support
             .appendingPathComponent("RasterTools")
             .appendingPathComponent("outputs")
-            .appendingPathComponent(workspace.id.uuidString)
+            .appendingPathComponent(project.id.uuidString)
             .appendingPathComponent(configuration.id.uuidString)
         try? FileManager.default.createDirectory(
             at: dir,

@@ -1,5 +1,5 @@
 //
-//  WorkspaceScanner.swift
+//  ProjectScanner.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-21.
@@ -8,12 +8,12 @@
 import Foundation
 import SwiftData
 
-struct WorkspaceScanner {
+struct ProjectScanner {
 
-    /// Scans a source directory and returns WorkspaceResource records.
+    /// Scans a source directory and returns ProjectResource records.
     /// Source rasters are paired with their UDM sibling when present.
     /// Does not write to disk or create symlinks.
-    static func scan(directory: String) -> [WorkspaceResource] {
+    static func scan(directory: String) -> [ProjectResource] {
         let fm = FileManager.default
         let dirURL = URL(fileURLWithPath: directory)
 
@@ -25,7 +25,7 @@ struct WorkspaceScanner {
             return []
         }
 
-        var resources: [WorkspaceResource] = []
+        var resources: [ProjectResource] = []
 
         for case let fileURL as URL in enumerator {
             guard (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else {
@@ -38,7 +38,7 @@ struct WorkspaceScanner {
             // Shape files: match by extension
             if ext == "geojson" || ext == "shp" {
                 let date = extractDate(from: fileURL)
-                let resource = WorkspaceResource(
+                let resource = ProjectResource(
                     originalPath: fileURL.path(percentEncoded: false),
                     filename: filename,
                     date: date,
@@ -53,7 +53,7 @@ struct WorkspaceScanner {
             // Metadata
             if filename == "composite_metadata.json" {
                 let date = extractDate(from: fileURL)
-                let resource = WorkspaceResource(
+                let resource = ProjectResource(
                     originalPath: fileURL.path(percentEncoded: false),
                     filename: filename,
                     date: date,
@@ -71,7 +71,7 @@ struct WorkspaceScanner {
             let dir = fileURL.deletingLastPathComponent()
             let date = extractDate(from: fileURL)
 
-            let source = WorkspaceResource(
+            let source = ProjectResource(
                 originalPath: fileURL.path(percentEncoded: false),
                 filename: filename,
                 date: date,
@@ -83,7 +83,7 @@ struct WorkspaceScanner {
             // Check for UDM sibling in the same directory
             let udmURL = dir.appendingPathComponent("composite_udm2.tif")
             if fm.fileExists(atPath: udmURL.path(percentEncoded: false)) {
-                let udm = WorkspaceResource(
+                let udm = ProjectResource(
                     originalPath: udmURL.path(percentEncoded: false),
                     filename: "composite_udm2.tif",
                     date: date,

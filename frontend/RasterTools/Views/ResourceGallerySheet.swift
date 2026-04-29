@@ -9,24 +9,24 @@ import SwiftUI
 
 struct GalleryRequest: Identifiable {
     let id = UUID()
-    let items: [WorkspaceResource]
+    let items: [ProjectResource]
     let initialIndex: Int
 }
 
 struct ResourceGallerySheet: View {
     @Environment(\.dismiss) private var dismiss
-    let items: [WorkspaceResource]
+    let items: [ProjectResource]
     let initialIndex: Int
 
     @State private var currentIndex: Int
 
-    init(items: [WorkspaceResource], initialIndex: Int = 0) {
+    init(items: [ProjectResource], initialIndex: Int = 0) {
         self.items = items
         self.initialIndex = initialIndex
         self._currentIndex = State(initialValue: initialIndex)
     }
 
-    private var current: WorkspaceResource? {
+    private var current: ProjectResource? {
         guard items.indices.contains(currentIndex) else { return nil }
         return items[currentIndex]
     }
@@ -145,7 +145,7 @@ struct ResourceGallerySheet: View {
     }
 
     @ViewBuilder
-    private func thumbnailView(for item: WorkspaceResource, index: Int) -> some View {
+    private func thumbnailView(for item: ProjectResource, index: Int) -> some View {
         let isActive = index == currentIndex
         Group {
             if let path = item.pngPath, let image = NSImage(contentsOfFile: path) {

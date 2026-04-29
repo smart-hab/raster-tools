@@ -49,7 +49,7 @@ struct TableSelectionAction<T>: Identifiable {
 // MARK: - Resource Table Row
 
 struct ResourceTableRow: View {
-    let resource: WorkspaceResource
+    let resource: ProjectResource
     var onDelete: (() -> Void)? = nil
     var isSelected: Bool? = nil
 
@@ -376,9 +376,9 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
     }
 }
 
-// MARK: - WorkspaceResource badges
+// MARK: - ProjectResource badges
 
-extension WorkspaceResource {
+extension ProjectResource {
     var tableBadges: [ResourceKind] {
         switch kind {
         case .sourceRaster: return [.sourceRaster] + (udm != nil ? [.udm] : [])
@@ -400,9 +400,9 @@ extension WorkspaceResource {
     }
 }
 
-// MARK: - WorkspaceResource Sort Options
+// MARK: - ProjectResource Sort Options
 
-extension TableSortOption where T == WorkspaceResource {
+extension TableSortOption where T == ProjectResource {
     static var date: Self {
         TableSortOption(
             id: "date",
@@ -453,9 +453,9 @@ extension TableSortOption where T == WorkspaceResource {
     static var allCases: [Self] { [.date, .kind, .size] }
 }
 
-// MARK: - WorkspaceResource Filter Options
+// MARK: - ProjectResource Filter Options
 
-extension TableFilterOption where T == WorkspaceResource {
+extension TableFilterOption where T == ProjectResource {
     static func forKinds(_ kinds: [ResourceKind]) -> [Self] {
         kinds.map { kind in
             TableFilterOption(
@@ -468,9 +468,9 @@ extension TableFilterOption where T == WorkspaceResource {
     }
 }
 
-// MARK: - WorkspaceResource Selection Actions
+// MARK: - ProjectResource Selection Actions
 
-extension TableSelectionAction where T == WorkspaceResource {
+extension TableSelectionAction where T == ProjectResource {
     static func gallery(request: Binding<GalleryRequest?>) -> Self {
         TableSelectionAction(
             id: "gallery",
@@ -484,7 +484,7 @@ extension TableSelectionAction where T == WorkspaceResource {
     }
 
     static func delete(
-        from collection: Binding<[WorkspaceResource]>,
+        from collection: Binding<[ProjectResource]>,
         selectionIDs: Binding<Set<UUID>>,
         touch: (() -> Void)? = nil
     ) -> Self {
@@ -522,11 +522,11 @@ extension TableSelectionAction where T == WorkspaceResource {
 
 // MARK: - Delete helper
 
-func deleteOutputResource(_ resource: WorkspaceResource, context: ModelContext) {
+func deleteOutputResource(_ resource: ProjectResource, context: ModelContext) {
     try? FileManager.default.removeItem(atPath: resource.originalPath)
     if let pngPath = resource.pngPath {
         try? FileManager.default.removeItem(atPath: pngPath)
     }
-    resource.workspace?.resources.removeAll { $0.id == resource.id }
+    resource.project?.resources.removeAll { $0.id == resource.id }
     context.delete(resource)
 }

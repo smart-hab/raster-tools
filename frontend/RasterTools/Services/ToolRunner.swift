@@ -102,15 +102,15 @@ extension ToolRunner {
         path: String,
         kind: ResourceKind,
         date: Date?,
-        parents: [WorkspaceResource],
+        parents: [ProjectResource],
         pngPath: String? = nil,
         producedBy: UUID,
-        workspace: Workspace,
+        project: Project,
         context: ModelContext
-    ) -> WorkspaceResource {
+    ) -> ProjectResource {
         let attrs = try? FileManager.default.attributesOfItem(atPath: path)
         let size = attrs?[.size] as? Int ?? 0
-        let r = WorkspaceResource(
+        let r = ProjectResource(
             originalPath: path,
             filename: URL(fileURLWithPath: path).lastPathComponent,
             date: date,
@@ -120,10 +120,10 @@ extension ToolRunner {
             pngPath: pngPath,
             parents: parents,
             producedByConfigId: producedBy,
-            workspace: workspace
+            project: project
         )
         context.insert(r)
-        workspace.resources.append(r)
+        project.resources.append(r)
         return r
     }
 }
