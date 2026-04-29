@@ -27,7 +27,7 @@ struct SidebarView: View {
                 }
                 Section("Projects") {
                     if projects.isEmpty {
-                        Text("No projects yet. Click + to add one.")
+                        Text("No projects yet. Use the Project menu to add one.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
@@ -90,6 +90,11 @@ struct SidebarProjectRow: View {
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
+            if project.allConfigurations.isEmpty {
+                Text("No configurations. Use the Project menu to add one.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             ForEach(project.allConfigurations, id: \.selection) { config, sel in
                 Label(config.name, systemImage: config.kind.iconName)
                     .tag(sel)
