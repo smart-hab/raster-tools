@@ -51,6 +51,7 @@ struct PlanetScene: Identifiable {
     let id: String
     let acquiredAt: Date
     let cloudCover: Double
+    let thumbnailURL: String?
 }
 
 struct PlanetSceneGroup: Identifiable {

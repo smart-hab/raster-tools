@@ -16,6 +16,7 @@ struct ToolCollectionView: View {
 
     @State private var searchError: String?
     @State private var sceneGroups: [PlanetSceneGroup] = []
+    @State private var previewGroup: PlanetSceneGroup?
 
     private var project: Project { configuration.project }
 
@@ -63,6 +64,9 @@ struct ToolCollectionView: View {
         }
         .formStyle(.grouped)
         .navigationTitle(configuration.name)
+        .sheet(item: $previewGroup) { group in
+            SceneGroupPreviewSheet(group: group, apiKey: AppSettings.shared.planetApiKey)
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -273,6 +277,8 @@ struct ToolCollectionView: View {
             ) { group, _ in
                 SceneGroupRow(group: group, status: configuration.orderStatus(for: group.date)) {
                     queueOrder(for: group)
+                } onPreview: {
+                    previewGroup = group
                 }
             }
         } header: {
@@ -351,6 +357,7 @@ private struct SceneGroupRow: View {
     let group: PlanetSceneGroup
     var status: OrderMemoryStatus? = nil
     let onQueue: () -> Void
+    let onPreview: () -> Void
 
     private func statusColor(_ status: OrderMemoryStatus?) -> Color {
         switch status {
@@ -365,9 +372,12 @@ private struct SceneGroupRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(group.date.displayString)
                     .fontWeight(.medium)
-                Text("\(group.scenes.count) scene\(group.scenes.count == 1 ? "" : "s") · \(Int(group.averageCloudCover * 100))% avg cloud cover")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Button(action: onPreview) {
+                    Text("\(group.scenes.count) scene\(group.scenes.count == 1 ? "" : "s") · \(Int(group.averageCloudCover * 100))% avg cloud cover")
+                        .font(.caption)
+                        .underline()
+                }
+                .buttonStyle(.plain)
             }
             Spacer()
             Text(status?.rawValue ?? "available")
@@ -388,6 +398,64 @@ private struct SceneGroupRow: View {
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Scene Group Preview Sheet
+
+private struct SceneGroupPreviewSheet: View {
+    let group: PlanetSceneGroup
+    let apiKey: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(group.date.displayString)
+                    .font(.headline)
+                Text("· \(group.scenes.count) scene\(group.scenes.count == 1 ? "" : "s")")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding()
+
+            Divider()
+
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                    ForEach(group.scenes) { scene in
+                        SceneThumbnailView(scene: scene, apiKey: apiKey)
+                    }
+                }
+                .padding()
+            }
+        }
+        .frame(minWidth: 520, minHeight: 400)
+    }
+}
+
+private struct SceneThumbnailView: View {
+    let scene: PlanetScene
+    let apiKey: String
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            RemoteImageView {
+                guard let url = scene.thumbnailURL else { throw PlanetAPIError.decodingError("No thumbnail URL") }
+                return try await PlanetAPI.fetchThumbnail(url: url, apiKey: apiKey)
+            }
+            .aspectRatio(1, contentMode: .fit)
+
+            Text(scene.id)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Text("\(Int(scene.cloudCover * 100))% cloud cover")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

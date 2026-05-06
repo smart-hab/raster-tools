@@ -281,6 +281,22 @@ struct PlanetAPI {
         return try JSONDecoder().decode([PlanetSubscription].self, from: data)
     }
 
+    // MARK: - Thumbnail
+
+    /// Fetch thumbnail image data using the URL from `_links.thumbnail` in the search response.
+    static func fetchThumbnail(url thumbnailURL: String, apiKey: String) async throws -> Data {
+        guard !apiKey.isEmpty else { throw PlanetAPIError.missingApiKey }
+        guard let url = URL(string: thumbnailURL) else {
+            throw PlanetAPIError.decodingError("Invalid thumbnail URL")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(basicAuthHeader(apiKey: apiKey), forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+        return data
+    }
+
     // MARK: - Helpers
 
     private static func basicAuthHeader(apiKey: String) -> String {
@@ -319,7 +335,8 @@ struct PlanetAPI {
                 let acquired = iso.date(from: acquiredStr) ?? isoBasic.date(from: acquiredStr)
             else { continue }
             let cloudCover = props["cloud_cover"] as? Double ?? 0.0
-            scenes.append(PlanetScene(id: id, acquiredAt: acquired, cloudCover: cloudCover))
+            let thumbnailURL = (feature["_links"] as? [String: Any])?["thumbnail"] as? String
+            scenes.append(PlanetScene(id: id, acquiredAt: acquired, cloudCover: cloudCover, thumbnailURL: thumbnailURL))
         }
 
         // Group by calendar day (UTC)
