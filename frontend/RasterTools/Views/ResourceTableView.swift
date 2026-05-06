@@ -326,7 +326,7 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
                         .buttonStyle(.plain)
                     }
                     Spacer()
-                    Text("\(selection.count) selected")
+                    Text(selection.isEmpty ? "\(items.count) items" : "\(selection.count) of \(items.count) selected")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .opacity(items.isEmpty ? 0 : 1)
