@@ -16,6 +16,7 @@ struct ProjectDetailView: View {
 
     @State private var outputSelection: Set<UUID> = []
     @State private var outputGalleryRequest: GalleryRequest?
+    @State private var showingNoShapeFileAlert = false
 
     private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansCenters, .kmeansClassed, .kmeansMean, .kmeansDiff, .unknown]
 
@@ -100,6 +101,11 @@ struct ProjectDetailView: View {
         }
         .formStyle(.grouped)
         .navigationTitle(project.name)
+        .alert("Import Shape Files Error", isPresented: $showingNoShapeFileAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("No shape files were given. Only *.shp and *.geojson files are supported.")
+        }
         .toolbar {
             ToolbarItem {
                 Button {
@@ -132,6 +138,8 @@ struct ProjectDetailView: View {
         group.notify(queue: .main) {
             if project.importShapeFiles(from: urls) {
                 project.refresh(context: modelContext)
+            } else {
+                showingNoShapeFileAlert = true
             }
         }
         return true
