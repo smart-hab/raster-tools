@@ -222,7 +222,7 @@ private struct SubscriptionRow: View {
 
 struct PlanetOrderRow: View {
     let order: PlanetOrderRecord
-    let isSelected: Bool
+    let isSelected: Bool?
     var isDownloaded: Bool = false
 
     private var status: PlanetOrderStatus {
@@ -252,7 +252,7 @@ struct PlanetOrderRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(Color.secondary.opacity(0.4))
                     .frame(width: 16)
-            } else {
+            } else if let isSelected {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .frame(width: 16)

@@ -178,7 +178,7 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
     var selectionActions: [TableSelectionAction<T>] = []
     @Binding var selection: Set<ID>
     var onAdd: (() -> Void)? = nil
-    let rowContent: (T, Bool) -> RowContent
+    let rowContent: (T, Bool?) -> RowContent
     let selectionMode: TableSelectionMode
 
     @State private var activeSortID: String
@@ -197,7 +197,7 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
         onAdd: (() -> Void)? = nil,
         initialSortOptionID: String? = nil,
         initialSortAscending: Bool = false,
-        @ViewBuilder rowContent: @escaping (T, Bool) -> RowContent
+        @ViewBuilder rowContent: @escaping (T, Bool?) -> RowContent
     ) {
         self.items = items
         self.itemID = itemID
@@ -221,7 +221,7 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
         filterOptions: [TableFilterOption<T>]? = nil,
         initialSortOptionID: String? = nil,
         initialSortAscending: Bool = false,
-        @ViewBuilder rowContent: @escaping (T, Bool) -> RowContent
+        @ViewBuilder rowContent: @escaping (T, Bool?) -> RowContent
     ) {
         self.items = items
         self.itemID = itemID
@@ -305,7 +305,7 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
                                     .padding(.top, 8)
                             }
                             ForEach(group.items, id: itemID) { item in
-                                rowContent(item, selectionMode != .none && selection.contains(item[keyPath: itemID]))
+                                rowContent(item, selectionMode != .none ? selection.contains(item[keyPath: itemID]) : nil)
                                     .onTapGesture {
                                         if selectionMode != .none {
                                             handleTap(item: item, orderedItems: orderedItems)

@@ -14,8 +14,6 @@ struct ProjectDetailView: View {
     @Bindable var project: Project
     let onAddConfiguration: () -> Void
 
-    @State private var sourceSortID: String = "date"
-    @State private var sourceSortAscending: Bool = false
     @State private var outputSelection: Set<UUID> = []
     @State private var outputGalleryRequest: GalleryRequest?
 
@@ -53,47 +51,27 @@ struct ProjectDetailView: View {
                 }
             }
 
-            // Shapes section
-            let shapes = resources(for: [.shapeFile])
-            Section("Shapes") {
-                if shapes.isEmpty {
-                    Text("No shape files found. Drag/drop files here to add them to the source directory.")
+            // Resources section
+            let allResources = resources(for: [.shapeFile, .sourceRaster])
+            Section("Resources") {
+                if allResources.isEmpty {
+                    Text("No resources found. Click Refresh to scan the source directory, or drag/drop shape files here.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(shapes, id: \.id) { resource in
-                        ResourceTableRow(resource: resource)
+                    ResourceTableView(
+                        items: allResources,
+                        itemID: \.id,
+                        sortOptions: TableSortOption<ProjectResource>.allCases,
+                        filterOptions: TableFilterOption<ProjectResource>.forKinds([.shapeFile, .sourceRaster, .udm]),
+                        initialSortOptionID: "kind",
+                        initialSortAscending: true
+                    ) { resource, isSelected in
+                        ResourceTableRow(resource: resource, isSelected: isSelected)
                     }
                 }
             }
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in
                 handleShapeFileDrop(providers: providers)
-            }
-
-            // Sources section
-            let allSources = resources(for: [.sourceRaster])
-            Section("Rasters") {
-                if allSources.isEmpty {
-                    Text("No sources found. Click Refresh to scan the source directory.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    HStack {
-                        Spacer()
-                        TableSorterView(
-                            options: TableSortOption<ProjectResource>.allCases,
-                            activeSortID: $sourceSortID,
-                            ascending: $sourceSortAscending
-                        )
-                    }
-                    let activeSort = TableSortOption<ProjectResource>.allCases.first { $0.id == sourceSortID }
-                    let sorted = allSources.sorted { a, b in
-                        sourceSortAscending
-                            ? (activeSort?.comparator(a, b) ?? false)
-                            : (activeSort?.comparator(b, a) ?? false)
-                    }
-                    ForEach(sorted, id: \.id) { resource in
-                        ResourceTableRow(resource: resource)
-                    }
-                }
             }
 
             // Outputs section
