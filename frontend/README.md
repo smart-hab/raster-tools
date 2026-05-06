@@ -70,7 +70,7 @@ The Collection tool searches Planet.com for available imagery within a date rang
 - [x] Search Planet.com imagery
 - [x] Save search parameters
 - [x] Place Planet.com orders
-- [] Remember ordered scenes
+- [ ] Remember ordered scenes
 
 ### Pre-processing Tools
 
@@ -92,7 +92,7 @@ The K-Means Clustering tool fits a K-Means model on a set of rasters, classifies
 - [x] Automatic PNG previews
 - [x] Batch processing
 - [x] Step-by-step progress
-- [] Automatic setup of Python virtual environment
+- [ ] Automatic setup of Python virtual environment
 
 
 ## How to use RasterTools
