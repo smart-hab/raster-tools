@@ -17,8 +17,14 @@ struct ProjectDetailView: View {
     @State private var outputSelection: Set<UUID> = []
     @State private var outputGalleryRequest: GalleryRequest?
     @State private var showingNoShapeFileAlert = false
+    @State private var logFiles: [URL] = []
+    @State private var selectedLog: LogSelection?
 
     private static let outputKinds: Set<ResourceKind> = [.masked, .clipped, .ndvi, .ndci, .kmeansCenters, .kmeansClassed, .kmeansMean, .kmeansDiff, .unknown]
+
+    private func loadLogFiles() {
+        logFiles = LogViewerSheet.loadLogFiles(for: project)
+    }
 
     private func resources(for kinds: Set<ResourceKind>, producedOnly: Bool = false) -> [ProjectResource] {
         project.resources
@@ -98,9 +104,33 @@ struct ProjectDetailView: View {
                     ResourceGallerySheet(items: request.items, initialIndex: request.initialIndex)
                 }
             }
+
+            // Logs section
+            Section("Logs") {
+                if logFiles.isEmpty {
+                    Text("No logs yet.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    let grouped = LogViewerSheet.groupedLogs(from: logFiles)
+                    ForEach(grouped, id: \.0) { name, urls in
+                        Section(name) {
+                            ForEach(urls, id: \.self) { url in
+                                Button(url.lastPathComponent) {
+                                    selectedLog = LogSelection(url: url)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            .sheet(item: $selectedLog) { sel in
+                LogViewerSheet(url: sel.url)
+            }
         }
         .formStyle(.grouped)
         .navigationTitle(project.name)
+        .onAppear { loadLogFiles() }
         .alert("Import Shape Files Error", isPresented: $showingNoShapeFileAlert) {
             Button("OK", role: .cancel) {}
         } message: {

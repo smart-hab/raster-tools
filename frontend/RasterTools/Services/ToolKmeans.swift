@@ -13,8 +13,8 @@ class ToolKmeans: ToolRunner {
 
     func run(configuration: ToolKmeansConfiguration, context: ModelContext) async throws {
         let project = configuration.project
+        logFile = AppStorage.outputDirectory(for: project).appendingPathComponent("\(configuration.name)-\(generateTimestamp()).log")
         let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration)
-        logFile = outputDir.appendingPathComponent("\(configuration.name)-\(generateTimestamp()).log")
         let total = 1 + configuration.filesClassify.count
         await MainActor.run {
             isRunning = true
