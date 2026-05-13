@@ -18,6 +18,8 @@ class ToolPreprocess: ToolRunner {
         }
 
         let total = configuration.files.count
+        let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration)
+        logFile = outputDir.appendingPathComponent("\(configuration.name)-\(generateTimestamp()).log")
         await MainActor.run {
             isRunning = true
             progress = ToolProgress(statusText: "Starting preprocessing", progress: 0, progressText: "0 / \(total)")
@@ -27,7 +29,7 @@ class ToolPreprocess: ToolRunner {
 
         do {
             let shapeFilePath = shapeFileResource.originalPath
-            let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration).path
+            let outputDir = outputDir.path
 
             guard FileManager.default.fileExists(atPath: shapeFilePath) else {
                 throw ToolError.fileNotFound(shapeFilePath)

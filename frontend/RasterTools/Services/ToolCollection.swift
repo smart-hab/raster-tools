@@ -32,6 +32,8 @@ final class ToolCollection: ToolRunner {
     @MainActor
     func startCollection(configName: String, sceneGroup: PlanetSceneGroup) {
         error = nil
+        let outputDir = AppStorage.outputDirectory(for: configuration.project)
+        logFile = outputDir.appendingPathComponent("\(configName)-\(generateTimestamp()).log")
         collectionTask = Task { @MainActor in
             defer { collectionTask = nil }
 

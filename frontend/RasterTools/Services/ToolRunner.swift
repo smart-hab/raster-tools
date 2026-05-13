@@ -22,7 +22,8 @@ class ToolRunner {
     var isRunning = false
     var progress = ToolProgress(statusText: "", progress: 0, progressText: nil)
     var error: Error?
-    
+    var logFile: URL? = nil
+
     private var currentProcess: Process?
     
     func cancel() {
@@ -89,6 +90,28 @@ class ToolRunner {
         await MainActor.run {
             progress.logs.append(text)
             print("🔧 \(text)")
+        }
+        appendToLogFile(text)
+    }
+
+    func generateTimestamp() -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
+        return f.string(from: Date()).replacingOccurrences(of: ":", with: "-")
+    }
+
+    private func appendToLogFile(_ text: String) {
+        guard let url = logFile else { return }
+        let line = text + "\n"
+        guard let data = line.data(using: .utf8) else { return }
+        if FileManager.default.fileExists(atPath: url.path) {
+            if let handle = try? FileHandle(forWritingTo: url) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                try? handle.close()
+            }
+        } else {
+            try? data.write(to: url, options: .atomic)
         }
     }
 }
