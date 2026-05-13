@@ -62,8 +62,14 @@ struct PlanetAPI {
         request.setValue(basicAuthHeader(apiKey: apiKey), forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
+        if let bodyData = request.httpBody {
+            printJSON("quickSearch request", bodyData)
+        }
+
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
+
+        printJSON("quickSearch response", data)
 
         return try parseSceneGroups(from: data)
     }
@@ -275,9 +281,7 @@ struct PlanetAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
 
-        if let raw = String(data: data, encoding: .utf8) {
-            print("[PlanetAPI] listSubscriptions response: \(raw)")
-        }
+        printJSON("listSubscriptions response", data)
         return try JSONDecoder().decode([PlanetSubscription].self, from: data)
     }
 
@@ -299,6 +303,16 @@ struct PlanetAPI {
 
     // MARK: - Helpers
 
+    private static func printJSON(_ label: String, _ data: Data) {
+        guard let obj = try? JSONSerialization.jsonObject(with: data),
+              let pretty = try? JSONSerialization.data(withJSONObject: obj, options: .prettyPrinted)
+        else {
+            print("[PlanetAPI] \(label): failed to serialize JSON")
+            return
+        }
+        print("[PlanetAPI] \(label):\n\(String(decoding: pretty, as: UTF8.self))")
+    }
+
     private static func basicAuthHeader(apiKey: String) -> String {
         let credentials = "\(apiKey):"
         let encoded = Data(credentials.utf8).base64EncodedString()
@@ -306,7 +320,9 @@ struct PlanetAPI {
     }
 
     private static func checkResponse(_ response: URLResponse, data: Data) throws {
-        guard let http = response as? HTTPURLResponse else { return }
+        guard let http = response as? HTTPURLResponse else {
+            throw PlanetAPIError.invalidResponse
+        }
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
             throw PlanetAPIError.httpError(http.statusCode, body)

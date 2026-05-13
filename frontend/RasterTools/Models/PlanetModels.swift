@@ -163,6 +163,7 @@ enum PlanetAPIError: LocalizedError {
     case httpError(Int, String)
     case decodingError(String)
     case missingShapeFile
+    case invalidResponse
 
     var errorDescription: String? {
         switch self {
@@ -171,6 +172,7 @@ enum PlanetAPIError: LocalizedError {
         case .httpError(let code, let msg): return "Planet API error \(code): \(msg)"
         case .decodingError(let msg): return "Failed to decode Planet response: \(msg)"
         case .missingShapeFile: return "No shape file selected."
+        case .invalidResponse: return "Received an unexpected non-HTTP response from Planet API."
         }
     }
 }
