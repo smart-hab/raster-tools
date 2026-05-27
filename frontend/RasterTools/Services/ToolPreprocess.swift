@@ -19,9 +19,9 @@ class ToolPreprocess: ToolRunner {
 
         let total = configuration.files.count
         let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration)
-        logFile = AppStorage.outputDirectory(for: project).appendingPathComponent("\(configuration.name)-\(generateTimestamp()).log")
         await MainActor.run {
             isRunning = true
+            logFile = AppStorage.outputDirectory(for: project).appendingPathComponent("\(configuration.name)-\(generateTimestamp()).log")
             progress = ToolProgress(statusText: "Starting preprocessing", progress: 0, progressText: "0 / \(total)")
         }
         await log("[0/\(total)] Starting processing...")

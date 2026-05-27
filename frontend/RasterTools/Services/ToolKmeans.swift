@@ -13,11 +13,11 @@ class ToolKmeans: ToolRunner {
 
     func run(configuration: ToolKmeansConfiguration, context: ModelContext) async throws {
         let project = configuration.project
-        logFile = AppStorage.outputDirectory(for: project).appendingPathComponent("\(configuration.name)-\(generateTimestamp()).log")
         let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration)
         let total = 1 + configuration.filesClassify.count
         await MainActor.run {
             isRunning = true
+            logFile = AppStorage.outputDirectory(for: project).appendingPathComponent("\(configuration.name)-\(generateTimestamp()).log")
             progress = ToolProgress(statusText: "Starting K-Means", progress: 0, progressText: "0 / \(total)")
         }
         await log("[0/\(total)] Starting K-Means...")
