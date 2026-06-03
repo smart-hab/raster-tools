@@ -9,7 +9,6 @@ import SwiftUI
 
 struct ToolCollectionView: View {
     @Bindable var configuration: ToolCollectionConfiguration
-    @Environment(JobRegistry.self) private var registry
 
     @State private var showingShapePicker = false
     @State private var isSearching = false
@@ -275,8 +274,16 @@ struct ToolCollectionView: View {
                 initialSortOptionID: "date",
                 initialSortAscending: false
             ) { group, _ in
-                SceneGroupRow(group: group, status: configuration.orderStatus(for: group.date)) {
+                SceneGroupRow(
+                    group: group,
+                    status: configuration.orderStatus(for: group.date),
+                    countdown: OrderQueue.shared.countdown(for: configuration.orderMemoryKey(for: group.date))
+                ) {
                     queueOrder(for: group)
+                } onCancel: {
+                    cancelOrder(for: group)
+                } onFastForward: {
+                    OrderQueue.shared.fastForward(configuration: configuration, date: group.date)
                 } onPreview: {
                     previewGroup = group
                 }
@@ -286,14 +293,7 @@ struct ToolCollectionView: View {
                 Text("Search Results (\(sceneGroups.count) days)")
                 Spacer()
                 Button("Reset Memory") {
-                    var rebuilt: [String: String] = [:]
-                    for job in registry.jobs {
-                        if let runner = job.runner as? ToolCollection, runner.isRunning {
-                            let key = configuration.orderMemoryKey(for: runner.date)
-                            rebuilt[key] = OrderMemoryStatus.queued.rawValue
-                        }
-                    }
-                    configuration.orderMemory = rebuilt
+                    OrderQueue.shared.resetMemory(for: configuration)
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -342,12 +342,11 @@ struct ToolCollectionView: View {
     }
 
     private func queueOrder(for group: PlanetSceneGroup) {
-        let projectName = project.name
-        let configName = configuration.name
-        let runner = ToolCollection(date: group.date, configuration: configuration, projectName: projectName)
-        let dateLabel = group.date.displayString
-        registry.register(runner: runner, configName: "\(configName) / \(dateLabel)", projectName: projectName)
-        runner.startCollection(configName: configName, sceneGroup: group)
+        OrderQueue.shared.queue(configuration: configuration, sceneGroup: group)
+    }
+
+    private func cancelOrder(for group: PlanetSceneGroup) {
+        OrderQueue.shared.cancel(configuration: configuration, date: group.date)
     }
 }
 
@@ -356,8 +355,20 @@ struct ToolCollectionView: View {
 private struct SceneGroupRow: View {
     let group: PlanetSceneGroup
     var status: OrderMemoryStatus? = nil
+    var countdown: Int? = nil
     let onQueue: () -> Void
+    let onCancel: () -> Void
+    let onFastForward: () -> Void
     let onPreview: () -> Void
+
+    private var statusLabel: String {
+        if status == .queued, let secs = countdown {
+            let m = secs / 60
+            let s = secs % 60
+            return String(format: "queued %d:%02d", m, s)
+        }
+        return status?.rawValue ?? "available"
+    }
 
     private func statusColor(_ status: OrderMemoryStatus?) -> Color {
         switch status {
@@ -380,7 +391,7 @@ private struct SceneGroupRow: View {
                 .buttonStyle(.plain)
             }
             Spacer()
-            Text(status?.rawValue ?? "available")
+            Text(statusLabel)
                 .font(.caption2)
                 .fontWeight(.medium)
                 .padding(.horizontal, 6)
@@ -388,13 +399,28 @@ private struct SceneGroupRow: View {
                 .background(statusColor(status).opacity(0.15))
                 .foregroundStyle(statusColor(status))
                 .clipShape(Capsule())
-            Button(action: onQueue) {
-                Image(systemName: "square.and.arrow.down.badge.clock")
-                    .foregroundStyle(.secondary)
+            switch status {
+            case nil:
+                Button(action: onQueue) {
+                    Image(systemName: "square.and.arrow.down.badge.clock")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            case .queued:
+                Button(action: onFastForward) {
+                    Image(systemName: "forward.end")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled((countdown ?? 0) <= 5)
+                Button(action: onCancel) {
+                    Image(systemName: "xmark.circle")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            case .ordered:
+                EmptyView()
             }
-            .buttonStyle(.plain)
-            .disabled(status != nil)
-            .opacity(status != nil ? 0.35 : 1.0)
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())

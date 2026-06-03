@@ -29,7 +29,7 @@ final class ToolCollectionConfiguration: ToolConfiguration {
     var harmonized: Bool
     var composite: Bool
 
-    var orderMemory: [String: String]
+    var orderEntries: [String: OrderMemoryEntry]
 
     init(name: String, project: Project) {
         self.id = UUID()
@@ -51,7 +51,7 @@ final class ToolCollectionConfiguration: ToolConfiguration {
         self.productBundle = PlanetProductBundle.analytic8bSrUdm2.rawValue
         self.harmonized = true
         self.composite = true
-        self.orderMemory = [:]
+        self.orderEntries = [:]
     }
 
     func touch() {
@@ -64,7 +64,24 @@ final class ToolCollectionConfiguration: ToolConfiguration {
         return "\(sf)|\(itemType)|\(productBundle)|\(harmonized)|\(composite)|\(dateStr)"
     }
 
-    func orderStatus(for date: Date) -> OrderMemoryStatus? {
-        orderMemory[orderMemoryKey(for: date)].flatMap(OrderMemoryStatus.init)
+    func orderEntry(for date: Date) -> OrderMemoryEntry? {
+        orderEntries[orderMemoryKey(for: date)]
     }
+
+    func setOrderEntry(_ entry: OrderMemoryEntry, for date: Date) {
+        orderEntries[orderMemoryKey(for: date)] = entry
+    }
+
+    func removeOrderEntry(for date: Date) {
+        orderEntries.removeValue(forKey: orderMemoryKey(for: date))
+    }
+
+    func orderStatus(for date: Date) -> OrderMemoryStatus? {
+        orderEntry(for: date)?.status
+    }
+}
+
+struct OrderMemoryEntry: Codable {
+    var status: OrderMemoryStatus
+    var orderId: String?
 }
