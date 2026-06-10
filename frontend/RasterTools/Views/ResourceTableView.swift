@@ -178,7 +178,8 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
     var selectionActions: [TableSelectionAction<T>] = []
     @Binding var selection: Set<ID>
     var onAdd: (() -> Void)? = nil
-    let rowContent: (T, Bool?) -> RowContent
+    let disableSelection: (T) -> Bool
+    let rowContent: (T, Bool) -> RowContent
     let selectionMode: TableSelectionMode
 
     @State private var activeSortID: String
@@ -195,9 +196,10 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
         selectionActions: [TableSelectionAction<T>] = [],
         selection: Binding<Set<ID>>,
         onAdd: (() -> Void)? = nil,
+        disableSelection: @escaping (T) -> Bool = { _ in false },
         initialSortOptionID: String? = nil,
         initialSortAscending: Bool = false,
-        @ViewBuilder rowContent: @escaping (T, Bool?) -> RowContent
+        @ViewBuilder rowContent: @escaping (T, Bool) -> RowContent
     ) {
         self.items = items
         self.itemID = itemID
@@ -206,6 +208,7 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
         self.selectionActions = selectionActions
         self._selection = selection
         self.onAdd = onAdd
+        self.disableSelection = disableSelection
         self.rowContent = rowContent
         self.selectionMode = .multi
         self._activeSortID = State(initialValue: initialSortOptionID ?? sortOptions.first?.id ?? "")
@@ -219,9 +222,10 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
         itemID: KeyPath<T, ID>,
         sortOptions: [TableSortOption<T>],
         filterOptions: [TableFilterOption<T>]? = nil,
+        onAdd: (() -> Void)? = nil,
         initialSortOptionID: String? = nil,
         initialSortAscending: Bool = false,
-        @ViewBuilder rowContent: @escaping (T, Bool?) -> RowContent
+        @ViewBuilder rowContent: @escaping (T, Bool) -> RowContent
     ) {
         self.items = items
         self.itemID = itemID
@@ -229,7 +233,8 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
         self.filterOptions = filterOptions
         self.selectionActions = []
         self._selection = .constant(.init())
-        self.onAdd = nil
+        self.onAdd = onAdd
+        self.disableSelection = { _ in false }
         self.rowContent = rowContent
         self.selectionMode = .none
         self._activeSortID = State(initialValue: initialSortOptionID ?? sortOptions.first?.id ?? "")
@@ -305,9 +310,9 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
                                     .padding(.top, 8)
                             }
                             ForEach(group.items, id: itemID) { item in
-                                rowContent(item, selectionMode != .none ? selection.contains(item[keyPath: itemID]) : nil)
+                                rowContent(item, selectionMode != .none && selection.contains(item[keyPath: itemID]))
                                     .onTapGesture {
-                                        if selectionMode != .none {
+                                        if selectionMode != .none && !disableSelection(item) {
                                             handleTap(item: item, orderedItems: orderedItems)
                                         }
                                     }
@@ -317,20 +322,20 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
                 }
             }
 
-            if selectionMode != .none {
-                HStack {
-                    if let onAdd {
-                        Button { onAdd() } label: {
-                            Image(systemName: "plus")
-                        }
-                        .buttonStyle(.plain)
+            HStack {
+                if let onAdd {
+                    Button { onAdd() } label: {
+                        Image(systemName: "plus")
                     }
-                    Spacer()
-                    Text(selection.isEmpty ? "\(items.count) items" : "\(selection.count) of \(items.count) selected")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .opacity(items.isEmpty ? 0 : 1)
-                    Spacer()
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+                Text(selectionMode != .none && !selection.isEmpty ? "\(selection.count) of \(items.count) selected" : "\(items.count) items")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .opacity(items.isEmpty ? 0 : 1)
+                Spacer()
+                if selectionMode != .none {
                     ForEach(selectionActions) { action in
                         Button {
                             action.action(selectedItems)
@@ -351,8 +356,8 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.vertical, 6)
             }
+            .padding(.vertical, 6)
         }
     }
 

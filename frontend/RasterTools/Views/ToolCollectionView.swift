@@ -12,10 +12,14 @@ struct ToolCollectionView: View {
 
     @State private var showingShapePicker = false
     @State private var isSearching = false
+    @State private var showingAddOrder = false
+    @State private var orderMemorySelection: Set<String> = []
 
     @State private var searchError: String?
     @State private var sceneGroups: [PlanetSceneGroup] = []
     @State private var previewGroup: PlanetSceneGroup?
+
+    private let planetCache = PlanetCache.shared
 
     private var project: Project { configuration.project }
 
@@ -60,11 +64,15 @@ struct ToolCollectionView: View {
             if !sceneGroups.isEmpty {
                 searchResultsSection
             }
+            orderMemorySection
         }
         .formStyle(.grouped)
         .navigationTitle(configuration.name)
         .sheet(item: $previewGroup) { group in
             SceneGroupPreviewSheet(group: group, apiKey: AppSettings.shared.planetApiKey)
+        }
+        .sheet(isPresented: $showingAddOrder) {
+            AddOrderSheet(configuration: configuration)
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -289,16 +297,88 @@ struct ToolCollectionView: View {
                 }
             }
         } header: {
-            HStack {
-                Text("Search Results (\(sceneGroups.count) days)")
-                Spacer()
-                Button("Reset Memory") {
-                    OrderQueue.shared.resetMemory(for: configuration)
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .buttonStyle(.plain)
+            Text("Search Results")
+        }
+    }
+
+    // MARK: - Order Memory
+
+    private var orderMemoryItems: [PlanetOrderRecord] {
+        configuration.orderEntries.map { key, entry in
+            if let orderId = entry.orderId, let record = planetCache.cache[orderId] {
+                return record
             }
+            // Synthesize a stub for queued (no orderId yet) or unresolved entries
+            let dateStr = key.components(separatedBy: "|").last ?? key
+            let date = Date.utcFormatter.date(from: dateStr) ?? Date()
+            let status = entry.orderId == nil ? OrderMemoryStatus.queued.rawValue : PlanetOrderStatus.unknown.rawValue
+            let id = entry.orderId ?? key
+            return PlanetOrderRecord(id: id, name: dateStr, date: date, status: status, createdAt: date)
+        }
+    }
+
+    private var orderMemoryIds: [String] {
+        configuration.orderEntries.values.compactMap(\.orderId)
+    }
+
+    @ViewBuilder
+    private var orderMemorySection: some View {
+        Section {
+            ResourceTableView(
+                items: orderMemoryItems,
+                itemID: \.id,
+                sortOptions: [
+                    TableSortOption(
+                        id: "date",
+                        label: "Date",
+                        comparator: { $0.date < $1.date },
+                        groupLabel: { order in
+                            let f = DateFormatter()
+                            f.dateFormat = "yyyy"
+                            return f.string(from: order.date)
+                        }
+                    ),
+                    TableSortOption(
+                        id: "status",
+                        label: "Status",
+                        comparator: { $0.status < $1.status },
+                        groupLabel: { PlanetOrderStatus(rawValue: $0.status)?.displayName ?? $0.status.capitalized }
+                    )
+                ],
+                filterOptions: PlanetOrderStatus.allCases.map { status in
+                    TableFilterOption(
+                        id: status.rawValue,
+                        label: status.displayName,
+                        color: status.color,
+                        test: { $0.status == status.rawValue }
+                    )
+                },
+                selectionActions: [
+                    TableSelectionAction<PlanetOrderRecord>(
+                        id: "remove",
+                        icon: "trash",
+                        isEnabled: { !$0.isEmpty },
+                        action: { selected in
+                            removeFromMemory(selected)
+                        }
+                    )
+                ],
+                selection: $orderMemorySelection,
+                onAdd: { showingAddOrder = true },
+                initialSortOptionID: "date",
+                initialSortAscending: false
+            ) { order, isSelected in
+                OrderMemoryRow(order: order, isSelected: isSelected)
+            }
+            .task(id: orderMemoryIds.sorted().joined()) {
+                await withTaskGroup(of: Void.self) { group in
+                    for id in orderMemoryIds {
+                        group.addTask { await planetCache.getOrder(id) }
+                    }
+                }
+            }
+        } header: {
+            Text("Order Memory")
         }
     }
 
@@ -339,6 +419,11 @@ struct ToolCollectionView: View {
                 }
             }
         }
+    }
+
+    private func removeFromMemory(_ records: [PlanetOrderRecord]) {
+        OrderQueue.shared.resetMemory(for: configuration, recordIds: Set(records.map(\.id)))
+        orderMemorySelection = []
     }
 
     private func queueOrder(for group: PlanetSceneGroup) {
@@ -484,6 +569,161 @@ private struct SceneThumbnailView: View {
         }
     }
 }
+
+// MARK: - Order Memory Row
+
+struct OrderMemoryRow: View {
+    let order: PlanetOrderRecord
+    var isSelected: Bool = false
+    var isSelectionDisabled: Bool = false
+
+    private var status: PlanetOrderStatus {
+        PlanetOrderStatus(rawValue: order.status) ?? .unknown
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: "calendar")
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(order.date.displayString)
+                    .fontWeight(.medium)
+                Text(order.name)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            BadgeCapsule(label: status.displayName, color: status.color)
+
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(
+                    isSelectionDisabled
+                        ? Color.secondary.opacity(0.4)
+                        : (isSelected ? Color.accentColor : Color.secondary)
+                )
+                .frame(width: 16)
+        }
+        .padding(.vertical, 3)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Add Order Sheet
+
+struct AddOrderSheet: View {
+    let configuration: ToolCollectionConfiguration
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var orders: [PlanetOrderRecord] = []
+    @State private var selection: Set<String> = []
+    @State private var isLoading = false
+    @State private var error: String?
+
+    private var memorizedOrderIds: Set<String> {
+        Set(configuration.orderEntries.values.compactMap(\.orderId))
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let error {
+                ContentUnavailableView(
+                    "Could Not Load Orders",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(error)
+                )
+            } else if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ResourceTableView(
+                    items: orders,
+                    itemID: \.id,
+                    sortOptions: [
+                        TableSortOption(
+                            id: "date",
+                            label: "Date",
+                            comparator: { $0.date < $1.date },
+                            groupLabel: { order in
+                                let f = DateFormatter()
+                                f.dateFormat = "yyyy"
+                                return f.string(from: order.date)
+                            }
+                        ),
+                        TableSortOption(
+                            id: "status",
+                            label: "Status",
+                            comparator: { $0.status < $1.status },
+                            groupLabel: { PlanetOrderStatus(rawValue: $0.status)?.displayName ?? $0.status.capitalized }
+                        )
+                    ],
+                    filterOptions: PlanetOrderStatus.allCases.map { status in
+                        TableFilterOption(
+                            id: status.rawValue,
+                            label: status.displayName,
+                            color: status.color,
+                            test: { $0.status == status.rawValue }
+                        )
+                    },
+                    selection: $selection,
+                    disableSelection: { memorizedOrderIds.contains($0.id) },
+                    initialSortOptionID: "date",
+                    initialSortAscending: false
+                ) { order, isSelected in
+                    OrderMemoryRow(order: order, isSelected: isSelected, isSelectionDisabled: memorizedOrderIds.contains(order.id))
+                }
+                .padding()
+            }
+
+            Divider()
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                let newCount = selection.subtracting(memorizedOrderIds).count
+                Button(newCount > 0 ? "Add \(newCount) to Memory" : "Add to Memory") {
+                    addToMemory()
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(selection.subtracting(memorizedOrderIds).isEmpty)
+            }
+            .padding()
+        }
+        .frame(minWidth: 800, minHeight: 550)
+        .task { await fetchOrders() }
+    }
+
+    private func fetchOrders() async {
+        isLoading = true
+        error = nil
+        do {
+            let fetched = try await PlanetAPI.listOrders(apiKey: AppSettings.shared.planetApiKey)
+            orders = fetched
+            selection = memorizedOrderIds.intersection(fetched.map(\.id))
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    private func addToMemory() {
+        let newIds = selection.subtracting(memorizedOrderIds)
+        let orderById = Dictionary(uniqueKeysWithValues: orders.map { ($0.id, $0) })
+        for id in newIds {
+            guard let order = orderById[id] else { continue }
+            let key = configuration.orderMemoryKey(for: order.date)
+            configuration.orderEntries[key] = OrderMemoryEntry(status: .ordered, orderId: order.id)
+        }
+        configuration.touch()
+    }
+}
+
 
 // MARK: - PlanetSceneGroup Sort Options
 

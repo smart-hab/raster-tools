@@ -114,4 +114,18 @@ final class OrderQueue {
         }
         configuration.orderEntries = [:]
     }
+
+    /// Cancels in-flight tasks and removes entries for the given record IDs.
+    /// Each record ID is either a Planet order ID or a composite memory key (for queued items).
+    func resetMemory(for configuration: ToolCollectionConfiguration, recordIds: Set<String>) {
+        let keysToRemove = configuration.orderEntries.filter { key, entry in
+            recordIds.contains(entry.orderId ?? key)
+        }.map(\.key)
+        for key in keysToRemove {
+            tasks[key]?.cancel()
+            tasks.removeValue(forKey: key)
+            configuration.orderEntries.removeValue(forKey: key)
+        }
+        configuration.touch()
+    }
 }

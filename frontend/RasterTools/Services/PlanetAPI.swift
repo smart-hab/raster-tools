@@ -79,7 +79,7 @@ struct PlanetOrderRequest {
 
 // MARK: - Persistent Order Record (stored in SwiftData)
 
-struct PlanetOrderRecord: Codable, Identifiable {
+struct PlanetOrderRecord: Codable, Identifiable, Hashable {
     var id: String           // Planet order ID
     var name: String
     var date: Date           // the scene date this order represents
@@ -394,6 +394,46 @@ struct PlanetAPI {
             throw PlanetAPIError.decodingError("Missing 'state' in order response")
         }
         return PlanetOrderStatus(rawValue: stateStr) ?? .unknown
+    }
+
+    // MARK: - Get Order Record
+
+    /// Fetch a single order by ID and return a full PlanetOrderRecord.
+    static func getOrderRecord(id: String, apiKey: String) async throws -> PlanetOrderRecord {
+        guard !apiKey.isEmpty else { throw PlanetAPIError.missingApiKey }
+
+        let url = URL(string: "https://api.planet.com/compute/ops/orders/v2/\(id)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(basicAuthHeader(apiKey: apiKey), forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let name = json["name"] as? String,
+              let state = json["state"] as? String,
+              let createdStr = json["created_on"] as? String
+        else {
+            throw PlanetAPIError.decodingError("Missing fields in order response")
+        }
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoBasic = ISO8601DateFormatter()
+        isoBasic.formatOptions = [.withInternetDateTime]
+        let createdAt = iso.date(from: createdStr) ?? isoBasic.date(from: createdStr) ?? Date()
+
+        // Parse the scene capture date from the YYYYMMDD segment in the order name (e.g. "ConfigName-20260205-Parameters")
+        let yyyymmdd = DateFormatter()
+        yyyymmdd.dateFormat = "yyyyMMdd"
+        yyyymmdd.timeZone = TimeZone(identifier: "UTC")
+        let date = name.components(separatedBy: "-")
+            .compactMap { yyyymmdd.date(from: $0) }
+            .first ?? createdAt
+
+        return PlanetOrderRecord(id: id, name: name, date: date, status: state, createdAt: createdAt)
     }
 
     // MARK: - Order Results (Download URLs)
