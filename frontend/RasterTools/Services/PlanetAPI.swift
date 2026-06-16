@@ -80,11 +80,58 @@ struct PlanetOrderRequest {
 // MARK: - Persistent Order Record (stored in SwiftData)
 
 struct PlanetOrderRecord: Codable, Identifiable, Hashable {
-    var id: String           // Planet order ID
+    var id: String
     var name: String
-    var date: Date           // the scene date this order represents
+    var date: Date           // scene capture date, parsed from order name (YYYYMMDD segment)
     var status: String       // last known PlanetOrderStatus raw value
     var createdAt: Date
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name
+        case status = "state"
+        case createdAt = "created_on"
+    }
+
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoBasicFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    private static let yyyymmddFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd"
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    init(id: String, name: String, date: Date, status: String, createdAt: Date) {
+        self.id = id; self.name = name; self.date = date; self.status = status; self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id     = try c.decode(String.self, forKey: .id)
+        name   = try c.decode(String.self, forKey: .name)
+        status = try c.decode(String.self, forKey: .status)
+        let createdStr = try c.decode(String.self, forKey: .createdAt)
+        guard let createdAt = Self.isoFormatter.date(from: createdStr) ?? Self.isoBasicFormatter.date(from: createdStr) else {
+            throw DecodingError.dataCorruptedError(forKey: .createdAt, in: c,
+                debugDescription: "Could not parse created_on date: \(createdStr)")
+        }
+        self.createdAt = createdAt
+        guard let date = name.components(separatedBy: "-").compactMap({ Self.yyyymmddFormatter.date(from: $0) }).first else {
+            throw DecodingError.dataCorruptedError(forKey: .name, in: c,
+                debugDescription: "Could not parse scene date from order name: \(name)")
+        }
+        self.date = date
+    }
 }
 
 // MARK: - Subscription
@@ -339,30 +386,11 @@ struct PlanetAPI {
             let (data, response) = try await URLSession.shared.data(for: request)
             try checkResponse(response, data: data)
 
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let ordersJSON = json["orders"] as? [[String: Any]] else {
-                throw PlanetAPIError.decodingError("Expected 'orders' array in response")
-            }
-
-            let iso = ISO8601DateFormatter()
-            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let isoBasic = ISO8601DateFormatter()
-            isoBasic.formatOptions = [.withInternetDateTime]
-
-            for o in ordersJSON {
-                guard let id = o["id"] as? String,
-                      let name = o["name"] as? String,
-                      let state = o["state"] as? String,
-                      let createdStr = o["created_on"] as? String,
-                      let createdAt = iso.date(from: createdStr) ?? isoBasic.date(from: createdStr)
-                else { continue }
-                orders.append(PlanetOrderRecord(id: id, name: name, date: createdAt, status: state, createdAt: createdAt))
-            }
+            let page = try JSONDecoder().decode(OrderListJSON.self, from: data)
+            orders.append(contentsOf: page.orders)
 
             // Follow pagination
-            if let links = json["_links"] as? [String: Any],
-               let nextStr = links["_next"] as? String,
-               let next = URL(string: nextStr) {
+            if let nextStr = page.links?.next, let next = URL(string: nextStr) {
                 nextURL = next
             } else {
                 nextURL = nil
@@ -387,13 +415,8 @@ struct PlanetAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
 
-        guard
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let stateStr = json["state"] as? String
-        else {
-            throw PlanetAPIError.decodingError("Missing 'state' in order response")
-        }
-        return PlanetOrderStatus(rawValue: stateStr) ?? .unknown
+        let order = try JSONDecoder().decode(PlanetOrderRecord.self, from: data)
+        return PlanetOrderStatus(rawValue: order.status) ?? .unknown
     }
 
     // MARK: - Get Order Record
@@ -411,29 +434,7 @@ struct PlanetAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
 
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let name = json["name"] as? String,
-              let state = json["state"] as? String,
-              let createdStr = json["created_on"] as? String
-        else {
-            throw PlanetAPIError.decodingError("Missing fields in order response")
-        }
-
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let isoBasic = ISO8601DateFormatter()
-        isoBasic.formatOptions = [.withInternetDateTime]
-        let createdAt = iso.date(from: createdStr) ?? isoBasic.date(from: createdStr) ?? Date()
-
-        // Parse the scene capture date from the YYYYMMDD segment in the order name (e.g. "ConfigName-20260205-Parameters")
-        let yyyymmdd = DateFormatter()
-        yyyymmdd.dateFormat = "yyyyMMdd"
-        yyyymmdd.timeZone = TimeZone(identifier: "UTC")
-        let date = name.components(separatedBy: "-")
-            .compactMap { yyyymmdd.date(from: $0) }
-            .first ?? createdAt
-
-        return PlanetOrderRecord(id: id, name: name, date: date, status: state, createdAt: createdAt)
+        return try JSONDecoder().decode(PlanetOrderRecord.self, from: data)
     }
 
     // MARK: - Order Results (Download URLs)
@@ -451,22 +452,8 @@ struct PlanetAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
 
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw PlanetAPIError.decodingError("Invalid order response")
-        }
-
-        // Results live under _links.results
-        guard
-            let links = json["_links"] as? [String: Any],
-            let results = links["results"] as? [[String: Any]]
-        else {
-            return []
-        }
-
-        return results.compactMap { r in
-            guard let name = r["name"] as? String, let location = r["location"] as? String else { return nil }
-            return PlanetDownloadResult(name: name, location: location)
-        }
+        let orderResults = try JSONDecoder().decode(OrderResultsJSON.self, from: data)
+        return (orderResults.links?.results ?? []).map { PlanetDownloadResult(name: $0.name, location: $0.location) }
     }
 
     // MARK: - Order Manifest
@@ -533,6 +520,38 @@ struct PlanetAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
         return data
+    }
+
+    // MARK: - Private Decodable Types
+
+    private struct OrderListJSON: Decodable {
+        let orders: [PlanetOrderRecord]
+        let links: Links?
+
+        struct Links: Decodable {
+            let next: String?
+            enum CodingKeys: String, CodingKey { case next = "_next" }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case orders
+            case links = "_links"
+        }
+    }
+
+    private struct OrderResultsJSON: Decodable {
+        let links: Links?
+
+        struct Links: Decodable {
+            let results: [ResultJSON]?
+        }
+
+        struct ResultJSON: Decodable {
+            let name: String
+            let location: String
+        }
+
+        enum CodingKeys: String, CodingKey { case links = "_links" }
     }
 
     // MARK: - Helpers

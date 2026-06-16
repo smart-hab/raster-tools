@@ -18,14 +18,9 @@ struct PlanetView: View {
     @State private var isLoading = false
     @State private var error: String?
     @State private var activeDownload: ToolPlanetDownload?
-    @State private var downloadedNames: Set<String> = []
 
     private var apiKey: String { AppSettings.shared.planetApiKey }
     private var downloadDirectory: URL { AppStorage.planetDownloadDirectory() }
-
-    private func isDownloaded(_ order: PlanetOrderRecord) -> Bool {
-        downloadedNames.contains(order.name + ".zip")
-    }
 
     var body: some View {
         Form {
@@ -96,11 +91,11 @@ struct PlanetView: View {
                         TableSortOption(
                             id: "date",
                             label: "Date",
-                            comparator: { $0.createdAt < $1.createdAt },
+                            comparator: { $0.date < $1.date },
                             groupLabel: { order in
-                                let formatter = DateFormatter()
-                                formatter.dateFormat = "yyyy"
-                                return formatter.string(from: order.createdAt)
+                                let f = DateFormatter()
+                                f.dateFormat = "yyyy"
+                                return f.string(from: order.date)
                             }
                         ),
                         TableSortOption(
@@ -125,7 +120,7 @@ struct PlanetView: View {
                             id: "download",
                             icon: "arrow.down.circle",
                             isEnabled: { selected in
-                                selected.contains { $0.status == PlanetOrderStatus.success.rawValue && !isDownloaded($0) }
+                                selected.contains { $0.status == PlanetOrderStatus.success.rawValue }
                             },
                             action: { selected in
                                 let tool = ToolPlanetDownload()
@@ -139,21 +134,15 @@ struct PlanetView: View {
                     initialSortOptionID: "date",
                     initialSortAscending: false
                 ) { order, isSelected in
-                    PlanetOrderRow(order: order, isSelected: isSelected, isDownloaded: isDownloaded(order))
+                    PlanetOrderRow(order: order, isSelected: isSelected)
                 }
             }
         }
     }
 
-    private func refreshDownloadedNames() {
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: downloadDirectory.path)) ?? []
-        downloadedNames = Set(files)
-    }
-
     private func fetchAll() async {
         isLoading = true
         error = nil
-        refreshDownloadedNames()
         async let subs = PlanetAPI.listSubscriptions(apiKey: apiKey)
         async let ords = PlanetAPI.listOrders(apiKey: apiKey)
         subscriptions = (try? await subs) ?? []
@@ -222,8 +211,7 @@ private struct SubscriptionRow: View {
 
 struct PlanetOrderRow: View {
     let order: PlanetOrderRecord
-    let isSelected: Bool?
-    var isDownloaded: Bool = false
+    var isSelected: Bool = false
 
     private var status: PlanetOrderStatus {
         PlanetOrderStatus(rawValue: order.status) ?? .unknown
@@ -235,28 +223,22 @@ struct PlanetOrderRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
 
-            Text(order.name)
-                .lineLimit(1)
-                .foregroundStyle(isDownloaded ? .secondary : .primary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(order.date.displayString)
+                    .fontWeight(.medium)
+                Text(order.name)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
 
             Spacer()
 
             BadgeCapsule(label: status.displayName, color: status.color)
 
-            Text(order.createdAt.displayString)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .frame(width: 80, alignment: .trailing)
-
-            if isDownloaded {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.secondary.opacity(0.4))
-                    .frame(width: 16)
-            } else if let isSelected {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                    .frame(width: 16)
-            }
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .frame(width: 16)
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())

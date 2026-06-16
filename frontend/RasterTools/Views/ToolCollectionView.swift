@@ -20,7 +20,6 @@ struct ToolCollectionView: View {
     @State private var previewGroup: PlanetSceneGroup?
 
     private let planetCache = PlanetCache.shared
-
     private var project: Project { configuration.project }
 
     // Source of truth: dates are always midnight UTC.
@@ -216,11 +215,6 @@ struct ToolCollectionView: View {
     @ViewBuilder
     private var orderParamsSection: some View {
         Section("Order Parameters") {
-            TextField(
-                "Naming Pattern",
-                text: $configuration.namingPattern
-            )
-            .textFieldStyle(.roundedBorder)
 
             Picker(
                 "Item Type",
@@ -251,10 +245,6 @@ struct ToolCollectionView: View {
                     .disabled(true)
                     .labelsHidden()
             }
-
-            Text("Tokens: {Project} {ConfigName} {Year} {Month} {Day} {Parameters}")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -308,7 +298,6 @@ struct ToolCollectionView: View {
             if let orderId = entry.orderId, let record = planetCache.cache[orderId] {
                 return record
             }
-            // Synthesize a stub for queued (no orderId yet) or unresolved entries
             let dateStr = key.components(separatedBy: "|").last ?? key
             let date = Date.utcFormatter.date(from: dateStr) ?? Date()
             let status = entry.orderId == nil ? OrderMemoryStatus.queued.rawValue : PlanetOrderStatus.unknown.rawValue
@@ -368,17 +357,26 @@ struct ToolCollectionView: View {
                 initialSortOptionID: "date",
                 initialSortAscending: false
             ) { order, isSelected in
-                OrderMemoryRow(order: order, isSelected: isSelected)
+                OrderMemoryRow(
+                    order: order,
+                    isSelected: isSelected,
+                    countdown: OrderQueue.shared.countdown(for: configuration.orderMemoryKey(for: order.date)),
+                    onCancel: { OrderQueue.shared.cancel(configuration: configuration, date: order.date) },
+                    onFastForward: { OrderQueue.shared.fastForward(configuration: configuration, date: order.date) }
+                )
             }
             .task(id: orderMemoryIds.sorted().joined()) {
-                await withTaskGroup(of: Void.self) { group in
-                    for id in orderMemoryIds {
-                        group.addTask { await planetCache.getOrder(id) }
+                while !Task.isCancelled {
+                    await withTaskGroup(of: Void.self) { group in
+                        for id in orderMemoryIds {
+                            group.addTask { await planetCache.getOrder(id) }
+                        }
                     }
+                    try? await Task.sleep(for: .seconds(30))
                 }
             }
         } header: {
-            Text("Order Memory")
+            Text("Ordered Scenes")
         }
     }
 
@@ -576,9 +574,25 @@ struct OrderMemoryRow: View {
     let order: PlanetOrderRecord
     var isSelected: Bool = false
     var isSelectionDisabled: Bool = false
+    var countdown: Int? = nil
+    var onCancel: (() -> Void)? = nil
+    var onFastForward: (() -> Void)? = nil
 
     private var status: PlanetOrderStatus {
         PlanetOrderStatus(rawValue: order.status) ?? .unknown
+    }
+
+    private var isLocallyQueued: Bool {
+        status == .queued && onCancel != nil
+    }
+
+    private var statusLabel: String {
+        if isLocallyQueued, let secs = countdown {
+            let m = secs / 60
+            let s = secs % 60
+            return String(format: "queued %d:%02d", m, s)
+        }
+        return status.displayName
     }
 
     var body: some View {
@@ -598,15 +612,29 @@ struct OrderMemoryRow: View {
 
             Spacer()
 
-            BadgeCapsule(label: status.displayName, color: status.color)
+            BadgeCapsule(label: statusLabel, color: status.color)
 
-            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(
-                    isSelectionDisabled
-                        ? Color.secondary.opacity(0.4)
-                        : (isSelected ? Color.accentColor : Color.secondary)
-                )
-                .frame(width: 16)
+            if isLocallyQueued {
+                Button(action: { onFastForward?() }) {
+                    Image(systemName: "forward.end")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled((countdown ?? 0) <= 5)
+                Button(action: { onCancel?() }) {
+                    Image(systemName: "xmark.circle")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(
+                        isSelectionDisabled
+                            ? Color.secondary.opacity(0.4)
+                            : (isSelected ? Color.accentColor : Color.secondary)
+                    )
+                    .frame(width: 16)
+            }
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())
