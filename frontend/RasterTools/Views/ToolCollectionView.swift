@@ -394,7 +394,7 @@ struct ToolCollectionView: View {
                             group.addTask { await planetCache.getOrder(id) }
                         }
                     }
-                    try? await Task.sleep(for: .seconds(30))
+                    try? await Task.sleep(for: .seconds(5))
                 }
             }
         } header: {

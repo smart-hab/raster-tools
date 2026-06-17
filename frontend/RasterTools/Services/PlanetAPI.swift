@@ -182,7 +182,8 @@ func resolveNamingPattern(
     composite: Bool,
     date: Date
 ) -> String {
-    let calendar = Calendar.current
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "UTC")!
     let year = String(format: "%04d", calendar.component(.year, from: date))
     let month = String(format: "%02d", calendar.component(.month, from: date))
     let day = String(format: "%02d", calendar.component(.day, from: date))

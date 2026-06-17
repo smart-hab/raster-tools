@@ -26,15 +26,15 @@ import Observation
         if let cached = cache[id] {
             let status = PlanetOrderStatus(rawValue: cached.status)
             if status == .success || status == .failed || status == .cancelled {
-                print("[PlanetCache] HIT (terminal) \(cached.id) — \(cached.name) [\(cached.status)]\n\(prettyJSON(cached))")
+                print("[PlanetCache] HIT (terminal) \(cached.id) — \(cached.name) [\(cached.status)]\n\(prettyJSON(cached))") // todo: logging utility
                 return cached
             }
         }
         guard let record = try? await PlanetAPI.getOrderRecord(id: id, apiKey: AppSettings.shared.planetApiKey) else {
-            print("[PlanetCache] MISS (fetch failed) \(id)")
+            print("[PlanetCache] MISS (fetch failed) \(id)") // todo: logging utility
             return nil
         }
-        print("[PlanetCache] MISS (fetched) \(record.id) — \(record.name) [\(record.status)]\n\(prettyJSON(record))")
+        print("[PlanetCache] MISS (fetched) \(record.id) — \(record.name) [\(record.status)]\n\(prettyJSON(record))") // todo: logging utility
         cache[id] = record
         return record
     }
