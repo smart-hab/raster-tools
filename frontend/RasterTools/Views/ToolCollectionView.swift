@@ -6,14 +6,19 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ToolCollectionView: View {
     @Bindable var configuration: ToolCollectionConfiguration
+
+    @Environment(JobRegistry.self) private var registry
+    @Environment(\.modelContext) private var modelContext
 
     @State private var showingShapePicker = false
     @State private var isSearching = false
     @State private var showingAddOrder = false
     @State private var orderMemorySelection: Set<String> = []
+    @State private var pendingRemoval: [PlanetOrderRecord] = []
 
     @State private var searchError: String?
     @State private var sceneGroups: [PlanetSceneGroup] = []
@@ -72,6 +77,13 @@ struct ToolCollectionView: View {
         }
         .sheet(isPresented: $showingAddOrder) {
             AddOrderSheet(configuration: configuration)
+        }
+        .confirmationDialog(
+            "Remove \(pendingRemoval.count == 1 ? "1 order" : "\(pendingRemoval.count) orders") from memory?",
+            isPresented: Binding(get: { !pendingRemoval.isEmpty }, set: { if !$0 { pendingRemoval = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) { removeFromMemory(pendingRemoval) }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -344,11 +356,21 @@ struct ToolCollectionView: View {
                 },
                 selectionActions: [
                     TableSelectionAction<PlanetOrderRecord>(
+                        id: "download",
+                        icon: "arrow.down.to.line.compact",
+                        isEnabled: { selected in
+                            selected.contains { $0.status == PlanetOrderStatus.success.rawValue }
+                        },
+                        action: { selected in
+                            downloadAndUnzip(orders: selected)
+                        }
+                    ),
+                    TableSelectionAction<PlanetOrderRecord>(
                         id: "remove",
                         icon: "trash",
                         isEnabled: { !$0.isEmpty },
                         action: { selected in
-                            removeFromMemory(selected)
+                            pendingRemoval = selected
                         }
                     )
                 ],
@@ -417,6 +439,12 @@ struct ToolCollectionView: View {
                 }
             }
         }
+    }
+
+    private func downloadAndUnzip(orders: [PlanetOrderRecord]) {
+        let tool = ToolPlanetUnzip()
+        registry.register(runner: tool, configName: configuration.name, projectName: project.name)
+        tool.start(orders: orders, project: project, context: modelContext)
     }
 
     private func removeFromMemory(_ records: [PlanetOrderRecord]) {
