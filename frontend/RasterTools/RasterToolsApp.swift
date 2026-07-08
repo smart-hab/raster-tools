@@ -47,29 +47,13 @@ struct RasterToolsApp: App {
         let modelConfiguration = ModelConfiguration(schema: schema, url: storeURL, allowsSave: true)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: AppMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
         } catch {
-            // Migration failed — back up the broken store and start fresh.
-            // Project files on disk are untouched; re-scan to recover resources.
-            print("⚠️ SwiftData failed to load store: \(error)")
-            print("⚠️ Backing up store and starting fresh.")
-
-            let fm = FileManager.default
-            let tag = Int(Date().timeIntervalSince1970)
-            let dir = storeURL.deletingLastPathComponent()
-
-            for suffix in ["default.store", "default.store-shm", "default.store-wal"] {
-                let src = dir.appending(path: suffix)
-                let dst = dir.appending(path: "\(suffix).bak-\(tag)")
-                try? fm.copyItem(at: src, to: dst)
-                try? fm.removeItem(at: src)
-            }
-
-            do {
-                return try ModelContainer(for: schema, configurations: [modelConfiguration])
-            } catch {
-                fatalError("Could not create ModelContainer even after clearing store: \(error)")
-            }
+            fatalError("Could not create ModelContainer: \(error)")
         }
     }()
 
