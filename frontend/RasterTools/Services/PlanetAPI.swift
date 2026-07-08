@@ -52,12 +52,14 @@ struct PlanetScene: Identifiable {
     let acquiredAt: Date
     let cloudCover: Double
     let thumbnailURL: String?
+    let footprintRing: [(lon: Double, lat: Double)]   // exterior ring of GeoJSON polygon
 }
 
 struct PlanetSceneGroup: Identifiable {
     var id: Date { date }
     let date: Date        // start of the acquired day (noon UTC used as canonical)
     let scenes: [PlanetScene]
+    let coveragePercent: Double?   // % of AOI covered by union of scene footprints
 
     var averageCloudCover: Double {
         guard !scenes.isEmpty else { return 0 }
@@ -313,7 +315,8 @@ struct PlanetAPI {
 
         printJSON("quickSearch response", data)
 
-        return try parseSceneGroups(from: data)
+        let aoiRing = extractRing(from: geometry)
+        return try parseSceneGroups(from: data, aoiRing: aoiRing)
     }
 
     // MARK: - Create Order
@@ -583,7 +586,7 @@ struct PlanetAPI {
         }
     }
 
-    private static func parseSceneGroups(from data: Data) throws -> [PlanetSceneGroup] {
+    private static func parseSceneGroups(from data: Data, aoiRing: [(lon: Double, lat: Double)]) throws -> [PlanetSceneGroup] {
         guard
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
             let features = json["features"] as? [[String: Any]]
@@ -606,7 +609,8 @@ struct PlanetAPI {
             else { continue }
             let cloudCover = props["cloud_cover"] as? Double ?? 0.0
             let thumbnailURL = (feature["_links"] as? [String: Any])?["thumbnail"] as? String
-            scenes.append(PlanetScene(id: id, acquiredAt: acquired, cloudCover: cloudCover, thumbnailURL: thumbnailURL))
+            let footprint = extractRing(from: feature["geometry"] as? [String: Any])
+            scenes.append(PlanetScene(id: id, acquiredAt: acquired, cloudCover: cloudCover, thumbnailURL: thumbnailURL, footprintRing: footprint))
         }
 
         // Group by calendar day (UTC)
@@ -620,7 +624,77 @@ struct PlanetAPI {
         }
 
         return grouped
-            .map { date, group in PlanetSceneGroup(date: date, scenes: group) }
+            .map { date, group in
+                let rings = group.map(\.footprintRing).filter { !$0.isEmpty }
+                let coverage = aoiRing.isEmpty ? nil : gridCoveragePercent(aoi: aoiRing, scenes: rings)
+                return PlanetSceneGroup(date: date, scenes: group, coveragePercent: coverage)
+            }
             .sorted { $0.date < $1.date }
     }
+
+    private static func extractRing(from geometry: [String: Any]?) -> [(lon: Double, lat: Double)] {
+        guard let geometry else { return [] }
+        let type = geometry["type"] as? String
+        if type == "Polygon", let coords = geometry["coordinates"] as? [[[Double]]],
+           let ring = coords.first {
+            return ring.compactMap { p in p.count >= 2 ? (p[0], p[1]) : nil }
+        }
+        if type == "MultiPolygon", let coords = geometry["coordinates"] as? [[[[Double]]]],
+           let ring = coords.first?.first {
+            return ring.compactMap { p in p.count >= 2 ? (p[0], p[1]) : nil }
+        }
+        return []
+    }
+}
+
+// MARK: - Coverage Computation
+
+/// Estimates what fraction of the AOI polygon is covered by the union of scene footprint polygons.
+/// Uses grid sampling in lat/lon space (sufficient for percentage ratios on small areas).
+/// Returns a value in [0, 100].
+private func gridCoveragePercent(
+    aoi: [(lon: Double, lat: Double)],
+    scenes: [[(lon: Double, lat: Double)]],
+    gridSize: Int = 150
+) -> Double {
+    guard !aoi.isEmpty, !scenes.isEmpty else { return 0 }
+    let lons = aoi.map(\.lon)
+    let lats = aoi.map(\.lat)
+    guard let minLon = lons.min(), let maxLon = lons.max(),
+          let minLat = lats.min(), let maxLat = lats.max() else { return 0 }
+    let dLon = (maxLon - minLon) / Double(gridSize)
+    let dLat = (maxLat - minLat) / Double(gridSize)
+    guard dLon > 0, dLat > 0 else { return 0 }
+
+    var aoiCells = 0
+    var coveredCells = 0
+    for i in 0..<gridSize {
+        for j in 0..<gridSize {
+            let lon = minLon + (Double(i) + 0.5) * dLon
+            let lat = minLat + (Double(j) + 0.5) * dLat
+            guard pointInRing((lon, lat), aoi) else { continue }
+            aoiCells += 1
+            if scenes.contains(where: { pointInRing((lon, lat), $0) }) {
+                coveredCells += 1
+            }
+        }
+    }
+    guard aoiCells > 0 else { return 0 }
+    return 100.0 * Double(coveredCells) / Double(aoiCells)
+}
+
+/// Ray-casting point-in-polygon test.
+private func pointInRing(_ point: (lon: Double, lat: Double), _ ring: [(lon: Double, lat: Double)]) -> Bool {
+    var inside = false
+    var j = ring.count - 1
+    for i in 0..<ring.count {
+        let xi = ring[i].lon, yi = ring[i].lat
+        let xj = ring[j].lon, yj = ring[j].lat
+        if ((yi > point.lat) != (yj > point.lat)) &&
+            (point.lon < (xj - xi) * (point.lat - yi) / (yj - yi) + xi) {
+            inside = !inside
+        }
+        j = i
+    }
+    return inside
 }

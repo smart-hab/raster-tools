@@ -495,7 +495,11 @@ private struct SceneGroupRow: View {
                 Text(group.date.displayString)
                     .fontWeight(.medium)
                 Button(action: onPreview) {
-                    Text("\(group.scenes.count) scene\(group.scenes.count == 1 ? "" : "s") · \(Int(group.averageCloudCover * 100))% avg cloud cover")
+                    var subtitle = "\(group.scenes.count) scene\(group.scenes.count == 1 ? "" : "s") · \(Int(group.averageCloudCover * 100))% avg cloud"
+                    if let cov = group.coveragePercent {
+                        subtitle += " · \(Int(cov.rounded()))% AOI coverage"
+                    }
+                    return Text(subtitle)
                         .font(.caption)
                         .underline()
                 }
