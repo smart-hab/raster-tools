@@ -23,41 +23,51 @@ struct ToolCollectionView: View {
     @State private var searchError: String?
     @State private var sceneGroups: [PlanetSceneGroup] = []
     @State private var previewGroup: PlanetSceneGroup?
+    @State private var searchDebounce: Task<Void, Never>?
+
+    // AOI coverage is computed lazily off-main; cells show "… AOI" until filled.
+    @State private var coverageByDay: [String: Double] = [:]
+    @State private var coverageTask: Task<Void, Never>?
 
     private let planetCache = PlanetCache.shared
     private var project: Project { configuration.project }
 
-    // Source of truth: dates are always midnight UTC.
-    // The DatePicker renders in local time, so we translate to/from local midnight.
+    // The displayed month IS the search range: 1st → last day, inclusive.
+    // All date math is UTC to stay consistent with PlanetSceneGroup.date and orderMemoryKey.
 
-    private static let localCalendar = Calendar(identifier: .gregorian) // device timezone
-
-    // Translate UTC midnight ↔ local midnight so the calendar highlights the right day.
-    private func pickerBinding(for keyPath: ReferenceWritableKeyPath<ToolCollectionConfiguration, Date>) -> Binding<Date> {
+    private var yearBinding: Binding<Int> {
         Binding(
-            get: {
-                let ymd = Date.utcCalendar.dateComponents([.year, .month, .day], from: self.configuration[keyPath: keyPath])
-                return Self.localCalendar.date(from: ymd)!
-            },
-            set: { localDate in
-                let ymd = Self.localCalendar.dateComponents([.year, .month, .day], from: localDate)
-                self.configuration[keyPath: keyPath] = Date.utcCalendar.date(from: ymd)!
-            }
+            get: { Date.utcCalendar.component(.year, from: configuration.searchStartDate) },
+            set: { setMonth(year: $0, month: Date.utcCalendar.component(.month, from: configuration.searchStartDate)) }
         )
     }
 
-    private func textBinding(for keyPath: ReferenceWritableKeyPath<ToolCollectionConfiguration, Date>) -> Binding<String> {
+    private var monthBinding: Binding<Int> {
         Binding(
-            get: { Date.utcFormatter.string(from: self.configuration[keyPath: keyPath]) },
-            set: { if let d = Date.utcFormatter.date(from: $0) { self.configuration[keyPath: keyPath] = d } }
+            get: { Date.utcCalendar.component(.month, from: configuration.searchStartDate) },
+            set: { setMonth(year: Date.utcCalendar.component(.year, from: configuration.searchStartDate), month: $0) }
         )
+    }
+
+    private func setMonth(year: Int, month: Int) {
+        let start = Date.utcCalendar.date(from: DateComponents(year: year, month: month, day: 1))!
+        let end = Date.utcCalendar.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
+        configuration.searchStartDate = start
+        configuration.searchEndDate = end
+        configuration.touch()
+    }
+
+    /// Scene groups keyed by UTC "yyyy-MM-dd" for fast per-cell lookup.
+    private var groupsByDay: [String: PlanetSceneGroup] {
+        Dictionary(sceneGroups.map { (Date.utcFormatter.string(from: $0.date), $0) },
+                   uniquingKeysWith: { a, _ in a })
     }
 
     var body: some View {
         Form {
             configSection
             searchParamsSection
-            orderParamsSection
+            // orderParamsSection  // hidden for now — read-only order params
             if let errorMsg = searchError {
                 Section {
                     Label(errorMsg, systemImage: "exclamationmark.triangle")
@@ -65,15 +75,24 @@ struct ToolCollectionView: View {
                         .font(.caption)
                 }
             }
-            if !sceneGroups.isEmpty {
-                searchResultsSection
-            }
             orderMemorySection
         }
         .formStyle(.grouped)
         .navigationTitle(configuration.name)
+        .onChange(of: configuration.searchStartDate) { scheduleSearch() }
+        .onChange(of: configuration.cloudCover) { scheduleSearch() }
+        .onChange(of: configuration.shapeFile?.id) { scheduleSearch() }
+        .task { scheduleSearch() }
         .sheet(item: $previewGroup) { group in
-            SceneGroupPreviewSheet(group: group, apiKey: AppSettings.shared.planetApiKey)
+            SceneGroupPreviewSheet(
+                group: group,
+                apiKey: AppSettings.shared.planetApiKey,
+                status: configuration.orderStatus(for: group.date),
+                countdown: OrderQueue.shared.countdown(for: configuration.orderMemoryKey(for: group.date)),
+                onQueue: { queueOrder(for: group) },
+                onCancel: { cancelOrder(for: group) },
+                onFastForward: { OrderQueue.shared.fastForward(configuration: configuration, date: group.date) }
+            )
         }
         .sheet(isPresented: $showingAddOrder) {
             AddOrderSheet(configuration: configuration)
@@ -84,24 +103,6 @@ struct ToolCollectionView: View {
             titleVisibility: .visible
         ) {
             Button("Remove", role: .destructive) { removeFromMemory(pendingRemoval) }
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    runSearch()
-                } label: {
-                    if isSearching {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text("Searching…")
-                        }
-                    } else {
-                        Label("Search", systemImage: "magnifyingglass")
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isSearching || configuration.shapeFile == nil)
-            }
         }
     }
 
@@ -117,6 +118,8 @@ struct ToolCollectionView: View {
                 Text(project.name)
                     .foregroundStyle(.secondary)
             }
+            // Output Dir is hidden for now. Collection tool unzips orders into the Project's Source Dir instead.
+            /*
             LabeledContent("Output Dir") {
                 Button {
                     NSWorkspace.shared.open(AppStorage.outputDirectory(for: project, configuration: configuration))
@@ -125,6 +128,7 @@ struct ToolCollectionView: View {
                 }
                 .buttonStyle(.plain)
             }
+            */
         }
     }
 
@@ -132,98 +136,134 @@ struct ToolCollectionView: View {
 
     @ViewBuilder
     private var searchParamsSection: some View {
-        Section("Search Parameters") {
-            HStack(alignment: .top, spacing: 16) {
-                    // Calendars
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack {
-                            DatePicker(
-                                "",
-                                selection: pickerBinding(for: \.searchStartDate),
-                                displayedComponents: .date
-                            )
-                            .labelsHidden()
-                            .datePickerStyle(.graphical)
-                            Text("Start")
+        Section {
+            LabeledContent("Shape File") {
+                if let selected = configuration.shapeFile {
+                    Button { showingShapePicker = true } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: ResourceKind.shapeFile.iconName)
+                            Text(selected.filename)
+                                .lineLimit(1)
                         }
-                        VStack {
-                            DatePicker(
-                                "",
-                                selection: pickerBinding(for: \.searchEndDate),
-                                displayedComponents: .date
-                            )
-                            .labelsHidden()
-                            .datePickerStyle(.graphical)
-                            Text("End")
-                        }
+                        .foregroundStyle(.secondary)
                     }
+                    .buttonStyle(.plain)
+                } else {
+                    Button("Select…") { showingShapePicker = true }
+                        .buttonStyle(.plain)
+                }
+            }
 
-                    // Controls
-                    VStack(alignment: .leading, spacing: 12) {
-                        TextField("Start", text: textBinding(for: \.searchStartDate))
-                            .textFieldStyle(.roundedBorder)
-                            // .frame(width: 110)
+            LabeledContent("Cloud Cover") {
+                HStack {
+                    Slider(value: $configuration.cloudCover, in: 0...1, step: 0.05)
+                        .frame(width: 120)
+                    Text("\(Int(configuration.cloudCover * 100))%")
+                        .monospacedDigit()
+                        .frame(width: 36, alignment: .trailing)
+                }
+            }
 
-                        TextField("End", text: textBinding(for: \.searchEndDate))
-                            .textFieldStyle(.roundedBorder)
-                            // .frame(width: 110)
-
-                        LabeledContent("Shape File") {
-                            if let selected = configuration.shapeFile {
-                                Button { showingShapePicker = true } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: ResourceKind.shapeFile.iconName)
-                                        Text(selected.filename)
-                                            .lineLimit(1)
-                                    }
-                                    .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                            } else {
-                                Button("Select…") { showingShapePicker = true }
-                                    .buttonStyle(.plain)
-                            }
-                        }
-
-                        LabeledContent("Cloud Cover") {
-                            HStack {
-                                Slider(
-                                    value: $configuration.cloudCover,
-                                    in: 0...1,
-                                    step: 0.05
-                                )
-                                .frame(width: 120)
-                                Text("\(Int(configuration.cloudCover * 100))%")
-                                    .monospacedDigit()
-                                    .frame(width: 36, alignment: .trailing)
-                            }
-                        }
+            CalendarView(year: yearBinding, month: monthBinding) { date in
+                dayCell(for: date)
+            }
+            .padding(.vertical, 8)
+        } header: {
+            HStack {
+                Text("Search")
+                if isSearching {
+                    ProgressView().controlSize(.small)
+                }
+                Spacer()
+                if configuration.shapeFile == nil {
+                    Text("Select a shape file to search")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
+                }
+            }
+        }
+        .sheet(isPresented: $showingShapePicker) {
+            ResourcePickerView(
+                project: project,
+                defaultKinds: [.shapeFile],
+                selectableKinds: [.shapeFile],
+                selection: Binding(
+                    get: {
+                        if let sf = configuration.shapeFile { return [sf] }
+                        return []
+                    },
+                    set: { resources in
+                        configuration.shapeFile = resources.first
+                        configuration.touch()
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .sheet(isPresented: $showingShapePicker) {
-                        ResourcePickerView(
-                            project: project,
-                            defaultKinds: [.shapeFile],
-                            selectableKinds: [.shapeFile],
-                            selection: Binding(
-                                get: {
-                                    if let sf = configuration.shapeFile { return [sf] }
-                                    return []
-                                },
-                                set: { resources in
-                                    configuration.shapeFile = resources.first
-                                    configuration.touch()
-                                }
-                            ),
-                            selectionMode: .single
-                        )
+                ),
+                selectionMode: .single
+            )
+        }
+    }
+
+    // MARK: - Day Cell
+
+    @ViewBuilder
+    private func dayCell(for date: Date) -> some View {
+        let day = Date.utcCalendar.component(.day, from: date)
+        let group = groupsByDay[Date.utcFormatter.string(from: date)]
+        let status = configuration.orderStatus(for: date)
+        let tint = dayStatusColor(status)
+
+        Button {
+            if let group { previewGroup = group }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(day)")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(group == nil ? .secondary : .primary)
+                if let group {
+                    Text("\(group.scenes.count) scene\(group.scenes.count == 1 ? "" : "s")")
+                        .font(.caption2)
+                    Text("\(Int(group.averageCloudCover * 100))% cloud")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if let cov = coverageByDay[Date.utcFormatter.string(from: date)] {
+                        Text("\(Int(cov.rounded()))% AOI")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("… AOI")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(group == nil ? Color.clear : tint.opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(group == nil ? Color.secondary.opacity(0.15) : tint.opacity(0.5))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(group == nil)
+    }
+
+    private func dayStatusColor(_ status: OrderMemoryStatus?) -> Color {
+        switch status {
+        case .queued:  return .orange
+        case .ordered: return .green
+        case nil:      return .secondary
         }
     }
 
     // MARK: - Order Params
 
+    // Order Parameters are hidden for now (read-only). Restore when editable.
+    /*
     @ViewBuilder
     private var orderParamsSection: some View {
         Section("Order Parameters") {
@@ -259,49 +299,7 @@ struct ToolCollectionView: View {
             }
         }
     }
-
-    // MARK: - Search Results
-
-    private var sceneGroupFilterOptions: [TableFilterOption<PlanetSceneGroup>] {
-        return [
-            TableFilterOption(id: "available", label: "Available", color: .secondary,
-                test: { self.configuration.orderStatus(for: $0.date) == nil }),
-            TableFilterOption(id: "queued",    label: "Queued",    color: .orange,
-                test: { self.configuration.orderStatus(for: $0.date) == .queued }),
-            TableFilterOption(id: "ordered",   label: "Ordered",   color: .green,
-                test: { self.configuration.orderStatus(for: $0.date) == .ordered }),
-        ]
-    }
-
-    @ViewBuilder
-    private var searchResultsSection: some View {
-        Section {
-            ResourceTableView(
-                items: sceneGroups,
-                itemID: \.date,
-                sortOptions: TableSortOption<PlanetSceneGroup>.allCases,
-                filterOptions: sceneGroupFilterOptions,
-                initialSortOptionID: "date",
-                initialSortAscending: false
-            ) { group, _ in
-                SceneGroupRow(
-                    group: group,
-                    status: configuration.orderStatus(for: group.date),
-                    countdown: OrderQueue.shared.countdown(for: configuration.orderMemoryKey(for: group.date))
-                ) {
-                    queueOrder(for: group)
-                } onCancel: {
-                    cancelOrder(for: group)
-                } onFastForward: {
-                    OrderQueue.shared.fastForward(configuration: configuration, date: group.date)
-                } onPreview: {
-                    previewGroup = group
-                }
-            }
-        } header: {
-            Text("Search Results")
-        }
-    }
+    */
 
     // MARK: - Order Memory
 
@@ -391,7 +389,10 @@ struct ToolCollectionView: View {
                 while !Task.isCancelled {
                     await withTaskGroup(of: Void.self) { group in
                         for id in orderMemoryIds {
-                            group.addTask { await planetCache.getOrder(id) }
+                            group.addTask {
+                                // populate the cache
+                                let _ = await planetCache.getOrder(id)
+                            }
                         }
                     }
                     try? await Task.sleep(for: .seconds(5))
@@ -404,39 +405,73 @@ struct ToolCollectionView: View {
 
     // MARK: - Actions
 
-    private func runSearch() {
+    /// Debounced search trigger. Coalesces rapid input changes (slider drags,
+    /// month navigation) into a single request. No shape file → clear results
+    /// without hitting the API; the calendar still renders.
+    private func scheduleSearch() {
+        searchDebounce?.cancel()
+
+        guard configuration.shapeFile?.originalPath != nil else {
+            sceneGroups = []
+            searchError = nil
+            isSearching = false
+            return
+        }
+
+        searchDebounce = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            if Task.isCancelled { return }
+            await runSearchAsync()
+        }
+    }
+
+    private func runSearchAsync() async {
         guard let shapePath = configuration.shapeFile?.originalPath else { return }
         isSearching = true
         searchError = nil
-        sceneGroups = []
+        coverageTask?.cancel()
+        coverageByDay = [:]
 
         let startDate = configuration.searchStartDate
         let endDate = configuration.searchEndDate
         let cloudCover = configuration.cloudCover
         let apiKey = AppSettings.shared.planetApiKey
 
-        Task {
-            do {
-                let geometry = try loadShapeFileGeometry(from: shapePath)
-                let groups = try await PlanetAPI.quickSearch(
-                    geometry: geometry,
-                    startDate: startDate,
-                    endDate: endDate,
-                    cloudCover: cloudCover,
-                    apiKey: apiKey
-                )
-                await MainActor.run {
-                    sceneGroups = groups
-                    isSearching = false
-                    if groups.isEmpty {
-                        searchError = "No scenes found for the given parameters."
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    searchError = error.localizedDescription
-                    isSearching = false
-                }
+        do {
+            let geometry = try loadShapeFileGeometry(from: shapePath)
+            let groups = try await PlanetAPI.quickSearch(
+                geometry: geometry,
+                startDate: startDate,
+                endDate: endDate,
+                cloudCover: cloudCover,
+                apiKey: apiKey
+            )
+            if Task.isCancelled { return }
+            sceneGroups = groups
+            isSearching = false
+            searchError = groups.isEmpty ? "No scenes found for the given parameters." : nil
+            computeCoverage(for: groups, aoiRing: PlanetAPI.aoiRing(from: geometry))
+        } catch {
+            if Task.isCancelled { return }
+            searchError = error.localizedDescription
+            isSearching = false
+        }
+    }
+
+    /// Computes AOI coverage per day off the main actor, publishing each result
+    /// as it lands so cells swap "… AOI" for the real value incrementally.
+    private func computeCoverage(for groups: [PlanetSceneGroup], aoiRing: [(lon: Double, lat: Double)]) {
+        coverageTask?.cancel()
+        guard !aoiRing.isEmpty else { return }
+        coverageTask = Task {
+            for group in groups {
+                if Task.isCancelled { return }
+                let key = Date.utcFormatter.string(from: group.date)
+                let pct = await Task.detached(priority: .utility) {
+                    PlanetAPI.coveragePercent(aoiRing: aoiRing, group: group)
+                }.value
+                if Task.isCancelled { return }
+                if let pct { coverageByDay[key] = pct }
             }
         }
     }
@@ -547,18 +582,75 @@ private struct SceneGroupRow: View {
 private struct SceneGroupPreviewSheet: View {
     let group: PlanetSceneGroup
     let apiKey: String
+    var status: OrderMemoryStatus? = nil
+    var countdown: Int? = nil
+    var onQueue: (() -> Void)? = nil
+    var onCancel: (() -> Void)? = nil
+    var onFastForward: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var doneFocused: Bool
+
+    private var statusLabel: String {
+        if status == .queued, let secs = countdown {
+            return String(format: "queued %d:%02d", secs / 60, secs % 60)
+        }
+        return status?.rawValue ?? "available"
+    }
+
+    private func statusColor(_ status: OrderMemoryStatus?) -> Color {
+        switch status {
+        case .queued:  return .orange
+        case .ordered: return .green
+        case nil:      return .secondary
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: 8) {
                 Text(group.date.displayString)
                     .font(.headline)
                 Text("· \(group.scenes.count) scene\(group.scenes.count == 1 ? "" : "s")")
                     .foregroundStyle(.secondary)
+
+                BadgeCapsule(label: statusLabel, color: statusColor(status))
+
+                switch status {
+                case nil:
+                    if let onQueue {
+                        Button(action: onQueue) {
+                            Image(systemName: "square.and.arrow.down.badge.clock")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .focusable(false)
+                    }
+                case .queued:
+                    if let onFastForward {
+                        Button(action: onFastForward) {
+                            Image(systemName: "forward.end")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .disabled((countdown ?? 0) <= 5)
+                        .focusable(false)
+                    }
+                    if let onCancel {
+                        Button(action: onCancel) {
+                            Image(systemName: "xmark.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.red)
+                        .focusable(false)
+                    }
+                case .ordered:
+                    EmptyView()
+                }
+
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.defaultAction)
+                    .focused($doneFocused)
             }
             .padding()
 
@@ -574,6 +666,7 @@ private struct SceneGroupPreviewSheet: View {
             }
         }
         .frame(minWidth: 520, minHeight: 400)
+        .onAppear { doneFocused = true }
     }
 }
 

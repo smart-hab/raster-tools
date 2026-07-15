@@ -315,8 +315,25 @@ struct PlanetAPI {
 
         printJSON("quickSearch response", data)
 
-        let aoiRing = extractRing(from: geometry)
-        return try parseSceneGroups(from: data, aoiRing: aoiRing)
+        return try parseSceneGroups(from: data)
+    }
+
+    /// Exterior ring (lon/lat) of an AOI geometry, for lazy coverage computation.
+    static func aoiRing(from geometry: [String: Any]) -> [(lon: Double, lat: Double)] {
+        extractRing(from: geometry)
+    }
+
+    /// Fraction of the AOI covered by a group's scene footprints, in [0, 100].
+    /// Heavy (grid sampling) — call off the main actor. Returns nil when there's
+    /// no AOI ring or no footprints to measure.
+    nonisolated static func coveragePercent(
+        aoiRing: [(lon: Double, lat: Double)],
+        group: PlanetSceneGroup
+    ) -> Double? {
+        guard !aoiRing.isEmpty else { return nil }
+        let rings = group.scenes.map(\.footprintRing).filter { !$0.isEmpty }
+        guard !rings.isEmpty else { return nil }
+        return gridCoveragePercent(aoi: aoiRing, scenes: rings)
     }
 
     // MARK: - Create Order
@@ -586,7 +603,7 @@ struct PlanetAPI {
         }
     }
 
-    private static func parseSceneGroups(from data: Data, aoiRing: [(lon: Double, lat: Double)]) throws -> [PlanetSceneGroup] {
+    private static func parseSceneGroups(from data: Data) throws -> [PlanetSceneGroup] {
         guard
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
             let features = json["features"] as? [[String: Any]]
@@ -625,9 +642,9 @@ struct PlanetAPI {
 
         return grouped
             .map { date, group in
-                let rings = group.map(\.footprintRing).filter { !$0.isEmpty }
-                let coverage = aoiRing.isEmpty ? nil : gridCoveragePercent(aoi: aoiRing, scenes: rings)
-                return PlanetSceneGroup(date: date, scenes: group, coveragePercent: coverage)
+                // Coverage is computed lazily off the main actor by the UI to keep
+                // search responsive; see PlanetAPI.coveragePercent(aoiRing:group:).
+                PlanetSceneGroup(date: date, scenes: group, coveragePercent: nil)
             }
             .sorted { $0.date < $1.date }
     }
@@ -652,7 +669,7 @@ struct PlanetAPI {
 /// Estimates what fraction of the AOI polygon is covered by the union of scene footprint polygons.
 /// Uses grid sampling in lat/lon space (sufficient for percentage ratios on small areas).
 /// Returns a value in [0, 100].
-private func gridCoveragePercent(
+nonisolated private func gridCoveragePercent(
     aoi: [(lon: Double, lat: Double)],
     scenes: [[(lon: Double, lat: Double)]],
     gridSize: Int = 150
@@ -684,7 +701,7 @@ private func gridCoveragePercent(
 }
 
 /// Ray-casting point-in-polygon test.
-private func pointInRing(_ point: (lon: Double, lat: Double), _ ring: [(lon: Double, lat: Double)]) -> Bool {
+nonisolated private func pointInRing(_ point: (lon: Double, lat: Double), _ ring: [(lon: Double, lat: Double)]) -> Bool {
     var inside = false
     var j = ring.count - 1
     for i in 0..<ring.count {
