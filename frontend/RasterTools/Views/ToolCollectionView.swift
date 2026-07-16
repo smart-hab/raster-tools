@@ -22,6 +22,7 @@ struct ToolCollectionView: View {
 
     @State private var searchError: String?
     @State private var sceneGroups: [PlanetSceneGroup] = []
+    @State private var aoiRing: [(lon: Double, lat: Double)] = []
     @State private var previewGroup: PlanetSceneGroup?
     @State private var searchDebounce: Task<Void, Never>?
 
@@ -86,6 +87,7 @@ struct ToolCollectionView: View {
         .sheet(item: $previewGroup) { group in
             SceneGroupPreviewSheet(
                 group: group,
+                aoiRing: aoiRing,
                 apiKey: AppSettings.shared.planetApiKey,
                 status: configuration.orderStatus(for: group.date),
                 countdown: OrderQueue.shared.countdown(for: configuration.orderMemoryKey(for: group.date)),
@@ -413,6 +415,7 @@ struct ToolCollectionView: View {
 
         guard configuration.shapeFile?.originalPath != nil else {
             sceneGroups = []
+            aoiRing = []
             searchError = nil
             isSearching = false
             return
@@ -439,6 +442,7 @@ struct ToolCollectionView: View {
 
         do {
             let geometry = try loadShapeFileGeometry(from: shapePath)
+            let ring = PlanetAPI.aoiRing(from: geometry)
             let groups = try await PlanetAPI.quickSearch(
                 geometry: geometry,
                 startDate: startDate,
@@ -448,9 +452,10 @@ struct ToolCollectionView: View {
             )
             if Task.isCancelled { return }
             sceneGroups = groups
+            aoiRing = ring
             isSearching = false
             searchError = groups.isEmpty ? "No scenes found for the given parameters." : nil
-            computeCoverage(for: groups, aoiRing: PlanetAPI.aoiRing(from: geometry))
+            computeCoverage(for: groups, aoiRing: ring)
         } catch {
             if Task.isCancelled { return }
             searchError = error.localizedDescription
@@ -581,6 +586,7 @@ private struct SceneGroupRow: View {
 
 private struct SceneGroupPreviewSheet: View {
     let group: PlanetSceneGroup
+    var aoiRing: [(lon: Double, lat: Double)] = []
     let apiKey: String
     var status: OrderMemoryStatus? = nil
     var countdown: Int? = nil
@@ -659,7 +665,7 @@ private struct SceneGroupPreviewSheet: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
                     ForEach(group.scenes) { scene in
-                        SceneThumbnailView(scene: scene, apiKey: apiKey)
+                        SceneThumbnailView(scene: scene, aoiRing: aoiRing, apiKey: apiKey)
                     }
                 }
                 .padding()
@@ -672,14 +678,23 @@ private struct SceneGroupPreviewSheet: View {
 
 private struct SceneThumbnailView: View {
     let scene: PlanetScene
+    var aoiRing: [(lon: Double, lat: Double)] = []
     let apiKey: String
 
     var body: some View {
         VStack(alignment: .leading) {
-            RemoteImageView {
+            RemoteImageView(load: {
                 guard let url = scene.thumbnailURL else { throw PlanetAPIError.decodingError("No thumbnail URL") }
                 return try await PlanetAPI.fetchThumbnail(url: url, apiKey: apiKey)
-            }
+            }, overlay: { cgImage, contentRect in
+                ThumbnailBoundaryOverlay(
+                    sceneID: scene.id,
+                    image: cgImage,
+                    contentRect: contentRect,
+                    footprintRing: scene.footprintRing,
+                    aoiRing: aoiRing
+                )
+            })
             .aspectRatio(1, contentMode: .fit)
 
             Text(scene.id)
@@ -690,6 +705,102 @@ private struct SceneThumbnailView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Strokes the scene footprint (faint, dashed) and the AOI boundary (accent)
+/// over a thumbnail. The lon/lat → pixel projection is derived from the image's
+/// non-transparent content box, so it self-calibrates against Planet's padding.
+///
+/// The projector is computed off the main thread as soon as the decoded image is
+/// available. Until then a spinner shows; if the projection can't be established
+/// (e.g. the scene lacks usable footprint geometry) a warning badge is shown and
+/// the reason is logged — the preview image itself still renders underneath.
+private struct ThumbnailBoundaryOverlay: View {
+    let sceneID: String
+    let image: CGImage
+    let contentRect: CGRect
+    let footprintRing: [(lon: Double, lat: Double)]
+    let aoiRing: [(lon: Double, lat: Double)]
+
+    private enum ProjectionState {
+        case loading
+        case ready(ThumbnailProjector)
+        case failed
+    }
+
+    @State private var state: ProjectionState = .loading
+
+    var body: some View {
+        ZStack {
+            switch state {
+            case .loading:
+                ProgressView()
+                    .controlSize(.small)
+            case .ready(let projector):
+                boundaryCanvas(projector)
+            case .failed:
+                warningBadge
+            }
+        }
+        .allowsHitTesting(false)
+        .task(id: sceneID) {
+            // Detection scans every pixel — run it off the main actor so the UI
+            // never beach-balls, and publish once.
+            let ring = footprintRing
+            let cg = image
+            let projector = await Task.detached(priority: .utility) {
+                ThumbnailProjector(footprintRing: ring, image: cg)
+            }.value
+            state = projector.map(ProjectionState.ready) ?? .failed
+        }
+    }
+
+    private func boundaryCanvas(_ projector: ThumbnailProjector) -> some View {
+        Canvas { context, _ in
+            // Scene footprint — faint dashed, doubles as an alignment check.
+            if footprintRing.count >= 3 {
+                let path = ringPath(footprintRing, projector: projector)
+                context.stroke(
+                    path,
+                    with: .color(.white.opacity(0.6)),
+                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                )
+            }
+
+            // AOI boundary — prominent, with a dark halo for contrast.
+            if aoiRing.count >= 3 {
+                let path = ringPath(aoiRing, projector: projector)
+                context.stroke(path, with: .color(.black.opacity(0.5)), lineWidth: 3.5)
+                context.stroke(path, with: .color(.accentColor), lineWidth: 2)
+            }
+        }
+    }
+
+    private var warningBadge: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.yellow)
+                    .padding(4)
+                    .background(.black.opacity(0.4), in: Circle())
+                    .padding(6)
+                    .help("No footprint geometry — boundary unavailable")
+            }
+            Spacer()
+        }
+    }
+
+    private func ringPath(_ ring: [(lon: Double, lat: Double)], projector: ThumbnailProjector) -> Path {
+        let points = projector.path(for: ring, in: contentRect)
+        var path = Path()
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        for p in points.dropFirst() { path.addLine(to: p) }
+        path.closeSubpath()
+        return path
     }
 }
 
