@@ -13,7 +13,6 @@ class ToolKmeans: ToolRunner {
 
     func run(configuration: ToolKmeansConfiguration, context: ModelContext) async throws {
         let project = configuration.project
-        let outputDir = AppStorage.outputDirectory(for: project, configuration: configuration)
         let total = 1 + configuration.filesClassify.count
         await MainActor.run {
             isRunning = true
