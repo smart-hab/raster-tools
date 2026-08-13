@@ -39,7 +39,7 @@ class ToolRunner {
         currentProcess = process
 
         let venv = AppSettings.shared.virtualEnvPath
-        guard !venv.isEmpty else {
+        guard AppSettings.isValidVirtualEnv(atPath: venv) else {
             throw ToolError.missingVirtualEnv
         }
         let venvBin = (venv as NSString).appendingPathComponent("bin")
@@ -164,7 +164,7 @@ enum ToolError: LocalizedError {
         case .missingConfiguration:
             return "Configuration is missing or invalid"
         case .missingVirtualEnv:
-            return "No virtual environment configured. Set it in Settings."
+            return "No usable Python environment. Create one in Settings, or choose an existing virtualenv with the processing tools installed."
         case .fileNotFound(let path):
             return "File not found: \(path)"
         }

@@ -75,6 +75,7 @@ struct AppView: View {
     @State private var selection: SidebarSelection?
     @State private var showingNewProjectSheet = false
     @State private var showingNewConfigSheet = false
+    @State private var showingVenvSetupPrompt = false
 
     var body: some View {
         NavigationSplitView {
@@ -94,6 +95,25 @@ struct AppView: View {
         .focusedValue(\.addProject, { showingNewProjectSheet = true })
         .focusedValue(\.importShapeFiles, importShapeFilesCallback)
         .focusedValue(\.addConfiguration, addConfigurationCallback)
+        .task {
+            // Prompt on every launch until a working environment exists — declining is not
+            // remembered, since without one no tool can run at all.
+            //
+            // Suppressed when the configured directory holds anything, because setup runs
+            // `venv --clear` on it: offering one-click deletion of a folder the user pointed at
+            // by mistake is not a prompt worth showing. Settings handles that case with an
+            // explanation instead.
+            if !AppSettings.shared.isVirtualEnvValid,
+               AppSettings.shared.isVirtualEnvEmptyOrMissing {
+                showingVenvSetupPrompt = true
+            }
+        }
+        .alert("No Python Environment detected", isPresented: $showingVenvSetupPrompt) {
+            Button("Continue") { ToolVenvSetup.launch() }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("Would you like to initialize a new environment now?\n\nThe path can be changed later in the Settings.\n\nThis process takes a few minutes. You can follow the progress in the Jobs list in the sidebar.")
+        }
         .sheet(isPresented: $showingNewProjectSheet) {
             ProjectCreateSheet { project in
                 modelContext.insert(project)
