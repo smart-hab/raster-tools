@@ -52,11 +52,6 @@ final class ToolVenvSetup: ToolRunner {
         activeProcess = nil
     }
 
-    /// Registers a setup run as a job and starts it, so its progress and log show up in the
-    /// sidebar job list like any other tool run. Used by both the launch prompt and Settings.
-    ///
-    /// A setup already in flight is returned as-is: `AppView.task` runs once per window, so
-    /// opening a second window must not start a second `venv --clear` on the same directory.
     /// The setup run currently in flight, if any. Observable end to end — reading this from a
     /// view body tracks both the job list and each runner's `isRunning`.
     @MainActor
@@ -66,6 +61,11 @@ final class ToolVenvSetup: ToolRunner {
             .first { $0.isRunning }
     }
 
+    /// Registers a setup run as a job and starts it, so its progress and log show up in the
+    /// sidebar job list like any other tool run. Used by both the launch prompt and Settings.
+    ///
+    /// A setup already in flight is returned as-is: `AppView.task` runs once per window, so
+    /// opening a second window must not start a second `venv --clear` on the same directory.
     @MainActor
     @discardableResult
     static func launch() -> ToolVenvSetup {
