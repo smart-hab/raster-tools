@@ -83,7 +83,25 @@ struct SettingsView: View {
                                 .allowsHitTesting(false)
                         }
                     }
-                Text("Your Planet Labs API key, used by the Collection tool.")
+                Text("Your Planet Labs API key, used by the Planet Collection tool.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Copernicus") {
+                TextField("Username", text: $settings.cdseUsername)
+                SecureField("Password", text: $settings.cdsePassword)
+                    .overlay(alignment: .trailing) {
+                        if settings.cdsePassword.isEmpty {
+                            Text("No password set")
+                                .foregroundStyle(.secondary)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                Text("""
+                    Your Copernicus Data Space Ecosystem account, used by the Sentinel-2 \
+                    Collection tool. Registration is free at dataspace.copernicus.eu.
+                    """)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

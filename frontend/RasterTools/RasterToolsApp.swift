@@ -40,6 +40,7 @@ struct RasterToolsApp: App {
             ToolKmeansConfiguration.self,
             ToolPreprocessConfiguration.self,
             ToolCollectionConfiguration.self,
+            ToolSentinel2Configuration.self,
         ])
 
         let storeURL = URL.applicationSupportDirectory

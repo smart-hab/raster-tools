@@ -17,7 +17,7 @@ final class ToolVenvSetup: ToolRunner {
 
     /// The processing package. Its `pyproject.toml` is the source of truth for the dependency
     /// closure — installing this URL resolves rasterio, geopandas, scikit-learn and the rest.
-    static let packageURL = "git+ssh://git@github.com/smart-hab/processing-scripts.git"
+    static let packageURL = "git+ssh://git@macek.github.com/smart-hab/processing-scripts.git"
 
     /// `smart_hab` requires Python >= 3.12.
     static let minimumPython = (major: 3, minor: 12)

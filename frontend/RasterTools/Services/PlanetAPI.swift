@@ -174,6 +174,8 @@ struct PlanetManifestFile {
 
 // MARK: - Naming Pattern Resolver
 
+/// The Planet flavour of `resolveNamingPattern`: `{Parameters}` expands to the order's
+/// item type, bundle, and tool flags.
 func resolveNamingPattern(
     _ pattern: String,
     configName: String,
@@ -184,28 +186,19 @@ func resolveNamingPattern(
     composite: Bool,
     date: Date
 ) -> String {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(identifier: "UTC")!
-    let year = String(format: "%04d", calendar.component(.year, from: date))
-    let month = String(format: "%02d", calendar.component(.month, from: date))
-    let day = String(format: "%02d", calendar.component(.day, from: date))
-
     var paramParts: [String] = [itemType]
     if harmonized { paramParts.append("harmonized") }
     if composite { paramParts.append("composite") }
     paramParts.append(productBundle)
-    let parameters = paramParts.joined(separator: "_")
 
-    return pattern
-        .replacingOccurrences(of: "{Project}", with: projectName)
-        .replacingOccurrences(of: "{ConfigName}", with: configName)
-        .replacingOccurrences(of: "{Year}", with: year)
-        .replacingOccurrences(of: "{Month}", with: month)
-        .replacingOccurrences(of: "{Day}", with: day)
-        .replacingOccurrences(of: "{Parameters}", with: parameters)
+    return resolveNamingPattern(
+        pattern,
+        configName: configName,
+        projectName: projectName,
+        parameters: paramParts.joined(separator: "_"),
+        date: date
+    )
 }
-
-// MARK: - GeoJSON Geometry Loader
 
 enum PlanetAPIError: LocalizedError {
     case missingApiKey
@@ -226,30 +219,6 @@ enum PlanetAPIError: LocalizedError {
         }
     }
 }
-
-func loadShapeFileGeometry(from path: String) throws -> [String: Any] {
-    let data = try Data(contentsOf: URL(fileURLWithPath: path))
-    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-        throw PlanetAPIError.invalidShapeFile
-    }
-    // FeatureCollection
-    if let features = json["features"] as? [[String: Any]],
-       let first = features.first,
-       let geometry = first["geometry"] as? [String: Any] {
-        return geometry
-    }
-    // Feature
-    if let geometry = json["geometry"] as? [String: Any] {
-        return geometry
-    }
-    // Bare geometry
-    if let type = json["type"] as? String,
-       (type == "Polygon" || type == "MultiPolygon") {
-        return json
-    }
-    throw PlanetAPIError.invalidShapeFile
-}
-
 
 struct PlanetAPI {
 
@@ -319,7 +288,7 @@ struct PlanetAPI {
     }
 
     /// Exterior ring (lon/lat) of an AOI geometry, for lazy coverage computation.
-    static func aoiRing(from geometry: [String: Any]) -> [(lon: Double, lat: Double)] {
+    static func aoiRing(from geometry: [String: Any]) -> GeoRing {
         extractRing(from: geometry)
     }
 
@@ -327,13 +296,10 @@ struct PlanetAPI {
     /// Heavy (grid sampling) — call off the main actor. Returns nil when there's
     /// no AOI ring or no footprints to measure.
     nonisolated static func coveragePercent(
-        aoiRing: [(lon: Double, lat: Double)],
+        aoiRing: GeoRing,
         group: PlanetSceneGroup
     ) -> Double? {
-        guard !aoiRing.isEmpty else { return nil }
-        let rings = group.scenes.map(\.footprintRing).filter { !$0.isEmpty }
-        guard !rings.isEmpty else { return nil }
-        return gridCoveragePercent(aoi: aoiRing, scenes: rings)
+        aoiCoveragePercent(aoiRing: aoiRing, footprints: group.scenes.map(\.footprintRing))
     }
 
     // MARK: - Create Order
@@ -649,69 +615,4 @@ struct PlanetAPI {
             .sorted { $0.date < $1.date }
     }
 
-    private static func extractRing(from geometry: [String: Any]?) -> [(lon: Double, lat: Double)] {
-        guard let geometry else { return [] }
-        let type = geometry["type"] as? String
-        if type == "Polygon", let coords = geometry["coordinates"] as? [[[Double]]],
-           let ring = coords.first {
-            return ring.compactMap { p in p.count >= 2 ? (p[0], p[1]) : nil }
-        }
-        if type == "MultiPolygon", let coords = geometry["coordinates"] as? [[[[Double]]]],
-           let ring = coords.first?.first {
-            return ring.compactMap { p in p.count >= 2 ? (p[0], p[1]) : nil }
-        }
-        return []
-    }
-}
-
-// MARK: - Coverage Computation
-
-/// Estimates what fraction of the AOI polygon is covered by the union of scene footprint polygons.
-/// Uses grid sampling in lat/lon space (sufficient for percentage ratios on small areas).
-/// Returns a value in [0, 100].
-nonisolated private func gridCoveragePercent(
-    aoi: [(lon: Double, lat: Double)],
-    scenes: [[(lon: Double, lat: Double)]],
-    gridSize: Int = 150
-) -> Double {
-    guard !aoi.isEmpty, !scenes.isEmpty else { return 0 }
-    let lons = aoi.map(\.lon)
-    let lats = aoi.map(\.lat)
-    guard let minLon = lons.min(), let maxLon = lons.max(),
-          let minLat = lats.min(), let maxLat = lats.max() else { return 0 }
-    let dLon = (maxLon - minLon) / Double(gridSize)
-    let dLat = (maxLat - minLat) / Double(gridSize)
-    guard dLon > 0, dLat > 0 else { return 0 }
-
-    var aoiCells = 0
-    var coveredCells = 0
-    for i in 0..<gridSize {
-        for j in 0..<gridSize {
-            let lon = minLon + (Double(i) + 0.5) * dLon
-            let lat = minLat + (Double(j) + 0.5) * dLat
-            guard pointInRing((lon, lat), aoi) else { continue }
-            aoiCells += 1
-            if scenes.contains(where: { pointInRing((lon, lat), $0) }) {
-                coveredCells += 1
-            }
-        }
-    }
-    guard aoiCells > 0 else { return 0 }
-    return 100.0 * Double(coveredCells) / Double(aoiCells)
-}
-
-/// Ray-casting point-in-polygon test.
-nonisolated private func pointInRing(_ point: (lon: Double, lat: Double), _ ring: [(lon: Double, lat: Double)]) -> Bool {
-    var inside = false
-    var j = ring.count - 1
-    for i in 0..<ring.count {
-        let xi = ring[i].lon, yi = ring[i].lat
-        let xj = ring[j].lon, yj = ring[j].lat
-        if ((yi > point.lat) != (yj > point.lat)) &&
-            (point.lon < (xj - xi) * (point.lat - yi) / (yj - yi) + xi) {
-            inside = !inside
-        }
-        j = i
-    }
-    return inside
 }

@@ -20,8 +20,19 @@ class AppSettings {
         didSet { defaults.set(virtualEnvPath, forKey: "virtualEnvPath") }
     }
 
+    // Secrets live in the Keychain, not UserDefaults; the stored property is still required for
+    // the reason above, so it acts as an observable mirror of the Keychain item.
     var planetApiKey: String {
-        didSet { defaults.set(planetApiKey, forKey: "planetApiKey") }
+        didSet { KeychainStore.set(planetApiKey, for: "planetApiKey") }
+    }
+
+    /// Copernicus Data Space Ecosystem account — not a secret, so it stays in UserDefaults.
+    var cdseUsername: String {
+        didSet { defaults.set(cdseUsername, forKey: "cdseUsername") }
+    }
+
+    var cdsePassword: String {
+        didSet { KeychainStore.set(cdsePassword, for: "cdsePassword") }
     }
 
     /// Where tool outputs are written. Read through `AppStorage.outputsRoot()`, never directly.
@@ -32,9 +43,28 @@ class AppSettings {
     private init() {
         virtualEnvPath = defaults.string(forKey: "virtualEnvPath")
             ?? AppStorage.defaultVenvDirectory().path
-        planetApiKey = defaults.string(forKey: "planetApiKey") ?? ""
         outputsPath = defaults.string(forKey: "outputsPath")
             ?? AppStorage.defaultOutputsDirectory().path
+
+        // One-time migration: the API key used to live in UserDefaults. Adopt any leftover value
+        // into the Keychain and clear the plist copy so the secret is not stored twice.
+        if let keychainKey = KeychainStore.string(for: "planetApiKey") {
+            planetApiKey = keychainKey
+        } else if let legacyKey = defaults.string(forKey: "planetApiKey"), !legacyKey.isEmpty {
+            planetApiKey = legacyKey
+            KeychainStore.set(legacyKey, for: "planetApiKey")
+        } else {
+            planetApiKey = ""
+        }
+        defaults.removeObject(forKey: "planetApiKey")
+
+        cdseUsername = defaults.string(forKey: "cdseUsername") ?? ""
+        cdsePassword = KeychainStore.string(for: "cdsePassword") ?? ""
+    }
+
+    /// True when a Sentinel-2 search can authenticate against CDSE.
+    var hasCDSECredentials: Bool {
+        !cdseUsername.isEmpty && !cdsePassword.isEmpty
     }
 
     /// True when `virtualEnvPath` points at a venv that can actually run the tools:

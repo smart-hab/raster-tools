@@ -46,7 +46,7 @@ struct ToolCreateSheet: View {
                         }
                     }
                     .onChange(of: toolKind) { _, newKind in
-                        if newKind == .collection && configName.isEmpty {
+                        if newKind.isCollector && configName.isEmpty {
                             configName = project.name
                         }
                     }
@@ -85,10 +85,16 @@ struct ToolCreateSheet: View {
             project.preprocessConfigurations.append(config)
             project.modifiedAt = Date()
             onCreated(config)
-        case .collection:
+        case .collectionPlanet:
             let config = ToolCollectionConfiguration(name: configName, project: project)
             modelContext.insert(config)
             project.collectionConfigurations.append(config)
+            project.modifiedAt = Date()
+            onCreated(config)
+        case .collectionSentinel2:
+            let config = ToolSentinel2Configuration(name: configName, project: project)
+            modelContext.insert(config)
+            project.sentinel2Configurations.append(config)
             project.modifiedAt = Date()
             onCreated(config)
         }

@@ -5,7 +5,7 @@ enum SchemaV1: VersionedSchema {
     static var models: [any PersistentModel.Type] {
         [Project.self, ProjectResource.self,
          ToolKmeansConfiguration.self, ToolPreprocessConfiguration.self,
-         ToolCollectionConfiguration.self]
+         ToolCollectionConfiguration.self, ToolSentinel2Configuration.self]
     }
 }
 

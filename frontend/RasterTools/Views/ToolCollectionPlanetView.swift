@@ -1,5 +1,5 @@
 //
-//  ToolCollectionView.swift
+//  ToolCollectionPlanetView.swift
 //  RasterTools
 //
 //  Created by Marek on 2026-03-24.
@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-struct ToolCollectionView: View {
+struct ToolCollectionPlanetView: View {
     @Bindable var configuration: ToolCollectionConfiguration
 
     @Environment(JobRegistry.self) private var registry

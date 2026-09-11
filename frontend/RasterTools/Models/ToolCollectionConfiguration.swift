@@ -8,11 +8,17 @@
 import Foundation
 import SwiftData
 
+/// The Planet collector's configuration.
+///
+/// The class name predates the Sentinel-2 collector and is kept deliberately: it is the
+/// persisted SwiftData entity name, and renaming it would require a custom migration stage for
+/// no behavioural gain. Everything user-facing says "Planet"; see `ToolSentinel2Configuration`
+/// for the other provider.
 @Model
 final class ToolCollectionConfiguration: ToolConfiguration {
     var id: UUID
     var name: String
-    var kind: ToolKind { .collection }
+    var kind: ToolKind { .collectionPlanet }
     var project: Project
     var createdAt: Date
     var modifiedAt: Date

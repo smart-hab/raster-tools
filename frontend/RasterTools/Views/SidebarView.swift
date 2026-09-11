@@ -48,6 +48,8 @@ struct SidebarView: View {
                         selection = .preprocessConfiguration(c)
                     } else if let c = config as? ToolCollectionConfiguration {
                         selection = .collectionConfiguration(c)
+                    } else if let c = config as? ToolSentinel2Configuration {
+                        selection = .sentinel2Configuration(c)
                     }
                 }
             }
@@ -106,6 +108,7 @@ struct SidebarProjectRow: View {
                             case .kmeansConfiguration(let c): modelContext.delete(c)
                             case .preprocessConfiguration(let c): modelContext.delete(c)
                             case .collectionConfiguration(let c): modelContext.delete(c)
+                            case .sentinel2Configuration(let c): modelContext.delete(c)
                             default: break
                             }
                         }

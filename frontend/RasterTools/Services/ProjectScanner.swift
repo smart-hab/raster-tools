@@ -50,8 +50,25 @@ struct ProjectScanner {
                 continue
             }
 
-            // Metadata
-            if filename == "composite_metadata.json" {
+            // Sentinel-2: the stacked 13-band GeoTIFF produced by `s2_stack` after a CDSE
+            // download. The individual .jp2 bands inside the .SAFE tree are deliberately not
+            // registered — there are 13 per product and none is usable on its own. There is no
+            // UDM2 companion either; Sentinel-2 ships cloud masks in a different form.
+            if filename.hasSuffix("_13band.tif") {
+                let resource = ProjectResource(
+                    originalPath: fileURL.path(percentEncoded: false),
+                    filename: filename,
+                    date: extractDate(from: fileURL),
+                    fileExtension: ext,
+                    kind: .sourceRaster,
+                    fileSize: fileSize(at: fileURL)
+                )
+                resources.append(resource)
+                continue
+            }
+
+            // Metadata — Planet's composite sidecar, or a Sentinel-2 product manifest
+            if filename == "composite_metadata.json" || filename == "MTD_MSIL1C.xml" {
                 let date = extractDate(from: fileURL)
                 let resource = ProjectResource(
                     originalPath: fileURL.path(percentEncoded: false),
@@ -108,18 +125,26 @@ struct ProjectScanner {
         return attrs?[.size] as? Int ?? 0
     }
 
-    /// Extracts a date from a directory component matching `<base>-YYYYMMDD-*` pattern.
+    private static let yyyymmddFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    /// Extracts a date from the first 8-digit run in any path component — Planet's
+    /// `<base>-YYYYMMDD-*` folders and Sentinel-2's `S2A_MSIL1C_YYYYMMDDTHHMMSS_…` products
+    /// both match.
     private static func extractDate(from fileURL: URL) -> Date? {
         let components = fileURL.pathComponents
         let pattern = /\b(\d{8})\b/
 
         for component in components {
             if let match = component.firstMatch(of: pattern) {
-                let dateString = String(match.1)
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyyMMdd"
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                return formatter.date(from: dateString)
+                // Parsed as UTC to match every other date in the app — a local-time parse can
+                // shift a scene into the neighbouring calendar day.
+                return yyyymmddFormatter.date(from: String(match.1))
             }
         }
         return nil

@@ -62,6 +62,7 @@ enum SidebarSelection: Hashable {
     case kmeansConfiguration(ToolKmeansConfiguration)
     case preprocessConfiguration(ToolPreprocessConfiguration)
     case collectionConfiguration(ToolCollectionConfiguration)
+    case sentinel2Configuration(ToolSentinel2Configuration)
     case planet
 }
 
@@ -132,6 +133,8 @@ struct AppView: View {
                         selection = .preprocessConfiguration(c)
                     } else if let c = config as? ToolCollectionConfiguration {
                         selection = .collectionConfiguration(c)
+                    } else if let c = config as? ToolSentinel2Configuration {
+                        selection = .sentinel2Configuration(c)
                     }
                     showingNewConfigSheet = false
                 }
@@ -145,6 +148,7 @@ struct AppView: View {
         case .kmeansConfiguration(let c): return c.project
         case .preprocessConfiguration(let c): return c.project
         case .collectionConfiguration(let c): return c.project
+        case .sentinel2Configuration(let c): return c.project
         case .planet, nil: return nil
         }
     }
@@ -192,6 +196,9 @@ struct AppView: View {
         case .collectionConfiguration(let config):
             NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.project, configuration: config))
             modelContext.delete(config)
+        case .sentinel2Configuration(let config):
+            NSWorkspace.shared.open(AppStorage.outputDirectory(for: config.project, configuration: config))
+            modelContext.delete(config)
         case .planet:
             break
         }
@@ -217,7 +224,9 @@ struct DetailView: View {
             case .preprocessConfiguration(let config):
                 ToolPreprocessView(configuration: config)
             case .collectionConfiguration(let config):
-                ToolCollectionView(configuration: config)
+                ToolCollectionPlanetView(configuration: config)
+            case .sentinel2Configuration(let config):
+                ToolSentinel2View(configuration: config)
             case .planet:
                 PlanetView()
             case nil:
@@ -251,6 +260,7 @@ struct DetailView: View {
         case .kmeansConfiguration(let c): return "Delete \"\(c.name)\"?"
         case .preprocessConfiguration(let c): return "Delete \"\(c.name)\"?"
         case .collectionConfiguration(let c): return "Delete \"\(c.name)\"?"
+        case .sentinel2Configuration(let c): return "Delete \"\(c.name)\"?"
         case .planet, nil: return "Delete?"
         }
     }

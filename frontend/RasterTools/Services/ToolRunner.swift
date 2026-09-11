@@ -75,6 +75,36 @@ class ToolRunner {
         return output
     }
     
+    /// Extract a zip archive with `ditto`, which handles the large archives both collectors
+    /// download without pulling in an unzip dependency.
+    func runDitto(source: String, destination: String) async throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        process.arguments = ["-xk", source, destination]
+
+        let errorPipe = Pipe()
+        process.standardError = errorPipe
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            process.terminationHandler = { proc in
+                if proc.terminationStatus != 0 {
+                    let msg = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                    continuation.resume(throwing: ToolError.processError(
+                        code: proc.terminationStatus,
+                        message: msg.isEmpty ? "ditto failed" : msg
+                    ))
+                } else {
+                    continuation.resume()
+                }
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
     /// Update progress state (compact status header only — preserves existing logs).
     func update(_ p: ToolProgress) async {
         await MainActor.run {

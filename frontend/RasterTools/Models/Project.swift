@@ -20,6 +20,7 @@ final class Project {
     @Relationship(deleteRule: .cascade) var kmeansConfigurations: [ToolKmeansConfiguration]
     @Relationship(deleteRule: .cascade) var preprocessConfigurations: [ToolPreprocessConfiguration]
     @Relationship(deleteRule: .cascade) var collectionConfigurations: [ToolCollectionConfiguration]
+    @Relationship(deleteRule: .cascade) var sentinel2Configurations: [ToolSentinel2Configuration]
     var createdAt: Date
     var modifiedAt: Date
 
@@ -31,6 +32,7 @@ final class Project {
         self.kmeansConfigurations = []
         self.preprocessConfigurations = []
         self.collectionConfigurations = []
+        self.sentinel2Configurations = []
         self.createdAt = Date()
         self.modifiedAt = Date()
     }
@@ -104,7 +106,8 @@ final class Project {
         let k = kmeansConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.kmeansConfiguration($0)) }
         let p = preprocessConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.preprocessConfiguration($0)) }
         let c = collectionConfigurations.map { ($0 as any ToolConfiguration, SidebarSelection.collectionConfiguration($0)) }
-        return (k + p + c).sorted { $0.config.modifiedAt > $1.config.modifiedAt }
+        let s = sentinel2Configurations.map { ($0 as any ToolConfiguration, SidebarSelection.sentinel2Configuration($0)) }
+        return (k + p + c + s).sorted { $0.config.modifiedAt > $1.config.modifiedAt }
     }
 }
 

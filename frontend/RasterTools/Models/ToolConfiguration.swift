@@ -12,14 +12,22 @@ import Foundation
 enum ToolKind: String, Codable, CaseIterable {
     case kmeans = "K-Means Clustering"
     case preprocess = "Preprocess"
-    case collection = "Collection"
+    case collectionPlanet = "Collection (Planet)"
+    case collectionSentinel2 = "Collection (Sentinel-2)"
 
     var iconName: String {
         switch self {
         case .kmeans: return "circle.hexagongrid.fill"
         case .preprocess: return "wand.and.rays"
-        case .collection: return "square.and.arrow.down.on.square"
+        case .collectionPlanet: return "square.and.arrow.down.on.square"
+        case .collectionSentinel2: return "globe.europe.africa.fill"
         }
+    }
+
+    /// The two collectors share a workflow (AOI + month + cloud cover → scenes on disk) and
+    /// differ only in provider, so several call sites treat them alike.
+    var isCollector: Bool {
+        self == .collectionPlanet || self == .collectionSentinel2
     }
 }
 
