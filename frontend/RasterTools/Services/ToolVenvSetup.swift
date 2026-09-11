@@ -18,11 +18,12 @@ final class ToolVenvSetup: ToolRunner {
     /// The processing package. Its `pyproject.toml` is the source of truth for the dependency
     /// closure — installing this URL resolves rasterio, geopandas, scikit-learn and the rest.
     ///
-    /// TODO: `processing-scripts` is now a subdirectory of the merged `raster-tools` repo.
-    /// Once that repo is pushed, this must become
-    /// `git+ssh://git@macek.github.com/smart-hab/raster-tools.git#subdirectory=processing-scripts`.
-    /// Until then it keeps pointing at the old standalone repo, which still exists.
-    static let packageURL = "git+ssh://git@macek.github.com/smart-hab/processing-scripts.git"
+    /// The package is not at the repository root: `raster-tools` holds this app in `frontend/`
+    /// and the Python package in `processing-scripts/`, so the URL carries a
+    /// `#subdirectory=` fragment telling pip where the `pyproject.toml` actually lives.
+    /// Without it pip clones the repo, finds no project metadata at the top level, and fails.
+    static let packageURL =
+        "git+ssh://git@github.com/smart-hab/raster-tools.git#subdirectory=processing-scripts"
 
     /// `smart_hab` requires Python >= 3.12.
     static let minimumPython = (major: 3, minor: 12)

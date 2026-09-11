@@ -2,17 +2,19 @@
 
 ## Installation
 
-Clone the repo
+This package lives in the `processing-scripts/` subdirectory of the `raster-tools` repo, so
+pip needs a `#subdirectory=` fragment to find its `pyproject.toml`. To install it straight
+from git, without a working copy:
 
 ```none
-https://github.com/smart-hab/processing-scripts.git
+pip install "git+ssh://git@github.com/smart-hab/raster-tools.git#subdirectory=processing-scripts"
 ```
 
-Change branch to `pypackage`
+That is what the RasterTools app does when it provisions its managed environment. For local
+development, clone the repo instead:
 
 ```none
-cd processing-scripts
-git checkout pypackage
+git clone git@github.com:smart-hab/raster-tools.git
 ```
 
 In your project, create python virtual environment:
@@ -37,7 +39,7 @@ pip install --upgrade pip
 Install the processing-scripts python package:
 
 ```none
-pip install -e /path/to/processing-scripts
+pip install -e /path/to/raster-tools/processing-scripts
 ```
 
 Install `gum` dependency
