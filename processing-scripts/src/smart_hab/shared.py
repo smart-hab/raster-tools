@@ -41,7 +41,9 @@ def setup_logger(name: str, verbose: bool = False) -> logging.Logger:
 
 
 def get_date(filename: str) -> typing.Optional[str]:
-    m = re.search(r"-(\d{8})-", filename)
+    # Planet composites are named `<base>-YYYYMMDD-<params>`; Sentinel-2 products carry a
+    # `_YYYYMMDDTHHMMSS_` sensing timestamp instead (e.g. S2A_MSIL1C_20220720T152641_...).
+    m = re.search(r"-(\d{8})-", filename) or re.search(r"_(\d{8})T\d{6}_", filename)
     if not m:
         return None
     return m.group(1)

@@ -456,3 +456,42 @@ def subtract() -> None:
         logger=logger,
         resampling=resampling,
     )
+
+
+def s2_stack() -> None:
+    p = argparse.ArgumentParser(
+        prog="s2_stack",
+        description="Stack the 13 Sentinel-2 L1C bands of a .SAFE product into one GeoTIFF",
+    )
+    p.add_argument("-i", "--input", help="Source .SAFE or IMG_DATA directory", required=True)
+    p.add_argument("-o", "--output", help="Destination raster path")
+    p.add_argument(
+        "-r",
+        "--reference-band",
+        help="Band whose grid every other band is resampled onto",
+        default="B02",
+        choices=fn.S2_BAND_ORDER,
+    )
+    p.add_argument(
+        "-v",
+        "--verbose",
+        help="Display extra information",
+        action="store_true",
+        default=False,
+    )
+    p.add_argument("-w", "--cwd", help="Working directory", default=os.getcwd())
+    args = p.parse_args()
+    input = Path(args.cwd) / cast(str, args.input)
+    # ".SAFE" is a directory suffix, so stem drops it and leaves the bare product name
+    output = (
+        Path(args.cwd) / cast(str, args.output)
+        if args.output
+        else input.parent / f"{input.stem}_13band.tif"
+    )
+    logger = setup_logger("s2_stack", cast(bool, args.verbose))
+    fn.s2_stack(
+        input=input,
+        output=output,
+        reference_band=cast(str, args.reference_band),
+        logger=logger,
+    )

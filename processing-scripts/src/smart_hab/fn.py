@@ -7,9 +7,12 @@ from .mask import mask
 from .means import means
 from .norm_diff import norm_diff
 from .plot import plot1, plot3
+from .s2_stack import BAND_ORDER as S2_BAND_ORDER
+from .s2_stack import s2_stack
 from .subtract import subtract
 
 __all__ = [
+    "S2_BAND_ORDER",
     "about_raster",
     "about_shape",
     "clip",
@@ -21,5 +24,6 @@ __all__ = [
     "norm_diff",
     "plot1",
     "plot3",
+    "s2_stack",
     "subtract",
 ]
