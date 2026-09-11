@@ -1,0 +1,39 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "xcodebuild",
+            "args": [
+                "-scheme",
+                "RasterTools",
+                "-destination",
+                "platform=macOS",
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test",
+            "type": "shell",
+            "command": "xcodebuild",
+            "args": [
+                "-scheme",
+                "RasterTools",
+                "-destination",
+                "platform=macOS",
+                "test"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}
