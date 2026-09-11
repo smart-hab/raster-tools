@@ -7,7 +7,6 @@ dependencies = [
     "fastapi>=0.116.0",
     "geopandas>=1.0.1",
     "matplotlib>=3.10.1",
-    "pyrefly>=0.33.1",
     "python-multipart>=0.0.20",
     "rasterio>=1.4.3",
     "rioxarray>=0.18.2",
@@ -19,6 +18,12 @@ name = "smart_hab"
 readme = "readme.md"
 requires-python = ">=3.12"
 version = "0.0.1"
+
+# Dev-only tooling; not installed with the package.
+[dependency-groups]
+dev = [
+    "pyrefly>=0.33.1",
+]
 
 [project.scripts]
 about = "smart_hab.cli:about"
@@ -33,9 +38,6 @@ plot = "smart_hab.cli:plot"
 s2_stack = "smart_hab.cli:s2_stack"
 select_bands = "smart_hab.cli:select_bands"
 subtract = "smart_hab.cli:subtract"
-preprocess = "smart_hab._scripts:preprocess"
-kmeans = "smart_hab._scripts:kmeans"
-preload_source_files = "smart_hab._scripts:preload_source_files"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_hab"]

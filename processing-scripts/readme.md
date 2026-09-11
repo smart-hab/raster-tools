@@ -42,12 +42,6 @@ Install the processing-scripts python package:
 pip install -e /path/to/raster-tools/processing-scripts
 ```
 
-Install `gum` dependency
-
-```none
-brew install gum
-```
-
 ## Overview
 
 This package provides a suite of command-line tools for processing geospatial raster and vector data, with a focus on satellite imagery workflows. The tools are designed to be modular and composable, allowing you to inspect, clean, transform, analyze, and visualize your data efficiently.
