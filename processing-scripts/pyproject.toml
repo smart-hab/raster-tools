@@ -20,8 +20,8 @@ version = "0.0.1"
 # Dev-only tooling; not installed with the package.
 [dependency-groups]
 dev = [
-    "pyrefly==1.3.0",
     "ruff==0.16.7",
+    "ty==0.0.80",
 ]
 
 [project.scripts]
@@ -41,9 +41,6 @@ subtract = "smart_hab.cli:subtract"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_hab"]
-
-[tool.pyrefly]
-project-includes = ["src/**/*"]
 
 [tool.ruff]
 line-length = 100

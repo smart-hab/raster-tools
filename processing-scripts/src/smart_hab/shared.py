@@ -8,6 +8,7 @@ import typing
 import geopandas
 import numpy
 import rioxarray
+import rioxarray.raster_array
 import xarray
 
 type Dtype = typing.Literal[

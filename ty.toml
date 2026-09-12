@@ -1,0 +1,5 @@
+# The repo root is the VS Code workspace root, but the only Python project lives one level
+# down. Point ty at its environment so the language server resolves imports from anywhere in
+# the workspace; the path is relative to this file.
+[environment]
+python = "./processing-scripts/.venv"
