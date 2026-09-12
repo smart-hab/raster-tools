@@ -84,7 +84,7 @@ def plot3(
     width = round(raster.sizes["x"] / dpi, 2)
     height = round(raster.sizes["y"] / dpi, 2)
     logger.info(f"Plotting true color image ... {band_name} {width}x{height}@{dpi} {cmap}")
-    fig, ax = plt.subplots(figsize=(width, height))
+    _fig, ax = plt.subplots(figsize=(width, height))
     plt.title(f"{input.name} ({', '.join(band_name)})", fontsize=6)
     ax.set_axis_off()
     plt.imshow(rgb, alpha=alphadata)

@@ -1,6 +1,7 @@
 import logging
 import pathlib
-from typing import Any, BinaryIO, Hashable
+from collections.abc import Hashable
+from typing import Any, BinaryIO
 
 from pydantic import BaseModel
 
@@ -71,7 +72,7 @@ def about_raster(
 
 
 def serialize_raster_attributes(attrs: dict[Hashable, Any]) -> dict[str, Any]:
-    d: dict[str, Any] = dict()
+    d: dict[str, Any] = {}
     for k, v in attrs.items():
         if isinstance(v, (int, float, str)):
             d[str(k)] = v

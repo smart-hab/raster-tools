@@ -3,7 +3,6 @@ Main entry for the smart_hab package
 """
 
 from .about import RasterInfo, ShapeInfo
-
 from .fn import (
     about_raster,
     about_shape,

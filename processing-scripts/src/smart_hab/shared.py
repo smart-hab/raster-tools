@@ -40,7 +40,7 @@ def setup_logger(name: str, verbose: bool = False) -> logging.Logger:
     return logger
 
 
-def get_date(filename: str) -> typing.Optional[str]:
+def get_date(filename: str) -> str | None:
     # Planet composites are named `<base>-YYYYMMDD-<params>`; Sentinel-2 products carry a
     # `_YYYYMMDDTHHMMSS_` sensing timestamp instead (e.g. S2A_MSIL1C_20220720T152641_...).
     m = re.search(r"-(\d{8})-", filename) or re.search(r"_(\d{8})T\d{6}_", filename)
@@ -50,28 +50,28 @@ def get_date(filename: str) -> typing.Optional[str]:
 
 
 def load_shape(
-    shape_path: pathlib.Path | typing.BinaryIO, crs: typing.Optional[str] = None
+    shape_path: pathlib.Path | typing.BinaryIO, crs: str | None = None
 ) -> geopandas.GeoDataFrame:
     try:
         shape = geopandas.read_file(shape_path)
     except Exception as e:
         raise RuntimeError(f"Could not read shape file: {shape_path}") from e
     if not isinstance(shape, geopandas.GeoDataFrame):
-        raise RuntimeError(f"Shape does not contain GeoDataFrame: {shape_path}")
+        raise TypeError(f"Shape does not contain GeoDataFrame: {shape_path}")
     if crs and shape.crs != crs:
         shape.to_crs(crs, inplace=True)
     return shape
 
 
 def load_raster(
-    raster_path: pathlib.Path | typing.BinaryIO, crs: typing.Optional[str] = None
+    raster_path: pathlib.Path | typing.BinaryIO, crs: str | None = None
 ) -> xarray.DataArray:
     try:
         ras = rioxarray.open_rasterio(raster_path)
     except Exception as e:
         raise RuntimeError(f"Could not read raster file: {raster_path}") from e
     if not isinstance(ras, xarray.DataArray):
-        raise RuntimeError(f"Raster does not contain DataArray: {raster_path}")
+        raise TypeError(f"Raster does not contain DataArray: {raster_path}")
     if crs and rio(ras).crs != crs:
         ras = rio(ras).reproject(crs)
     return ras
@@ -80,7 +80,7 @@ def load_raster(
 def raster_bands(raster: xarray.DataArray) -> dict[int, str]:
     assert "band" in raster.coords, "No bands found in raster"
     bands = list(map(int, raster.coords["band"].values))
-    names = list(map(str, raster.attrs.get("long_name", []))) or list(f"band_{b}" for b in bands)
+    names = list(map(str, raster.attrs.get("long_name", []))) or [f"band_{b}" for b in bands]
     return dict(zip(bands, names))
 
 
@@ -150,9 +150,9 @@ def raster_scale(raster: xarray.DataArray, dtype: Dtype) -> xarray.DataArray:
 def rio(raster: xarray.DataArray) -> rioxarray.raster_array.RasterArray:
     value = getattr(raster, "rio", None)
     if not isinstance(value, rioxarray.raster_array.RasterArray):
-        raise RuntimeError("Raster is not a valid rioxarray RasterArray.")
+        raise TypeError("Raster is not a valid rioxarray RasterArray.")
     return value
 
 
 def timestamp() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()

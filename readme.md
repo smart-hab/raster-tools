@@ -14,10 +14,10 @@ frontend/             RasterTools — SwiftUI macOS app that runs those tools
 ### `processing-scripts/`
 
 A `hatchling` package (`src/smart_hab`) exposing one console script per operation —
-`about`, `clip`, `convert_shape`, `kmeans_fit`, `kmeans_classify`, `mask`, `means`,
-`norm_diff`, `plot`, `s2_stack`, `select_bands`, `subtract` — plus the higher level
-`preprocess`, `kmeans` and `preload_source_files` pipelines. `http.py` serves the same
-operations over FastAPI. Entry points and dependencies are declared in `pyproject.toml`.
+`about`, `clip`, `convert_shape`, `equal`, `kmeans_fit`, `kmeans_classify`, `mask`,
+`means`, `norm_diff`, `plot`, `s2_stack`, `select_bands`, `subtract`. Each is a thin
+CLI wrapper over the matching function in `fn.py`. Entry points and dependencies are
+declared in `pyproject.toml`.
 
 See [processing-scripts/readme.md](processing-scripts/readme.md).
 

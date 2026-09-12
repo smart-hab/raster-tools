@@ -30,7 +30,7 @@ def means(
         except Exception as e:
             raise RuntimeError(f"Could not read raster file: {file}") from e
         if not isinstance(r, xarray.DataArray):
-            raise RuntimeError(f"Raster does not contain DataArray: {file}")
+            raise TypeError(f"Raster does not contain DataArray: {file}")
         if not crs:
             logger.info(f"Target CRS set to first raster: {shared.rio(r).crs}")
             crs = shared.rio(r).crs
@@ -77,7 +77,8 @@ def means(
         if long_name and len(long_name) == len(bands):
             selection = set(bands)
             long_name = tuple(name for (band, name) in zip(bands, long_name) if band in selection)
-    except Exception:
+    # Band names are cosmetic; any failure here just leaves them unset.
+    except Exception:  # noqa: BLE001
         long_name = None
 
     # update attributes

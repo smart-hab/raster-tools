@@ -24,7 +24,7 @@ def subtract(
     except Exception as e:
         raise RuntimeError(f"Could not read raster file: {input[0]}") from e
     if not isinstance(r1, xarray.DataArray):
-        raise RuntimeError(f"Raster does not contain DataArray: {input[0]}")
+        raise TypeError(f"Raster does not contain DataArray: {input[0]}")
     if not crs:
         logger.info(f"Target CRS set to: {shared.rio(r1).crs}")
         crs = shared.rio(r1).crs
@@ -41,7 +41,7 @@ def subtract(
     except Exception as e:
         raise RuntimeError(f"Could not read raster file: {input[1]}") from e
     if not isinstance(r2, xarray.DataArray):
-        raise RuntimeError(f"Raster does not contain DataArray: {input[1]}")
+        raise TypeError(f"Raster does not contain DataArray: {input[1]}")
     if shared.rio(r2).crs != crs:
         logger.info(f"Reprojecting CRS... {shared.rio(r2).crs} -> {crs}")
         r2 = shared.rio(r2).reproject(crs, resampling=resampling)
@@ -63,7 +63,8 @@ def subtract(
         if long_name and len(long_name) == len(bands):
             selection = set(bands)
             long_name = tuple(name for (band, name) in zip(bands, long_name) if band in selection)
-    except Exception:
+    # Band names are cosmetic; any failure here just leaves them unset.
+    except Exception:  # noqa: BLE001
         long_name = None
 
     # update attributes
