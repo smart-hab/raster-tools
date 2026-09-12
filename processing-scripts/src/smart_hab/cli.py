@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import cast
 
@@ -109,6 +110,44 @@ def convert_shape() -> None:
         crs=cast(str | None, args.crs),
         logger=logger,
     )
+
+
+def equal() -> None:
+    p = argparse.ArgumentParser(prog="equal", description="Compare two rasters for equality")
+    p.add_argument("-i", "--input", nargs=2, help="Source raster paths", required=True)
+    p.add_argument("-b", "--bands", help="Band selection", nargs="+", type=int)
+    p.add_argument(
+        "--data-only",
+        help="Compare raster data only, ignore CRS and coords",
+        action="store_true",
+        default=False,
+    )
+    p.add_argument(
+        "-v",
+        "--verbose",
+        help="Display extra information",
+        action="store_true",
+        default=False,
+    )
+    p.add_argument("-w", "--cwd", help="Working directory", default=os.getcwd())
+    args = p.parse_args()
+    match cast(list[str], args.input):
+        case [a, b]:
+            input = (
+                Path(args.cwd) / a,
+                Path(args.cwd) / b,
+            )
+        case _:
+            raise RuntimeError(f"Invalid input files: ({args.input}). Must be two files.")
+    logger = setup_logger("equal", cast(bool, args.verbose))
+    # Exit non-zero on mismatch so the command is usable as a shell test.
+    if not fn.equal(
+        input=input,
+        bands=cast(list[int] | None, args.bands),
+        data_only=cast(bool, args.data_only),
+        logger=logger,
+    ):
+        sys.exit(1)
 
 
 def kmeans_classify() -> None:

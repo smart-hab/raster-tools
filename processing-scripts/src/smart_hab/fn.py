@@ -1,6 +1,7 @@
 from .about import about_raster, about_shape
 from .clip import clip
 from .convert_shape import convert_shape
+from .equal import equal
 from .kmeans_classify import kmeans_classify
 from .kmeans_fit import kmeans_fit
 from .mask import mask
@@ -17,6 +18,7 @@ __all__ = [
     "about_shape",
     "clip",
     "convert_shape",
+    "equal",
     "kmeans_classify",
     "kmeans_fit",
     "mask",

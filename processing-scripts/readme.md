@@ -69,7 +69,11 @@ A typical processing workflow might look like this:
 7. **Comparison**
    Use `means` to create raster averages and `subtract` to measure variance.
 
-8. **Visualize your results**  
+8. **Verify results**  
+   Use `equal` to check whether two rasters are identical — handy for confirming a pipeline
+   change did not alter its output. It exits non-zero on a mismatch, so it works as a test.
+
+9. **Visualize your results**  
    Use `plot` to quickly generate PNG images from your rasters for reports, presentations, or quality checks.
 
 Each tool is documented below with its parameters and usage examples. You can use them individually or combine them in scripts to automate your geospatial workflows.
@@ -88,6 +92,7 @@ Available commands. For more details on each script, run `<command> --help`.
 - [kmeans_classify](#kmeans_classify)
 - [plot](#plot)
 - [subtract](#subtract)
+- [equal](#equal)
 
 ### `about`
 
@@ -421,5 +426,43 @@ subtract -i a.tif b.tif -o diff.tif -b 1 2 -c EPSG:3857
 subtract -i x.tif y.tif -o diff.tif -r nearest -v
 ```
 *Creates `diff.tif` using nearest neighbor resampling method*
+
+---
+
+### `equal`
+
+Compares two rasters and reports whether they are identical. Checks shape, CRS and transform
+before comparing band data; the first difference found is logged and the command exits with
+status `1`, so it can be used directly as a shell test.
+
+**Parameters**
+
+| Parameter         | Type  | Required | Default | Description                             |
+|-------------------|-------|----------|---------|-----------------------------------------|
+| `-i`, `--input`   | path  | Yes      |         | Two source raster paths                 |
+| `-b`, `--bands`   | int[] | No       | all     | Band selection                          |
+| `--data-only`     | flag  | No       | False   | Compare pixel data only, ignore CRS and coords |
+| `-v`, `--verbose` | flag  | No       | False   | Show extra information                  |
+| `-w`, `--cwd`     | path  | No       | .       | Working directory                       |
+
+**Examples**
+
+- Compare two rasters in full:
+```sh
+equal -i a.tif b.tif
+```
+*Exits `0` when the rasters match, `1` on the first difference found*
+
+- Compare pixel data only, ignoring georeferencing:
+```sh
+equal -i a.tif b.tif --data-only
+```
+*Useful when two rasters carry the same values under different CRS metadata*
+
+- Compare a subset of bands in a shell test:
+```sh
+if equal -i expected.tif actual.tif -b 1 2; then echo "match"; fi
+```
+*Only bands 1 and 2 are compared*
 
 ---
