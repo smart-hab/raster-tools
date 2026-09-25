@@ -53,8 +53,13 @@ class ToolPreprocess: ToolRunner {
             await log("[\(total)/\(total)] Processing complete!")
 
         } catch {
+            // The log is where the user looks first, and a failing step's stderr only reaches
+            // them through here.
+            await log("✗ \(error.localizedDescription)")
+            await update(ToolProgress(statusText: "Error", progress: progress.progress, progressText: progress.progressText))
             await MainActor.run {
                 self.error = error
+                isRunning = false
             }
             throw error
         }
@@ -76,32 +81,30 @@ class ToolPreprocess: ToolRunner {
         completed: inout Int
     ) async throws {
         let inputPath = rasterResource.originalPath
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        let baseName = rasterResource.date.map { formatter.string(from: $0) }
-            ?? URL(fileURLWithPath: inputPath).deletingPathExtension().lastPathComponent
-        let dateLabel = rasterResource.date?.displayString ?? baseName
+        defer { completed += 1 }
 
-        let udmPath: String
-        if let udmResource = rasterResource.udm {
-            udmPath = udmResource.originalPath
-        } else {
-            udmPath = URL(fileURLWithPath: inputPath).deletingPathExtension().path + "_udm2.tif"
+        guard let profile = rasterResource.kind.bandProfile else {
+            await log("[\(completed + 1)/\(total)] ⚠️ Skipping \(rasterResource.filename): not a source raster")
+            return
         }
 
+        let stem = rasterResource.date.map { Date.compactUTCFormatter.string(from: $0) }
+            ?? URL(fileURLWithPath: inputPath).deletingPathExtension().lastPathComponent
+        let baseName = stem + profile.outputTag
+        let dateLabel = rasterResource.date?.displayString ?? baseName
+        let rgbArguments = ["--rgb"] + profile.rgb.map(String.init)
+
         await update(ToolProgress(statusText: "Processing \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
-        await log("[\(completed + 1)/\(total)] \(baseName)")
+        await log("[\(completed + 1)/\(total)] \(baseName) (\(rasterResource.kind.displayName))")
 
         // Step 1: Clip to shape boundary
         let clippedPath = "\(outputDir)/\(baseName)_clipped.tif"
         let clippedPng = clippedPath.replacingOccurrences(of: ".tif", with: ".png")
         let clippedFilename = URL(fileURLWithPath: clippedPath).lastPathComponent
 
-        let clippedExists = project.resources.contains { $0.originalPath == clippedPath }
-        var clippedResource: ProjectResource?
+        var clippedResource = project.resources.first { $0.originalPath == clippedPath }
 
-        if !clippedExists {
+        if clippedResource == nil {
             await update(ToolProgress(statusText: "Clipping \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
             await log("  Clipping...")
             try await runProcess(
@@ -111,7 +114,7 @@ class ToolPreprocess: ToolRunner {
             if !FileManager.default.fileExists(atPath: clippedPng) {
                 try await runProcess(
                     executable: "plot",
-                    arguments: ["--rgb", "6", "4", "2", "-i", clippedPath, "-o", clippedPng]
+                    arguments: rgbArguments + ["-i", clippedPath, "-o", clippedPng]
                 )
             }
             clippedResource = makeResource(
@@ -124,49 +127,59 @@ class ToolPreprocess: ToolRunner {
                 project: project,
                 context: context
             )
-        } else {
-            clippedResource = project.resources.first { $0.originalPath == clippedPath }
         }
         await log("  \(clippedFilename)")
 
-        // Step 2: Apply UDM2 mask (cloud/shadow removal)
-        let maskedPath = "\(outputDir)/\(baseName)_clipped_masked.tif"
-        let maskedPng = maskedPath.replacingOccurrences(of: ".tif", with: ".png")
-        let maskedFilename = URL(fileURLWithPath: maskedPath).lastPathComponent
+        // Step 2: Apply the cloud mask when the raster has one; otherwise indices are
+        // calculated on the clipped raster.
+        var indexInputPath = clippedPath
+        var indexInputResource = clippedResource
+        var indexStem = "\(baseName)_clipped"
 
-        let maskedExists = project.resources.contains { $0.originalPath == maskedPath }
-        var maskedResource: ProjectResource?
+        if let maskPath = cloudMaskPath(for: rasterResource) {
+            let maskedPath = "\(outputDir)/\(baseName)_clipped_masked.tif"
+            let maskedPng = maskedPath.replacingOccurrences(of: ".tif", with: ".png")
+            let maskedFilename = URL(fileURLWithPath: maskedPath).lastPathComponent
 
-        if !maskedExists {
-            await update(ToolProgress(statusText: "Masking \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
-            await log("  Masking...")
-            try await runProcess(
-                executable: "mask",
-                arguments: ["-i", clippedPath, "-u", udmPath, "-o", maskedPath]
-            )
-            if !FileManager.default.fileExists(atPath: maskedPng) {
+            var maskedResource = project.resources.first { $0.originalPath == maskedPath }
+
+            if maskedResource == nil {
+                await update(ToolProgress(statusText: "Masking \(dateLabel)", progress: Double(completed) / Double(total), progressText: "\(completed) / \(total)"))
+                await log("  Masking...")
                 try await runProcess(
-                    executable: "plot",
-                    arguments: ["--rgb", "6", "4", "2", "-i", maskedPath, "-o", maskedPng]
+                    executable: "mask",
+                    arguments: ["-i", clippedPath, "-u", maskPath, "-o", maskedPath, "-b"]
+                        + profile.maskBands.map(String.init)
+                )
+                if !FileManager.default.fileExists(atPath: maskedPng) {
+                    try await runProcess(
+                        executable: "plot",
+                        arguments: rgbArguments + ["-i", maskedPath, "-o", maskedPng]
+                    )
+                }
+                var maskParents: [ProjectResource] = []
+                if let cr = clippedResource { maskParents.append(cr) }
+                if let udm = rasterResource.udm { maskParents.append(udm) }
+                maskedResource = makeResource(
+                    path: maskedPath,
+                    kind: .masked,
+                    date: rasterResource.date,
+                    parents: maskParents,
+                    pngPath: FileManager.default.fileExists(atPath: maskedPng) ? maskedPng : nil,
+                    producedBy: configuration.id,
+                    project: project,
+                    context: context
                 )
             }
-            var maskParents: [ProjectResource] = []
-            if let cr = clippedResource { maskParents.append(cr) }
-            if let udm = rasterResource.udm { maskParents.append(udm) }
-            maskedResource = makeResource(
-                path: maskedPath,
-                kind: .masked,
-                date: rasterResource.date,
-                parents: maskParents,
-                pngPath: FileManager.default.fileExists(atPath: maskedPng) ? maskedPng : nil,
-                producedBy: configuration.id,
-                project: project,
-                context: context
-            )
+            await log("  Cloud mask applied (\(URL(fileURLWithPath: maskPath).lastPathComponent))")
+            await log("  \(maskedFilename)")
+
+            indexInputPath = maskedPath
+            indexInputResource = maskedResource
+            indexStem = "\(baseName)_clipped_masked"
         } else {
-            maskedResource = project.resources.first { $0.originalPath == maskedPath }
+            await log("  No cloud mask found — skipping masking")
         }
-        await log("  \(maskedFilename)")
 
         // Step 3: Calculate indices
         for process in processes {
@@ -175,12 +188,12 @@ class ToolPreprocess: ToolRunner {
                 try await calculateIndex(
                     name: "NDCI",
                     kind: .ndci,
-                    inputPath: maskedPath,
-                    outputPath: "\(outputDir)/\(baseName)_clipped_masked_ndci.tif",
-                    band1: "7",
-                    band2: "6",
+                    inputPath: indexInputPath,
+                    outputPath: "\(outputDir)/\(indexStem)_ndci.tif",
+                    band1: profile.redEdge,
+                    band2: profile.red,
                     date: rasterResource.date,
-                    maskedResource: maskedResource,
+                    inputResource: indexInputResource,
                     configuration: configuration,
                     project: project,
                     context: context
@@ -190,12 +203,12 @@ class ToolPreprocess: ToolRunner {
                 try await calculateIndex(
                     name: "NDVI",
                     kind: .ndvi,
-                    inputPath: maskedPath,
-                    outputPath: "\(outputDir)/\(baseName)_clipped_masked_ndvi.tif",
-                    band1: "8",
-                    band2: "6",
+                    inputPath: indexInputPath,
+                    outputPath: "\(outputDir)/\(indexStem)_ndvi.tif",
+                    band1: profile.nir,
+                    band2: profile.red,
                     date: rasterResource.date,
-                    maskedResource: maskedResource,
+                    inputResource: indexInputResource,
                     configuration: configuration,
                     project: project,
                     context: context
@@ -205,8 +218,36 @@ class ToolPreprocess: ToolRunner {
                 await log("  ⚠️ Unimplemented preprocess kind: \(process)")
             }
         }
+    }
 
-        completed += 1
+    /// The cloud mask for a source raster, if one exists on disk.
+    ///
+    /// Planet rasters carry a UDM2 sibling. Sentinel-2 products keep `MSK_CLASSI_B00.jp2` in the
+    /// `.SAFE` tree next to the stacked raster; products older than processing baseline 04.00
+    /// ship GML masks instead, and have no usable mask here.
+    private func cloudMaskPath(for resource: ProjectResource) -> String? {
+        let fm = FileManager.default
+        let rasterURL = URL(fileURLWithPath: resource.originalPath)
+
+        switch resource.kind {
+        case .planet:
+            let path = resource.udm?.originalPath
+                ?? rasterURL.deletingPathExtension().path + "_udm2.tif"
+            return fm.fileExists(atPath: path) ? path : nil
+
+        case .sentinel:
+            let stem = rasterURL.lastPathComponent.replacingOccurrences(of: "_13band.tif", with: "")
+            let granules = rasterURL.deletingLastPathComponent()
+                .appending(path: "\(stem).SAFE")
+                .appending(path: "GRANULE")
+            let names = (try? fm.contentsOfDirectory(atPath: granules.path)) ?? []
+            return names.sorted()
+                .map { granules.appending(path: $0).appending(path: "QI_DATA/MSK_CLASSI_B00.jp2").path }
+                .first { fm.fileExists(atPath: $0) }
+
+        default:
+            return nil
+        }
     }
 
     private func calculateIndex(
@@ -214,10 +255,10 @@ class ToolPreprocess: ToolRunner {
         kind: ResourceKind,
         inputPath: String,
         outputPath: String,
-        band1: String,
-        band2: String,
+        band1: Int,
+        band2: Int,
         date: Date?,
-        maskedResource: ProjectResource?,
+        inputResource: ProjectResource?,
         configuration: ToolPreprocessConfiguration,
         project: Project,
         context: ModelContext
@@ -230,7 +271,7 @@ class ToolPreprocess: ToolRunner {
             await log("  \(name)...")
             try await runProcess(
                 executable: "norm_diff",
-                arguments: ["-i", inputPath, "-o", outputPath, "-b", band1, band2]
+                arguments: ["-i", inputPath, "-o", outputPath, "-b", String(band1), String(band2)]
             )
             if !FileManager.default.fileExists(atPath: pngPath) {
                 try await runProcess(
@@ -239,7 +280,7 @@ class ToolPreprocess: ToolRunner {
                 )
             }
             var parents: [ProjectResource] = []
-            if let mr = maskedResource { parents.append(mr) }
+            if let input = inputResource { parents.append(input) }
             makeResource(
                 path: outputPath,
                 kind: kind,

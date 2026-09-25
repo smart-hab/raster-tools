@@ -60,7 +60,7 @@ struct ProjectScanner {
                     filename: filename,
                     date: extractDate(from: fileURL),
                     fileExtension: ext,
-                    kind: .sourceRaster,
+                    kind: .sentinel,
                     fileSize: fileSize(at: fileURL)
                 )
                 resources.append(resource)
@@ -93,7 +93,7 @@ struct ProjectScanner {
                 filename: filename,
                 date: date,
                 fileExtension: ext,
-                kind: .sourceRaster,
+                kind: .planet,
                 fileSize: fileSize(at: fileURL)
             )
 
@@ -125,26 +125,24 @@ struct ProjectScanner {
         return attrs?[.size] as? Int ?? 0
     }
 
-    private static let yyyymmddFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyyMMdd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "UTC")
-        return f
-    }()
-
-    /// Extracts a date from the first 8-digit run in any path component — Planet's
-    /// `<base>-YYYYMMDD-*` folders and Sentinel-2's `S2A_MSIL1C_YYYYMMDDTHHMMSS_…` products
-    /// both match.
+    /// Extracts a date from the path.
+    ///
+    /// Sentinel-2 products (`S2C_MSIL1C_YYYYMMDDTHHMMSS_…`) are checked first: underscores are
+    /// word characters, so the Planet pattern never matches them. A product name carries two
+    /// timestamps, and the first is the sensing time. Planet's `<base>-YYYYMMDD-*` folders
+    /// match the bare 8-digit run.
     private static func extractDate(from fileURL: URL) -> Date? {
         let components = fileURL.pathComponents
-        let pattern = /\b(\d{8})\b/
+        let sentinelPattern = /_(\d{8})T\d{6}_/
+        let planetPattern = /\b(\d{8})\b/
 
-        for component in components {
-            if let match = component.firstMatch(of: pattern) {
-                // Parsed as UTC to match every other date in the app — a local-time parse can
-                // shift a scene into the neighbouring calendar day.
-                return yyyymmddFormatter.date(from: String(match.1))
+        for pattern in [sentinelPattern, planetPattern] {
+            for component in components {
+                if let match = component.firstMatch(of: pattern) {
+                    // Parsed as UTC to match every other date in the app — a local-time parse can
+                    // shift a scene into the neighbouring calendar day.
+                    return Date.compactUTCFormatter.date(from: String(match.1))
+                }
             }
         }
         return nil

@@ -242,8 +242,11 @@ struct Sentinel2API {
         try await get(url)
     }
 
+    /// OData addresses an entity as `Products(<id>)` — no slash before the key — so this is
+    /// built as a string rather than with `appendingPathComponent`, which would insert one and
+    /// get a 404. The catalogue host redirects to the download host, which `download` follows.
     static func downloadURL(productId: String) -> URL {
-        catalogueURL.appendingPathComponent("(\(productId))").appendingPathComponent("$value")
+        URL(string: "\(catalogueURL.absoluteString)(\(productId))/$value")!
     }
 
     // MARK: - Private

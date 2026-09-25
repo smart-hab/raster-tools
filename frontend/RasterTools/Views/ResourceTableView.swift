@@ -385,10 +385,7 @@ struct ResourceTableView<T, ID: Hashable, RowContent: View>: View {
 
 extension ProjectResource {
     var tableBadges: [ResourceKind] {
-        switch kind {
-        case .sourceRaster: return [.sourceRaster] + (udm != nil ? [.udm] : [])
-        default:            return [kind]
-        }
+        [kind]
     }
 
     var isImagePreviewable: Bool { pngPath != nil }

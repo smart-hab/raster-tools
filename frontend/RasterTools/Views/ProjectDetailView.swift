@@ -59,7 +59,7 @@ struct ProjectDetailView: View {
             }
 
             // Resources section
-            let allResources = resources(for: [.shapeFile, .sourceRaster])
+            let allResources = resources(for: Set([.shapeFile] + ResourceKind.sourceRasterKinds))
             Section("Resources") {
                 if allResources.isEmpty {
                     Text("No resources found. Click Refresh to scan the source directory, or drag/drop shape files here.")
@@ -69,7 +69,7 @@ struct ProjectDetailView: View {
                         items: allResources,
                         itemID: \.id,
                         sortOptions: TableSortOption<ProjectResource>.allCases,
-                        filterOptions: TableFilterOption<ProjectResource>.forKinds([.shapeFile, .sourceRaster, .udm]),
+                        filterOptions: TableFilterOption<ProjectResource>.forKinds([.shapeFile] + ResourceKind.sourceRasterKinds),
                         initialSortOptionID: "kind",
                         initialSortAscending: true
                     ) { resource, isSelected in

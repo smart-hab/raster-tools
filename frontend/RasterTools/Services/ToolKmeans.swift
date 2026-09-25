@@ -200,7 +200,10 @@ class ToolKmeans: ToolRunner {
         for sourceResource in configuration.filesClassify {
             let inputPath = sourceResource.originalPath
             let filename = URL(fileURLWithPath: inputPath).lastPathComponent
-            let date = String(filename.prefix(8))
+            // Preprocess outputs are named `<date><source tag>_clipped…`; that leading part keeps
+            // same-day scenes from different providers apart.
+            let date = filename.range(of: "_clipped").map { String(filename[..<$0.lowerBound]) }
+                ?? String(filename.prefix(8))
             let dateLabel = sourceResource.date?.displayString ?? date
 
             let outputPath = "\(outputDir)/mean_diff_\(date).tif"

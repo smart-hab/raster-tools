@@ -216,9 +216,14 @@ def kmeans_fit() -> None:
 
 
 def mask() -> None:
-    p = argparse.ArgumentParser(prog="mask", description="Mask raster with UDM2 file")
+    p = argparse.ArgumentParser(
+        prog="mask",
+        description="Mask raster with a cloud mask (Planet UDM2 or Sentinel-2 MSK_CLASSI)",
+    )
     p.add_argument("-i", "--input", help="Source raster path", required=True)
-    p.add_argument("-u", "--udm2", help="Source UDM2 path", required=True)
+    p.add_argument(
+        "-u", "--udm2", help="Cloud mask path (UDM2 or MSK_CLASSI_B00.jp2)", required=True
+    )
     p.add_argument("-o", "--output", help="Output raster path")
     p.add_argument("-c", "--crs", help="Target CRS (e.g. EPSG:4326)")
     p.add_argument("-b", "--bands", help="Band selection", nargs="+", type=int, default=[3, 6])

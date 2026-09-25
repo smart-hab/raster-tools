@@ -15,7 +15,7 @@ struct ToolPreprocessView: View {
     @State private var activeRunner: ToolPreprocess?
     @State private var showingShapePicker = false
     @State private var showingRasterPicker = false
-    private let rasterKinds: [ResourceKind] = [.sourceRaster, .udm]
+    private let rasterKinds = ResourceKind.sourceRasterKinds
     @State private var rasterSelection: Set<UUID> = []
     @State private var outputSelection: Set<UUID> = []
     @State private var rasterGalleryRequest: GalleryRequest?
@@ -159,8 +159,8 @@ struct ToolPreprocessView: View {
                 .sheet(isPresented: $showingRasterPicker) {
                     ResourcePickerView(
                         project: project,
-                        defaultKinds: [.sourceRaster],
-                        selectableKinds: [.sourceRaster],
+                        defaultKinds: Set(ResourceKind.sourceRasterKinds),
+                        selectableKinds: Set(ResourceKind.sourceRasterKinds),
                         selection: $configuration.files,
                         initialSortOptionID: "date"
                     )

@@ -3,6 +3,7 @@ import pathlib
 import typing
 
 import rasterio
+from rasterio.enums import Resampling
 
 from . import shared
 
@@ -23,6 +24,13 @@ def mask(
     logger.info(f"Loading UDM2... {udm2}")
     raster_udm = shared.load_raster(udm2, shared.rio(raster_sat).crs)
     udm_bands = shared.raster_bands(raster_udm)
+
+    # align — Planet's UDM2 shares the raster's grid (the clipped raster is a window of it, which
+    # xarray aligns by coordinate), but Sentinel-2's MSK_CLASSI is 60 m against a 10 m raster
+    sat_rio, udm_rio = shared.rio(raster_sat), shared.rio(raster_udm)
+    if udm_rio.resolution() != sat_rio.resolution():
+        logger.info("Resampling mask onto raster grid...")
+        raster_udm = udm_rio.reproject_match(raster_sat, resampling=Resampling.nearest)
 
     # mask
     for band in bands:

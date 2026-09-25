@@ -57,17 +57,23 @@ final class Project {
                 scannedResource.project = self
                 context.insert(scannedResource)
                 resources.append(scannedResource)
-            } else if let existing = existingByPath[scannedResource.originalPath],
-                      scannedResource.kind == .sourceRaster,
-                      existing.udm == nil,
-                      let scannedUDM = scannedResource.udm {
-                if let existingUDM = existingByPath[scannedUDM.originalPath] {
-                    existing.udm = existingUDM
-                } else if resources.first(where: { $0.originalPath == scannedUDM.originalPath }) == nil {
-                    scannedUDM.project = self
-                    context.insert(scannedUDM)
-                    resources.append(scannedUDM)
-                    existing.udm = scannedUDM
+            } else if let existing = existingByPath[scannedResource.originalPath] {
+                // Keep stored records in step with the scanner, so a change in how files are
+                // classified or dated reaches resources that were registered earlier.
+                if existing.kind != scannedResource.kind { existing.kind = scannedResource.kind }
+                if existing.date != scannedResource.date { existing.date = scannedResource.date }
+
+                if scannedResource.kind == .planet,
+                   existing.udm == nil,
+                   let scannedUDM = scannedResource.udm {
+                    if let existingUDM = existingByPath[scannedUDM.originalPath] {
+                        existing.udm = existingUDM
+                    } else if resources.first(where: { $0.originalPath == scannedUDM.originalPath }) == nil {
+                        scannedUDM.project = self
+                        context.insert(scannedUDM)
+                        resources.append(scannedUDM)
+                        existing.udm = scannedUDM
+                    }
                 }
             }
         }
@@ -123,7 +129,7 @@ final class ProjectResource {
     var kind: ResourceKind
     var project: Project?
 
-    // UDM companion — only non-nil for kind == .sourceRaster
+    // UDM companion — only non-nil for kind == .planet
     var udm: ProjectResource?
 
     // Provenance — children/parents for self-referential many-to-many
@@ -170,7 +176,10 @@ final class ProjectResource {
 // MARK: - Resource Kind
 
 enum ResourceKind: String, Codable {
-    case sourceRaster  // composite.tif
+    // TODO: raw value kept so existing stores still decode — replace with a data migration and
+    // drop the alias.
+    case planet = "sourceRaster" // composite.tif
+    case sentinel      // *_13band.tif (stacked by s2_stack)
     case udm           // composite_udm2.tif
     case metadata      // composite_metadata.json
     case shapeFile     // .geojson / .shp
@@ -186,7 +195,8 @@ enum ResourceKind: String, Codable {
 
     var displayName: String {
         switch self {
-        case .sourceRaster:  return "Source"
+        case .planet:        return "Planet"
+        case .sentinel:      return "Sentinel"
         case .udm:           return "UDM2"
         case .metadata:      return "Metadata"
         case .shapeFile:     return "Shape"
@@ -204,7 +214,8 @@ enum ResourceKind: String, Codable {
 
     var iconName: String {
         switch self {
-        case .sourceRaster:  return "photo"
+        case .planet:        return "photo"
+        case .sentinel:      return "photo"
         case .udm:           return "cloud.fill"
         case .metadata:      return "doc.text.fill"
         case .shapeFile:     return "globe.europe.africa.fill"
@@ -222,7 +233,8 @@ enum ResourceKind: String, Codable {
 
     var color: Color {
         switch self {
-        case .sourceRaster:  return .secondary
+        case .planet:        return .blue
+        case .sentinel:      return .pink
         case .udm:           return .yellow
         case .metadata:      return .secondary
         case .shapeFile:     return .brown
@@ -237,6 +249,39 @@ enum ResourceKind: String, Codable {
         case .unknown:       return .secondary
         }
     }
+
+    /// Multi-band rasters straight from a provider — the inputs preprocessing accepts.
+    static let sourceRasterKinds: [ResourceKind] = [.planet, .sentinel]
+
+    /// Where each spectral band sits in a source raster. This is how preprocessing tells
+    /// providers apart, so mixed-source projects can be processed in one run.
+    var bandProfile: RasterBandProfile? {
+        switch self {
+        case .planet:
+            // PlanetScope SuperDove 8-band SR; mask bands are UDM2 shadow and cloud.
+            return RasterBandProfile(rgb: [6, 4, 2], red: 6, redEdge: 7, nir: 8, maskBands: [3, 6], outputTag: "")
+        case .sentinel:
+            // Positions in s2_stack's BAND_ORDER: B04 red, B05 red edge, B08 NIR. Mask bands are
+            // MSK_CLASSI_B00's opaque-cloud and cirrus layers.
+            // TODO: review B08 vs B8A (865 nm, closer to Planet's NIR band) for NDVI.
+            return RasterBandProfile(rgb: [4, 3, 2], red: 4, redEdge: 5, nir: 8, maskBands: [1, 2], outputTag: "_s2")
+        default:
+            return nil
+        }
+    }
+}
+
+/// 1-based band positions for one provider's source rasters.
+struct RasterBandProfile {
+    let rgb: [Int]
+    let red: Int
+    let redEdge: Int
+    let nir: Int
+    /// Cloud-mask bands passed to `mask -b`.
+    let maskBands: [Int]
+    /// Appended to the date in output filenames, so same-day scenes from different providers
+    /// don't collide.
+    let outputTag: String
 }
 
 // MARK: - Date Extension
@@ -259,6 +304,15 @@ extension Date {
     static let utcFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    /// `yyyyMMdd` in UTC — the date form used in source folder names and output filenames.
+    static let compactUTCFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone(identifier: "UTC")
         return f
