@@ -6,12 +6,23 @@
 //
 
 import SwiftUI
+import SwiftData
 import AppKit
 
 struct SettingsView: View {
     /// Bound directly rather than mirrored into `@State`: a local copy is a second source of
     /// truth, and re-reading it on window focus would clobber a path the user just picked.
     @Bindable private var settings = AppSettings.shared
+
+    @Environment(JobRegistry.self) private var jobRegistry
+    @Query private var projects: [Project]
+
+    /// Nil until the first scan finishes. Sizing can walk gigabytes, so it never runs on the
+    /// 3-second poll below — only when the references change or the window regains focus.
+    @State private var orphanReport: OrphanReport?
+    @State private var scanGeneration = 0
+    @State private var isCleaningUp = false
+    @State private var showingCleanUpConfirmation = false
 
     /// Validity, unlike the path, is filesystem state that nothing can publish, so it has to be
     /// polled. See `refresh()` and the triggers on the form below.
@@ -74,6 +85,20 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Orphaned Outputs") {
+                LabeledContent("Orphaned Folders") {
+                    Text(orphanSummary)
+                        .monospacedDigit()
+                    Button("Clean Up…") {
+                        showingCleanUpConfirmation = true
+                    }
+                    .disabled((orphanReport?.items.isEmpty ?? true) || isCleaningUp || hasRunningJobs)
+                }
+                Text(orphanHelpText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Planet.com") {
                 SecureField("API Key", text: $settings.planetApiKey)
                     .overlay(alignment: .trailing) {
@@ -108,13 +133,31 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .frame(minWidth: 480)
+        // Tall enough to show every section without scrolling.
+        .frame(minWidth: 480, minHeight: 800)
         // Immediate feedback when the path itself changes (Choose…, or a job that relocates it).
         .onChange(of: settings.virtualEnvPath) { refresh() }
         // Returning to the app after the environment was renamed or deleted behind our back.
         // macOS reuses the Settings window, so onAppear alone would not fire on reopen.
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             refresh()
+            scanGeneration += 1
+        }
+        // Re-scans whenever a project, configuration or resource comes or goes, or the outputs
+        // root moves. `.task(id:)` cancels a scan that a newer one supersedes.
+        .task(id: ScanKey(references: outputReferences, generation: scanGeneration)) {
+            await scanOrphans()
+        }
+        .alert("Delete Orphaned Outputs?", isPresented: $showingCleanUpConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("I am sure", role: .destructive) {
+                Task { await cleanUpOrphans() }
+            }
+        } message: {
+            Text("""
+                \(orphanSummary) will be permanently deleted from \
+                \(AppStorage.outputsRoot().path). This cannot be undone.
+                """)
         }
         // Catch-all, and the only trigger that covers a setup job finishing at the *same* path
         // while this window stays focused — re-assigning an identical string does not trip
@@ -155,6 +198,64 @@ struct SettingsView: View {
         canSetUp = settings.isVirtualEnvEmptyOrMissing
     }
 
+    // MARK: - Orphaned outputs
+
+    private struct ScanKey: Equatable {
+        let references: OutputReferences
+        let generation: Int
+    }
+
+    /// Reading `projects` (and their relationships) here is what ties the scan to SwiftData
+    /// changes: the view redraws, the key changes, the task restarts.
+    private var outputReferences: OutputReferences {
+        OutputReferences(projects: projects, outputsRoot: AppStorage.outputsRoot())
+    }
+
+    /// Deleting outputs under a job that is writing them would pull files out from under it.
+    private var hasRunningJobs: Bool {
+        jobRegistry.jobs.contains { $0.runner.isRunning }
+    }
+
+    private var orphanSummary: String {
+        guard let orphanReport else { return "Scanning…" }
+        let count = orphanReport.items.count
+        let size = ByteCountFormatter.string(fromByteCount: orphanReport.totalBytes, countStyle: .file)
+        return "\(count) folder\(count == 1 ? "" : "s") (\(size))"
+    }
+
+    private var orphanHelpText: String {
+        if isCleaningUp {
+            return "Deleting orphaned outputs…"
+        }
+        if hasRunningJobs, !(orphanReport?.items.isEmpty ?? true) {
+            return "Clean up is unavailable while jobs are running."
+        }
+        return """
+            Output folders left behind by deleted projects and tool configurations. Folders \
+            holding files still listed in a project are kept.
+            """
+    }
+
+    private func scanOrphans() async {
+        let refs = outputReferences
+        let report = await Task.detached(priority: .utility) { OrphanedOutputs.scan(refs) }.value
+        guard !Task.isCancelled else { return }
+        orphanReport = report
+    }
+
+    private func cleanUpOrphans() async {
+        guard let items = orphanReport?.items, !items.isEmpty, !hasRunningJobs else { return }
+        isCleaningUp = true
+        // Captured now, on the main actor, so the removal re-checks against current state.
+        let refs = outputReferences
+        await Task.detached(priority: .userInitiated) {
+            OrphanedOutputs.remove(items, refs: refs)
+        }.value
+        isCleaningUp = false
+        orphanReport = nil
+        scanGeneration += 1
+    }
+
     /// True when the configured outputs path is the built-in one — including the cleared case,
     /// which `AppStorage.outputsRoot()` also resolves to the default.
     private var isUsingDefaultOutputs: Bool {
@@ -191,4 +292,6 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
+        .environment(JobRegistry.shared)
+        .modelContainer(for: Project.self, inMemory: true)
 }

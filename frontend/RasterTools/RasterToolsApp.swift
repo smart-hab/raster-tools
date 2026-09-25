@@ -69,6 +69,9 @@ struct RasterToolsApp: App {
 
         Settings {
             SettingsView()
+                .environment(JobRegistry.shared)
         }
+        // The orphaned-outputs report compares the outputs folder against the live projects.
+        .modelContainer(sharedModelContainer)
     }
 }
