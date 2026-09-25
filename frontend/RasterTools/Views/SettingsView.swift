@@ -15,6 +15,7 @@ struct SettingsView: View {
     @Bindable private var settings = AppSettings.shared
 
     @Environment(JobRegistry.self) private var jobRegistry
+    @Environment(AppUpdater.self) private var updater
     @Query private var projects: [Project]
 
     /// Nil until the first scan finishes. Sizing can walk gigabytes, so it never runs on the
@@ -130,11 +131,31 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Updates") {
+                @Bindable var updater = updater
+                LabeledContent("Current Version") {
+                    Text(updater.versionDescription)
+                        .monospacedDigit()
+                        .textSelection(.enabled)
+                    Button("Check for Updates…") {
+                        updater.checkForUpdates()
+                    }
+                    .disabled(!updater.canCheckForUpdates)
+                }
+                Toggle("Automatically check for updates", isOn: $updater.automaticallyChecksForUpdates)
+                    .disabled(!updater.isEnabled)
+                Text(updater.isEnabled
+                     ? "New releases are downloaded from GitHub and installed when you confirm."
+                     : "Updates are disabled in debug builds.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding()
         // Tall enough to show every section without scrolling.
-        .frame(minWidth: 480, minHeight: 800)
+        .frame(minWidth: 480, minHeight: 920)
         // Immediate feedback when the path itself changes (Choose…, or a job that relocates it).
         .onChange(of: settings.virtualEnvPath) { refresh() }
         // Returning to the app after the environment was renamed or deleted behind our back.

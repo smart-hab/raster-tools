@@ -65,11 +65,15 @@ struct RasterToolsApp: App {
         }
         .modelContainer(sharedModelContainer)
         .defaultSize(width: 1000, height: 700)
-        .commands { ProjectMenuCommands() }
+        .commands {
+            ProjectMenuCommands()
+            UpdateCommands()
+        }
 
         Settings {
             SettingsView()
                 .environment(JobRegistry.shared)
+                .environment(AppUpdater.shared)
         }
         // The orphaned-outputs report compares the outputs folder against the live projects.
         .modelContainer(sharedModelContainer)

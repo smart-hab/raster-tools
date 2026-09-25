@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		EA829C522F6E0A1100103A9A /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = EA829C512F6E0A1100103A9A /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		EA829C342F6E0A1100103A9A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,9 +33,22 @@
 		EA829C3D2F6E0A1100103A9A /* RasterToolsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RasterToolsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EA829C532F6E0A1100103A9A /* Exceptions for "RasterTools" folder in "RasterTools" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EA829C232F6E0A1000103A9A /* RasterTools */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EA829C262F6E0A1000103A9A /* RasterTools */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EA829C532F6E0A1100103A9A /* Exceptions for "RasterTools" folder in "RasterTools" target */,
+			);
 			path = RasterTools;
 			sourceTree = "<group>";
 		};
@@ -52,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EA829C522F6E0A1100103A9A /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +130,7 @@
 			);
 			name = RasterTools;
 			packageProductDependencies = (
+				EA829C512F6E0A1100103A9A /* Sparkle */,
 			);
 			productName = RasterTools;
 			productReference = EA829C242F6E0A1000103A9A /* RasterTools.app */;
@@ -195,6 +214,9 @@
 			);
 			mainGroup = EA829C1B2F6E0A1000103A9A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				EA829C502F6E0A1100103A9A /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EA829C252F6E0A1000103A9A /* Products */;
 			projectDirPath = "";
@@ -403,6 +425,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RasterTools/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -412,6 +435,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.swimalert.RasterTools;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				SPARKLE_PUBLIC_ED_KEY = "exIBd4ie2C+mEsQnVzWdn1Slj0fbdb+7r9LQWrj7pts=";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -435,6 +459,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RasterTools/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -444,6 +469,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.swimalert.RasterTools;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				SPARKLE_PUBLIC_ED_KEY = "exIBd4ie2C+mEsQnVzWdn1Slj0fbdb+7r9LQWrj7pts=";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -573,6 +599,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		EA829C502F6E0A1100103A9A /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EA829C512F6E0A1100103A9A /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EA829C502F6E0A1100103A9A /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = EA829C1C2F6E0A1000103A9A /* Project object */;
 }

@@ -25,7 +25,7 @@ Releases use date-based versions (CalVer), not semver. Cut one from a clean, pus
 frontend/scripts/release.sh
 ```
 
-The script builds the Release configuration, zips the app to `build/RasterTools.zip`, tags the commit, pushes the tag, and runs `gh release create` with generated notes.
+The script builds the Release configuration, zips the app to `build/RasterTools.zip`, writes a signed Sparkle `appcast.xml`, tags the commit, pushes the tag, and runs `gh release create` with both files and generated notes.
 
 - **Version** (`MARKETING_VERSION`, shown in About): `YYYY.M.D`, e.g. `2026.9.25`
 - **Build** (`CURRENT_PROJECT_VERSION`): `git rev-list --count HEAD`, so it always increases
@@ -33,7 +33,18 @@ The script builds the Release configuration, zips the app to `build/RasterTools.
 - Version and build are passed to `xcodebuild` as overrides at release time. Don't bump them in the project file; it keeps `1.0` / `1`.
 - The asset is always named `RasterTools.zip`, so the team's permanent download link is `https://github.com/smart-hab/raster-tools/releases/latest/download/RasterTools.zip`. Don't put the version in the file name.
 
-**Not notarized yet.** The only signing identity available is an Apple Development certificate. There is no Developer ID certificate or notarization profile, so users must approve the first launch in System Settings → Privacy & Security → Open Anyway (the release notes say so). Developer ID signing and `xcrun notarytool` will be added later. Builds are currently arm64 only.
+### In-app updates (Sparkle)
+
+The app updates itself with [Sparkle](https://sparkle-project.org) 2, added as a Swift package. `AppUpdater` (`Services/AppUpdater.swift`) wraps Sparkle's updater. It backs "Check for Updates…" in the app menu (`Views/UpdateCommands.swift`) and the Updates section in `SettingsView`.
+
+- **Feed**: `SUFeedURL` in `RasterTools/Info.plist` is `…/releases/latest/download/appcast.xml`. That file is merged with the generated Info.plist and excluded from the synced folder's resources. Each release's appcast entry points at that tag's `RasterTools.zip`.
+- **Ordering**: Sparkle compares `CFBundleVersion` (the commit count), not the date version.
+- **Signing key**: updates are signed with an EdDSA key stored in the releasing Mac's login keychain. Its public half is the `SPARKLE_PUBLIC_ED_KEY` build setting, which becomes `SUPublicEDKey`. The release script refuses to publish if the two don't match or the appcast comes out unsigned. **Back up the private key** (`build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -x <file>`) somewhere safe and never commit it. If it's lost, installed copies can't be updated and everyone has to reinstall by hand.
+- **Debug builds** never start the updater: their build number is 1, and they share the bundle ID (and so Sparkle's preferences) with the installed app.
+- **Running jobs**: Sparkle quits the app to install, so the `AppDelegate` "Jobs Are Still Running" prompt still applies. If you cancel it, the update installs on the next quit.
+- Sparkle's command-line tools live in `build/SourcePackages/artifacts/sparkle/Sparkle/bin/` once packages are resolved with `-clonedSourcePackagesDirPath build/SourcePackages`, as the release script does.
+
+**Not notarized yet.** The only signing identity available is an Apple Development certificate. There is no Developer ID certificate or notarization profile, so users must approve the first launch of a manual download in System Settings → Privacy & Security → Open Anyway (the release notes say so). Updates installed by Sparkle don't need this, because the app downloads them itself and they aren't quarantined. Developer ID signing and `xcrun notarytool` will be added later. Builds are currently arm64 only.
 
 ## Architecture
 
