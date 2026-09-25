@@ -28,6 +28,10 @@ final class ToolCollectionConfiguration: ToolConfiguration {
     var searchStartDate: Date
     var searchEndDate: Date
     var cloudCover: Double
+    /// Minimum AOI coverage (0...1). Coverage is only known after the search, so this doesn't
+    /// filter results — days below it are dimmed in the calendar. Defaulted inline so existing
+    /// stores migrate without a schema stage.
+    var minAoiCoverage: Double = 0.8
 
     var namingPattern: String
     var itemType: String

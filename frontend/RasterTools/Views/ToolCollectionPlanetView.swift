@@ -166,6 +166,16 @@ struct ToolCollectionPlanetView: View {
                 }
             }
 
+            LabeledContent("AOI Coverage") {
+                HStack {
+                    Slider(value: $configuration.minAoiCoverage, in: 0...1, step: 0.05)
+                        .frame(width: 120)
+                    Text("\(Int((configuration.minAoiCoverage * 100).rounded()))%")
+                        .monospacedDigit()
+                        .frame(width: 36, alignment: .trailing)
+                }
+            }
+
             CalendarView(year: yearBinding, month: monthBinding) { date in
                 dayCell(for: date)
             }
@@ -210,9 +220,13 @@ struct ToolCollectionPlanetView: View {
     @ViewBuilder
     private func dayCell(for date: Date) -> some View {
         let day = Date.utcCalendar.component(.day, from: date)
-        let group = groupsByDay[Date.utcFormatter.string(from: date)]
+        let key = Date.utcFormatter.string(from: date)
+        let group = groupsByDay[key]
+        let coverage = coverageByDay[key]
         let status = configuration.orderStatus(for: date)
         let tint = dayStatusColor(status)
+        // Dim only once coverage is known; "… AOI" cells keep the normal style.
+        let belowAoi = coverage.map { $0 < configuration.minAoiCoverage * 100 } ?? false
 
         Button {
             if let group { previewGroup = group }
@@ -227,7 +241,7 @@ struct ToolCollectionPlanetView: View {
                     Text("\(Int(group.averageCloudCover * 100))% cloud")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    if let cov = coverageByDay[Date.utcFormatter.string(from: date)] {
+                    if let cov = coverage {
                         Text("\(Int(cov.rounded()))% AOI")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -249,6 +263,7 @@ struct ToolCollectionPlanetView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(group == nil ? Color.secondary.opacity(0.15) : tint.opacity(0.5))
             )
+            .opacity(belowAoi ? 0.4 : 1)
         }
         .buttonStyle(.plain)
         .disabled(group == nil)
