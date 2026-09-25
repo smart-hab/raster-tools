@@ -17,6 +17,24 @@ xcodebuild -scheme RasterTools -destination 'platform=macOS' test -only-testing 
 
 Deployment target: macOS 26.2. Uses Swift 6 Testing APIs (`@Test`, `#expect`).
 
+## Releases
+
+Releases use date-based versions (CalVer), not semver. Cut one from a clean, pushed `main`:
+
+```bash
+frontend/scripts/release.sh
+```
+
+The script builds the Release configuration, zips the app to `build/RasterTools.zip`, tags the commit, pushes the tag, and runs `gh release create` with generated notes.
+
+- **Version** (`MARKETING_VERSION`, shown in About): `YYYY.M.D`, e.g. `2026.9.25`
+- **Build** (`CURRENT_PROJECT_VERSION`): `git rev-list --count HEAD`, so it always increases
+- **Tag**: `vYYYY.M.D`, or `vYYYY.M.D.N` for the Nth release of the same day (the app version stays `YYYY.M.D` because Apple allows at most three numbers; the build number tells same-day releases apart)
+- Version and build are passed to `xcodebuild` as overrides at release time. Don't bump them in the project file; it keeps `1.0` / `1`.
+- The asset is always named `RasterTools.zip`, so the team's permanent download link is `https://github.com/smart-hab/raster-tools/releases/latest/download/RasterTools.zip`. Don't put the version in the file name.
+
+**Not notarized yet.** The only signing identity available is an Apple Development certificate. There is no Developer ID certificate or notarization profile, so users must approve the first launch in System Settings → Privacy & Security → Open Anyway (the release notes say so). Developer ID signing and `xcrun notarytool` will be added later. Builds are currently arm64 only.
+
 ## Architecture
 
 RasterTools is a macOS app for geospatial raster processing. All heavy computation is delegated to Python CLI tools invoked as subprocesses; the Swift layer handles UI, persistence, and orchestration.
