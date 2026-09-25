@@ -34,6 +34,8 @@ struct ToolSentinel2View: View {
     @State private var coverageByDay: [String: Double] = [:]
     @State private var coverageTask: Task<Void, Never>?
 
+    private let searchCache = Sentinel2SearchCache.shared
+
     private var project: Project { configuration.project }
 
     // The displayed month IS the search range: 1st → last day, inclusive. All date math is UTC,
@@ -59,6 +61,24 @@ struct ToolSentinel2View: View {
         configuration.searchStartDate = start
         configuration.searchEndDate = end
         configuration.touch()
+    }
+
+    /// Identifies the current search parameters in `Sentinel2SearchCache`. Nil without a readable
+    /// shape file.
+    private var searchKey: Sentinel2SearchCache.Key? {
+        guard let shapePath = configuration.shapeFile?.originalPath,
+              let shapeModified = try? FileManager.default
+                .attributesOfItem(atPath: shapePath)[.modificationDate] as? Date else { return nil }
+        return Sentinel2SearchCache.Key(
+            shapePath: shapePath,
+            shapeModified: shapeModified,
+            startDate: configuration.searchStartDate,
+            endDate: configuration.searchEndDate,
+            productType: configuration.productType,
+            // The config stores cloud cover as a 0–1 fraction (shared with the Planet tool's
+            // slider); CDSE's cloudCover attribute is a percentage.
+            maxCloudCover: configuration.cloudCover * 100
+        )
     }
 
     /// Scene groups keyed by UTC "yyyy-MM-dd" for fast per-cell lookup.
@@ -336,78 +356,97 @@ struct ToolSentinel2View: View {
     // MARK: - Actions
 
     /// Debounced search trigger. Coalesces rapid input changes (slider drags, month navigation)
-    /// into a single request. No shape file → clear results without hitting the API; the calendar
-    /// still renders.
+    /// into a single request. Cached results for the new parameters are shown right away, and the
+    /// search still runs to pick up newly published scenes. No shape file → clear results without
+    /// hitting the API; the calendar still renders.
     private func scheduleSearch() {
         searchDebounce?.cancel()
 
-        guard configuration.shapeFile?.originalPath != nil else {
+        guard let key = searchKey else {
+            coverageTask?.cancel()
             sceneGroups = []
             aoiRing = []
+            coverageByDay = [:]
             searchError = nil
             isSearching = false
             return
         }
 
+        if let cached = searchCache.entry(for: key) {
+            coverageTask?.cancel()
+            // The cache doesn't keep the AOI ring (it can be huge); the local shape file is quick.
+            let ring = extractRing(from: try? loadShapeFileGeometry(from: key.shapePath))
+            sceneGroups = cached.groups
+            aoiRing = ring
+            coverageByDay = cached.coverageByDay
+            searchError = nil
+            computeCoverage(for: cached.groups, aoiRing: ring, cacheKey: key)
+        }
+
         searchDebounce = Task {
             try? await Task.sleep(for: .milliseconds(400))
             if Task.isCancelled { return }
-            await runSearchAsync()
+            await runSearchAsync(key: key)
         }
     }
 
-    private func runSearchAsync() async {
-        guard let shapePath = configuration.shapeFile?.originalPath else { return }
+    private func runSearchAsync(key: Sentinel2SearchCache.Key) async {
         isSearching = true
         searchError = nil
-        coverageTask?.cancel()
-        coverageByDay = [:]
-
-        let startDate = configuration.searchStartDate
-        let endDate = configuration.searchEndDate
-        // The config stores cloud cover as a 0–1 fraction (shared with the Planet tool's slider);
-        // CDSE's cloudCover attribute is a percentage.
-        let maxCloudCover = configuration.cloudCover * 100
-        let productType = configuration.productType
 
         do {
-            let geometry = try loadShapeFileGeometry(from: shapePath)
+            let geometry = try loadShapeFileGeometry(from: key.shapePath)
             let ring = extractRing(from: geometry)
             let groups = try await Sentinel2API.search(
                 aoiRing: ring,
-                startDate: startDate,
-                endDate: endDate,
-                productType: productType,
-                maxCloudCover: maxCloudCover
+                startDate: key.startDate,
+                endDate: key.endDate,
+                productType: key.productType,
+                maxCloudCover: key.maxCloudCover
             )
             if Task.isCancelled { return }
+            searchCache.store(groups, for: key)
+            let cached = searchCache.entry(for: key)
+            coverageTask?.cancel()
             sceneGroups = groups
             aoiRing = ring
+            coverageByDay = cached?.coverageByDay ?? [:]
             isSearching = false
             searchError = groups.isEmpty ? "No products found for the given parameters." : nil
-            computeCoverage(for: groups, aoiRing: ring)
+            computeCoverage(for: groups, aoiRing: ring, cacheKey: key)
         } catch {
             if Task.isCancelled { return }
+            // Any cached results stay on screen; the error says they couldn't be refreshed.
             searchError = error.localizedDescription
             isSearching = false
         }
     }
 
-    /// Computes AOI coverage per day off the main actor, publishing each result as it lands so
-    /// cells swap "… AOI" for the real value incrementally.
-    private func computeCoverage(for groups: [Sentinel2SceneGroup], aoiRing: GeoRing) {
+    /// Computes AOI coverage off the main actor for days that don't have it yet, publishing each
+    /// result as it lands so cells swap "… AOI" for the real value incrementally. Results are
+    /// written back to the search cache too.
+    private func computeCoverage(
+        for groups: [Sentinel2SceneGroup],
+        aoiRing: GeoRing,
+        cacheKey: Sentinel2SearchCache.Key
+    ) {
         coverageTask?.cancel()
         guard !aoiRing.isEmpty else { return }
+        let pending = groups.filter { coverageByDay[Date.utcFormatter.string(from: $0.date)] == nil }
+        guard !pending.isEmpty else { return }
         coverageTask = Task {
-            for group in groups {
+            for group in pending {
                 if Task.isCancelled { return }
-                let key = Date.utcFormatter.string(from: group.date)
+                let day = Date.utcFormatter.string(from: group.date)
                 let footprints = group.products.map(\.footprintRing)
                 let pct = await Task.detached(priority: .utility) {
                     aoiCoveragePercent(aoiRing: aoiRing, footprints: footprints)
                 }.value
                 if Task.isCancelled { return }
-                if let pct { coverageByDay[key] = pct }
+                if let pct {
+                    coverageByDay[day] = pct
+                    searchCache.storeCoverage(pct, day: day, for: cacheKey)
+                }
             }
         }
     }

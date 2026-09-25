@@ -28,7 +28,7 @@ enum DownloadMemoryStatus: String, Codable, CaseIterable {
 
 // MARK: - Scene Types
 
-struct Sentinel2Product: Identifiable, Hashable {
+struct Sentinel2Product: Identifiable, Hashable, Codable {
     let id: String            // CDSE OData product UUID
     let name: String          // e.g. S2A_MSIL1C_20220720T152641_..._.SAFE
     let sensingDate: Date
@@ -39,6 +39,44 @@ struct Sentinel2Product: Identifiable, Hashable {
     static func == (a: Sentinel2Product, b: Sentinel2Product) -> Bool { a.id == b.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
+    // Codable for `Sentinel2SearchCache`. Tuples aren't Codable, so the footprint is stored as
+    // `[[lon, lat]]`, the same shape GeoJSON uses.
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, sensingDate, cloudCover, contentLength, footprint
+    }
+
+    init(id: String, name: String, sensingDate: Date, cloudCover: Double, contentLength: Int,
+         footprintRing: GeoRing) {
+        self.id = id
+        self.name = name
+        self.sensingDate = sensingDate
+        self.cloudCover = cloudCover
+        self.contentLength = contentLength
+        self.footprintRing = footprintRing
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        sensingDate = try c.decode(Date.self, forKey: .sensingDate)
+        cloudCover = try c.decode(Double.self, forKey: .cloudCover)
+        contentLength = try c.decode(Int.self, forKey: .contentLength)
+        footprintRing = try c.decode([[Double]].self, forKey: .footprint)
+            .compactMap { p in p.count >= 2 ? (p[0], p[1]) : nil }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(sensingDate, forKey: .sensingDate)
+        try c.encode(cloudCover, forKey: .cloudCover)
+        try c.encode(contentLength, forKey: .contentLength)
+        try c.encode(footprintRing.map { [$0.lon, $0.lat] }, forKey: .footprint)
+    }
+
     /// The archive name CDSE serves, and the folder it extracts into.
     var archiveStem: String {
         name.hasSuffix(".SAFE") ? String(name.dropLast(5)) : name
@@ -47,7 +85,7 @@ struct Sentinel2Product: Identifiable, Hashable {
 
 /// Deliberately mirrors `PlanetSceneGroup` so the calendar day cells read the same for both
 /// collectors.
-struct Sentinel2SceneGroup: Identifiable {
+struct Sentinel2SceneGroup: Identifiable, Codable {
     var id: Date { date }
     let date: Date
     let products: [Sentinel2Product]

@@ -53,6 +53,17 @@ struct AppStorage {
         return dir
     }
 
+    /// Returns (and creates if needed) the directory for app-maintained caches.
+    /// ~/Library/Application Support/RasterTools/cache/
+    ///
+    /// Application Support rather than ~/Library/Caches: what lives here (e.g. Sentinel-2 search
+    /// results) is slow to regain, so macOS shouldn't purge it.
+    static func cacheDirectory() -> URL {
+        let dir = appSupportRoot().appendingPathComponent("cache")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     static func outputDirectory(for project: Project, configuration: ToolConfiguration) -> URL {
         // {outputs root}/{Project-UUID}/{ToolConfiguration-UUID}/
         let dir = outputsRoot()
